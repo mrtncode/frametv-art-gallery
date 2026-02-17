@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Frame Gallery</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        .images { display: flex; flex-wrap: wrap; gap: 1em; }
+        .image-card { border: 1px solid #ccc; padding: 1em; border-radius: 8px; text-align: center; }
+        img { max-width: 200px; max-height: 120px; display: block; margin-bottom: 0.5em; }
+        form { margin-bottom: 1em; }
+        .flash { color: #b00; margin-bottom: 1em; }
+    </style>
+</head>
+<body>
+    <h1>Frame Gallery</h1>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">
+          {% for message in messages %}
+            <div>{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <h2>Upload New Image</h2>
+    <form action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/png, image/jpeg">
+        <button type="submit">Upload</button>
+    </form>
+    <h2>Images</h2>
+    <div class="images">
+        {% for img in images %}
+        <div class="image-card">
+            <img src="{{ url_for('uploaded_file', filename=img) }}" alt="{{ img }}">
+                        <form action="{{ url_for('send_to_tv', filename=img) }}" method="post">
+                                <input type="text" name="tv_ip" placeholder="TV IP" required>
+                                <input type="number" name="brightness" min="1" max="50" placeholder="Brightness (1-10, 50)">
+                                <label style="font-size: 0.9em;">
+                                    <input type="checkbox" name="display" checked>
+                                    Display immediately
+                                </label>
+                                <button type="submit">Send to TV</button>
+                        </form>
+        </div>
+        {% endfor %}
+    </div>
+    <h2>TV Controls</h2>
+    <form action="/tv/<ip>/on" method="post" style="display:inline-block">
+        <input type="text" name="ip" placeholder="TV IP" required>
+        <input type="text" name="mac" placeholder="TV MAC (for Wake-on-LAN)" required>
+        <button type="submit">Power On</button>
+    </form>
+    <form action="/tv/<ip>/off" method="post" style="display:inline-block">
+        <input type="text" name="ip" placeholder="TV IP" required>
+        <button type="submit">Power Off</button>
+    </form>
+    <form action="/tv/<ip>/artmode" method="post" style="display:inline-block">
+        <input type="text" name="ip" placeholder="TV IP" required>
+        <button type="submit">Art Mode</button>
+    </form>
+</body>
+</html>
