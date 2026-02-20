@@ -4,7 +4,6 @@ export default [
   layout("routes/_layout.tsx", [
     index("routes/home.tsx"),
     route("settings", "routes/settings.tsx"),
-    route("gallery", "routes/gallery.tsx"),
-    route("add", "routes/add.tsx"),
+    route("gallery", "routes/gallery.tsx")
   ]),
 ] satisfies RouteConfig;

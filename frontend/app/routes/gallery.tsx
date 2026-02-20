@@ -139,9 +139,56 @@ export default function Gallery() {
     }
   }
 
+  // --- Upload Button State and Handler ---
+  const [uploading, setUploading] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File|null>(null);
+
+  async function handleUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!uploadFile) return;
+    setUploading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      const res = await fetch("/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (!res.ok) {
+        throw new Error("Upload failed");
+      }
+      await loadAll();
+      setUploadFile(null);
+    } catch (e: any) {
+      setError(e.message || "Failed to upload");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="max-w-2xl mx-auto py-8 px-4">
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
+
+      {/* Upload Button */}
+      <div className="mb-4">
+        <form onSubmit={handleUpload} className="flex gap-2 items-center">
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/jpg"
+            onChange={e => setUploadFile(e.target.files?.[0] || null)}
+            className="border px-2 py-1 rounded"
+            disabled={uploading}
+          />
+          <button
+            type="submit"
+            className="bg-blue-600 text-white px-3 py-1 rounded"
+            disabled={uploading || !uploadFile}
+          >{uploading ? "Uploading…" : "Upload Image"}</button>
+        </form>
+        {error && <div className="text-red-500 mt-1">{error}</div>}
+      </div>
 
       <div className="mb-8">
         <form onSubmit={handleCreateAlbum} className="flex gap-2 items-center">
@@ -156,7 +203,6 @@ export default function Gallery() {
         </form>
         {error && <div className="text-red-500 mt-1">{error}</div>}
       </div>
-
 
       <h3 className="text-xl font-semibold mb-2">Uploaded Images</h3>
       {loading ? (

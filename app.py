@@ -114,19 +114,16 @@ def api_delete_album(album_name):
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
-        flash('No file part')
-        return redirect(url_for('index'))
+        return {'error': 'No file part'}, 400
     file = request.files['file']
     if file.filename == '':
-        flash('No selected file')
-        return redirect(url_for('index'))
+        return {'error': 'No selected file'}, 400
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-        flash('File uploaded successfully')
+        return {'success': True, 'filename': filename}
     else:
-        flash('Invalid file type')
-    return redirect(url_for('index'))
+        return {'error': 'Invalid file type'}, 400
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
