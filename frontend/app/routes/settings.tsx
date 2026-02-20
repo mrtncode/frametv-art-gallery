@@ -1,5 +1,7 @@
 import React from 'react'
 import { getTvs, addTv } from '~/utils/tvApi';
+import { Input } from '~/components/ui/input';
+import { Button } from '~/components/ui/button';
 
 export default function Settings() {
   const [tvs, setTvs] = React.useState<{ ip: string; name?: string; mac?: string }[]>([]);
@@ -44,33 +46,35 @@ export default function Settings() {
         <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-8">
           <h2 className="text-lg font-semibold mb-4 text-gray-700">Add a New TV</h2>
           <form onSubmit={handleAddTv} className="flex flex-col md:flex-row md:flex-wrap gap-3 mb-3 w-full overflow-x-auto">
-            <input
+            <Input
               type="text"
               value={ip}
               onChange={e => setIp(e.target.value)}
               placeholder="IP address"
-              className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow min-w-0 md:w-1/4"
+              className="flex-grow min-w-0 md:w-1/4"
+              required
             />
-            <input
+            <Input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Name (optional)"
-              className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow min-w-0 md:w-1/4"
+              className="flex-grow min-w-0 md:w-1/4"
             />
-            <input
+            <Input
               type="text"
               value={mac}
               onChange={e => setMac(e.target.value)}
               placeholder="MAC (optional)"
-              className="border border-gray-300 px-3 py-2 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow min-w-0 md:w-1/4"
+              className="flex-grow min-w-0 md:w-1/4"
             />
-            <button
-              className="bg-blue-600 text-white px-4 py-2 rounded font-medium hover:bg-blue-700 transition disabled:opacity-50 md:w-auto"
+
+            <Button
+              className="bg-blue-600 hover:bg-blue-900 transition disabled:opacity-50 md:w-auto"
               disabled={adding}
             >
               {adding ? 'Adding…' : 'Add TV'}
-            </button>
+            </Button>
           </form>
           {error && <div className="text-red-500 mt-1 text-sm">{error}</div>}
         </div>
