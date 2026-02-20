@@ -11,11 +11,12 @@ export default function Gallery() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  // TV controls
-  const [tvs, setTvs] = useState<{ ip: string; name?: string; mac?: string }[]>([]);
-  const [selectedTvIp, setSelectedTvIp] = useState("");
-  const [tvStatusState, setTvStatusState] = useState<{art_mode?: boolean, screen_on?: boolean}|null>(null);
+  const [modal, setModal] = useState<{ type: 'image'|'album'; data: any }|null>(null);
   const [tvLoading, setTvLoading] = useState(false);
+  const [tvs, setTvs] = useState<{ ip: string; name?: string; mac?: string }[]>([]);
+  const [selectedTvIp, setSelectedTvIp] = useState<string>("");
+  const [tvStatusState, setTvStatusState] = useState<any>(null);
+  
   async function handleSendToTV(filename: string) {
     if (!selectedTvIp) {
       setError("Select a TV");
@@ -156,29 +157,6 @@ export default function Gallery() {
         {error && <div className="text-red-500 mt-1">{error}</div>}
       </div>
 
-      <h3 className="text-xl font-semibold mb-2">TV Controls</h3>
-      <div className="flex flex-wrap gap-2 mb-6 items-end">
-        <select
-          value={selectedTvIp}
-          onChange={e => setSelectedTvIp(e.target.value)}
-          className="border px-2 py-1 rounded"
-          style={{ minWidth: 180 }}
-        >
-          <option value="">Select TV...</option>
-          {tvs.map(tv => (
-            <option key={tv.ip} value={tv.ip}>{tv.name ? `${tv.name} (${tv.ip})` : tv.ip}</option>
-          ))}
-        </select>
-        <button className="bg-green-600 text-white px-3 py-1 rounded" onClick={handleTvPowerOn} disabled={tvLoading}>Power On</button>
-        <button className="bg-gray-600 text-white px-3 py-1 rounded" onClick={handleTvPowerOff} disabled={tvLoading}>Power Off</button>
-        <button className="bg-blue-600 text-white px-3 py-1 rounded" onClick={handleTvArtMode} disabled={tvLoading}>Art Mode</button>
-        <button className="bg-indigo-600 text-white px-3 py-1 rounded" onClick={handleTvStatus} disabled={tvLoading}>Status</button>
-        {tvStatusState && (
-          <span className="ml-2 text-sm">
-            Status: Screen {tvStatusState.screen_on ? 'On' : 'Off'}, Art Mode {tvStatusState.art_mode ? 'On' : 'Off'}
-          </span>
-        )}
-      </div>
 
       <h3 className="text-xl font-semibold mb-2">Uploaded Images</h3>
       {loading ? (
@@ -191,6 +169,8 @@ export default function Gallery() {
                 src={`/uploads/${img}`}
                 alt={img}
                 className="w-full h-32 object-contain mb-2 bg-gray-100"
+                onClick={() => setModal({ type: 'image', data: img })}
+                style={{ cursor: 'pointer' }}
               />
               <div className="flex flex-wrap gap-1 mb-2">
                 {albums.map(album => (
@@ -227,14 +207,83 @@ export default function Gallery() {
             </div>
             <div className="flex flex-wrap gap-2">
               {album.images.length === 0 && <span className="text-gray-400">No images</span>}
-              {album.images.map(img => (
+              {Array.isArray(album.images) && album.images.map(img => (
                 <img
                   key={img}
                   src={`/uploads/${img}`}
                   alt={img}
                   className="w-16 h-16 object-cover rounded border"
+                  onClick={() => setModal({ type: 'image', data: img })}
+                  style={{ cursor: 'pointer' }}
                 />
               ))}
+                  {/* Modal Popup */}
+                  {modal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+                      <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px] max-w-[90vw] relative">
+                        <button
+                          className="absolute top-2 right-2 text-gray-500 hover:text-black text-xl"
+                          onClick={() => setModal(null)}
+                          aria-label="Close"
+                        >×</button>
+                        {modal.type === 'image' && (
+                          <>
+                            <img src={`/uploads/${modal.data}`} alt={modal.data} className="w-full max-h-64 object-contain mb-4" />
+                            <div className="mb-2 text-sm text-gray-700">{modal.data}</div>
+                            {/* TV controls */}
+                            <div className="mt-4">
+                              <div className="mb-2">
+                                <label className="block text-sm mb-1">Select TV:</label>
+                                <select
+                                  className="border px-2 py-1 rounded w-full"
+                                  value={selectedTvIp}
+                                  onChange={e => setSelectedTvIp(e.target.value)}
+                                  disabled={tvLoading}
+                                >
+                                  <option value="">-- Select TV --</option>
+                                  {tvs.map(tv => (
+                                    <option key={tv.ip} value={tv.ip}>
+                                      {tv.name || tv.ip}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div className="flex gap-2 mb-2">
+                                <button
+                                  className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                                  onClick={() => handleSendToTV(modal.data)}
+                                  disabled={tvLoading || !selectedTvIp}
+                                >
+                                  {tvLoading ? 'Uploading…' : 'Upload to TV'}
+                                </button>
+                                <button
+                                  className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                                  onClick={handleTvPowerOn}
+                                  disabled={tvLoading || !selectedTvIp}
+                                >
+                                  Turn On TV
+                                </button>
+                              </div>
+                              {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+                            </div>
+                          </>
+                        )}
+                        {modal.type === 'album' && (
+                          <>
+                            <div className="text-lg font-bold mb-2">{modal.data.name}</div>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              {Array.isArray(modal.data.images) && modal.data.images.length === 0 && <span className="text-gray-400">No images</span>}
+                              {Array.isArray(modal.data.images) && modal.data.images.map((img: string) => (
+                                <img key={img} src={`/uploads/${img}`} alt={img} className="w-16 h-16 object-cover rounded border" />
+                              ))}
+                            </div>
+                            {/* TV controls and info can go here */}
+                            <div className="mt-4 text-center text-gray-500">TV controls coming soon…</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
             </div>
           </div>
         ))}
