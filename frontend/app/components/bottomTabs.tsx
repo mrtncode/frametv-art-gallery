@@ -4,8 +4,8 @@ import { HomeIcon, UserIcon, PlusIcon, Cog6ToothIcon, PhotoIcon } from "@heroico
 
 const items = [
   { id: "home", label: "Home", icon: <HomeIcon className="w-6 h-6" />, href: "/" },
-  { id: "new", label: "New", icon: <PhotoIcon className="w-6 h-6" />, href: "/new" },
-  { id: "upload", label: "Upload", icon: <PlusIcon className="w-6 h-6" />, href: "/upload" },
+  { id: "gallery", label: "Gallery", icon: <PhotoIcon className="w-6 h-6" />, href: "/gallery" },
+  { id: "add", label: "Upload", icon: <PlusIcon className="w-6 h-6" />, href: "/add" },
   { id: "settings", label: "Settings", icon: <Cog6ToothIcon className="w-6 h-6" />, href: "/settings" },
 ];
 
