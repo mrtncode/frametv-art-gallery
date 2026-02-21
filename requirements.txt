@@ -3,3 +3,4 @@ Werkzeug
 git+https://github.com/NickWaterton/samsung-tv-ws-api.git@d7fc3442c4cdbc4acd3c596fd328792026cee681#egg=samsungtvws
 gunicorn
 flask_sqlalchemy
+python-dotenv

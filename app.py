@@ -5,6 +5,13 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 
+# Load environment variables from .env if present
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # Import TV control functions from the integration
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -24,9 +31,15 @@ UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__, static_folder="frontend/build/client")
-app.secret_key = 'frameartsecretkey'
+app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///frametv.db'
+
+# Ensure the instance directory exists for SQLite database
+INSTANCE_FOLDER = os.path.join(os.path.dirname(__file__), 'instance')
+os.makedirs(INSTANCE_FOLDER, exist_ok=True)
+
+frametv_db_path = os.path.join(INSTANCE_FOLDER, 'frametv.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -49,6 +62,10 @@ class TV(db.Model):
     name = db.Column(db.String(80), nullable=True)
     mac = db.Column(db.String(32), nullable=True)
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
+
+# Create database
+with app.app_context():
+    db.create_all()
 
 # --- Helpers ---
 def allowed_file(filename):
@@ -275,6 +292,7 @@ def serve(path):
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-    app.run(debug=True)
+    # Use DEBUG env variable ("1", "true", "True" = True)
+    debug_env = os.environ.get('DEBUG', '').lower()
+    debug = debug_env in ('1', 'true', 'yes')
+    app.run(debug=debug)
