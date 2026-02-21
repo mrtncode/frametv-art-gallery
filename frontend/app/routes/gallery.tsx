@@ -168,24 +168,23 @@ export default function Gallery() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="max-w-6xl mx-auto py-8 px-4">
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
 
-      {/* Upload Button */}
       <div className="mb-4">
-        <form onSubmit={handleUpload} className="flex gap-2 items-center">
+        <form onSubmit={handleUpload} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
           <input
             type="file"
             accept="image/png,image/jpeg,image/jpg"
             onChange={e => setUploadFile(e.target.files?.[0] || null)}
-            className="border px-2 py-1 rounded"
+            className="border px-2 py-1 rounded w-full sm:w-auto"
             disabled={uploading}
           />
           <button
             type="submit"
-            className="bg-blue-600 text-white px-3 py-1 rounded"
+            className="bg-blue-600 text-white px-3 py-1 rounded w-full sm:w-auto"
             disabled={uploading || !uploadFile}
-          >{uploading ? "Uploading…" : "Upload Image"}</button>
+              >{uploading ? "Uploading…" : "Upload Image"}</button>
         </form>
         {error && <div className="text-red-500 mt-1">{error}</div>}
       </div>

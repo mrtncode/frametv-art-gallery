@@ -20,12 +20,6 @@ function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footer
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
           {title}
         </CardTitle>
-        <CardAction>
-          <Badge variant="outline">
-            {badgeIcon}
-            {badgeText}
-          </Badge>
-        </CardAction>
       </CardHeader>
       <CardFooter className="flex-col items-start gap-1.5 text-sm">
         <div className="line-clamp-1 flex gap-2 font-medium">
@@ -33,6 +27,16 @@ function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footer
         </div>
         <div className="text-muted-foreground">
           {footerSub}
+        </div>
+        <div className="mt-2 w-full flex justify-start">
+          <Badge
+            variant="outline"
+            className="flex items-center gap-1 px-2 py-1 text-xs md:text-sm sm:text-xs md:px-3 md:py-1.5 whitespace-nowrap"
+            style={{ minWidth: 0, maxWidth: '100%' }}
+          >
+            {badgeIcon}
+            {badgeText}
+          </Badge>
         </div>
       </CardFooter>
     </Card>
@@ -105,7 +109,10 @@ export default function Home() {
         <p className="text-lg text-gray-500 mt-2">Upload, and enjoy beautiful images on your Frame TV.</p>
       </header>
 
-      <div className="flex flex-row gap-4">
+      {/* Responsive cards container */}
+      <div
+        className="flex flex-row gap-4 md:flex-row md:gap-4 sm:flex-col sm:gap-4 sm:w-full sm:items-stretch"
+      >
         {cards.map((card, idx) => (
           <CardInfo key={idx} {...card} />
         ))}
