@@ -7,11 +7,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - frametv_uploads:/app/uploads
-      - frametv_db:/app/instance
+      - frametv_data:/data
     environment:
       - SECRET_KEY=supersecretkey
+      - FRAME_TV_DATA=/data
 
 volumes:
-  frametv_uploads:
-  frametv_db:
+  frametv_data:

@@ -31,21 +31,27 @@ from utils.frame_tv import (
     FrameTVError,
 )
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
+
+UPLOAD_FOLDER = os.path.join(DATA_DIR, "uploads")
+INSTANCE_FOLDER = os.path.join(DATA_DIR, "instance")
+
+print("instanc efolder", INSTANCE_FOLDER)
+
+# Ensure directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(INSTANCE_FOLDER, exist_ok=True)
+
+frametv_db_path = os.path.abspath(os.path.join(INSTANCE_FOLDER, 'frametv.db'))
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 app = Flask(__name__, static_folder="frontend/build/client")
 app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Ensure the instance directory exists for SQLite database
-INSTANCE_FOLDER = os.path.join(os.path.dirname(__file__), 'instance')
-os.makedirs(INSTANCE_FOLDER, exist_ok=True)
-
-frametv_db_path = os.path.join(INSTANCE_FOLDER, 'frametv.db')
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db = SQLAlchemy(app)
 
