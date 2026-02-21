@@ -6,6 +6,8 @@ import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
 from const import CONNECTION_NAME
+from datetime import datetime
+from flask_migrate import Migrate
 
 # Load environment variables from .env if present
 try:
@@ -56,7 +58,8 @@ class Album(db.Model):
 class Image(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     filename = db.Column(db.String(255), nullable=False)
-    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=False)
+    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
 
 class TV(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -75,11 +78,13 @@ def init_db():
 
 # Initialize database on startup
 init_db()
+migrate = Migrate(app, db)
 
 
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # --- API Endpoints ---
 
@@ -88,6 +93,14 @@ def allowed_file(filename):
 def api_list_images():
     files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
     return {'images': files}
+
+
+@app.route('/api/images/added_this_month', methods=['GET'])
+def api_images_added_this_month():
+    now = datetime.now()
+    start_of_month = datetime(now.year, now.month, 1)
+    count = Image.query.filter(Image.created_at >= start_of_month).count()
+    return {'count': count}
 
 
 # Album API
@@ -142,9 +155,6 @@ def api_delete_album(album_name):
 
 
 
-
-
-
 @app.route('/upload', methods=['POST'])
 def upload():
     if 'file' not in request.files:
@@ -155,6 +165,10 @@ def upload():
     if file and allowed_file(file.filename):
         filename = secure_filename(file.filename)
         file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        # Track image in DB
+        img = Image(filename=filename, album_id=None)
+        db.session.add(img)
+        db.session.commit()
         return {'success': True, 'filename': filename}
     else:
         return {'error': 'Invalid file type'}, 400

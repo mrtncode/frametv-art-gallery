@@ -28,4 +28,9 @@ ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000
 
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+# Run entrypoint.sh for db migrations, ..
+ENTRYPOINT ["/entrypoint.sh"]
+
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]

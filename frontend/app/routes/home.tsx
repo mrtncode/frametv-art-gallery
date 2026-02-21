@@ -1,5 +1,5 @@
 import type { Route } from "./+types/settings";
-import { TvIcon } from "@heroicons/react/24/outline";
+import { ChartBarIcon, TvIcon } from "@heroicons/react/24/outline";
 import React, { useEffect, useState } from "react";
 import { Card, CardHeader, CardDescription, CardTitle, CardAction, CardFooter } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
@@ -49,13 +49,22 @@ export function meta({}: Route.MetaArgs) {
 
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
+  const [albums, setAlbums] = useState<{ name: string; images: string[] }[]>([]);
+  const [imagesThisMonth, setImagesThisMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/images")
-      .then((res) => res.json())
-      .then((data) => {
-        setImages(data.images || []);
+    setLoading(true);
+    Promise.all([
+      fetch("/api/images").then((res) => res.json()),
+      fetch("/api/albums").then((res) => res.json()),
+      fetch("/api/images/added_this_month").then((res) => res.json()),
+    ])
+      .then(([imgData, albumData, monthData]) => {
+        setImages(imgData.images || []);
+        setAlbums(albumData.albums || []);
+        console.log("month data", monthData)
+        setImagesThisMonth(typeof monthData.count === "number" ? monthData.count : 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -65,27 +74,24 @@ export default function Home() {
   const cards = [
     {
       description: "Total images",
-      title: images.length.toString(),
-      badgeText: "+12.5%",
-      badgeIcon: <TvIcon />,
-      footerMain: <><span>Trending up this month</span> <TvIcon className="size-4" /></>,
-      footerSub: "Visitors for the last 6 months",
+      title: loading ? "-" : images.length.toString(),
+      badgeText: images.length > 0 ? `+${images.length}` : "0",
+      badgeIcon: <ChartBarIcon />, 
+      footerSub: loading ? "Loading..." : "",
     },
     {
       description: "Total albums",
-      title: "12",
-      badgeText: "+12.5%",
-      badgeIcon: <TvIcon />,
-      footerMain: <><span>Trending up this month</span> <TvIcon className="size-4" /></>,
-      footerSub: "Visitors for the last 6 months",
+      title: loading ? "-" : albums.length.toString(),
+      badgeText: albums.length > 0 ? `+${albums.length}` : "0",
+      badgeIcon: <ChartBarIcon />, 
+      footerSub: loading ? "Loading..." : "",
     },
     {
       description: "Images added this month",
-      title: "42",
-      badgeText: "+12.5%",
-      badgeIcon: <TvIcon />,
-      footerMain: <><span>Trending up this month</span> <TvIcon className="size-4" /></>,
-      footerSub: "Visitors for the last 6 months",
+      title: loading || imagesThisMonth === null ? "-" : imagesThisMonth.toString(),
+      badgeText: imagesThisMonth !== null ? `+${imagesThisMonth}` : "0",
+      badgeIcon: <ChartBarIcon />, 
+      footerSub: loading ? "Loading..." : "",
     },
   ];
 
