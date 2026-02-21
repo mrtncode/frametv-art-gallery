@@ -17,6 +17,16 @@ export async function addTv(tv: { ip: string; name?: string; mac?: string }) {
   return (await res.json()).tvs;
 }
 
+export async function removeTv(ip: string) {
+  const res = await fetch("/api/tvs", {
+    method: 'DELETE',
+    body: JSON.stringify({ ip }),
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to remove TV');
+  return (await res.json()).tvs;
+}
+
 export async function sendToTV({ ip, filename, brightness, display }: { ip: string, filename: string, brightness?: number, display?: boolean }) {
   const res = await fetch('/api/tv/send', {
     method: 'POST',

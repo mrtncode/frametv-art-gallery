@@ -1,8 +1,7 @@
 from typing import Optional
 from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
-from samsungtvws.shortcuts import wake_on_lan
-from ..const import CONNECTION_NAME
+from const import CONNECTION_NAME
 
 DEFAULT_PORT = 8002
 DEFAULT_TIMEOUT = 8
@@ -104,7 +103,8 @@ def power_on(ip: str, mac: str, token: Optional[str] = None) -> None:
         mac (str): MAC address of the TV.
         token (Optional[str]): Token string to use for authentication.
     """
-    wake_on_lan(mac)
+    print("wake on lan is currently not implemented")
+    pass
 
 def power_off(ip: str, token: Optional[str] = None) -> None:
     """

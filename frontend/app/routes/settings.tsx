@@ -1,5 +1,5 @@
 import React from 'react'
-import { getTvs, addTv } from '~/utils/tvApi';
+import { getTvs, addTv, removeTv } from '~/utils/tvApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 
@@ -44,6 +44,15 @@ export default function Settings() {
       setPairingIp("");
     } finally {
       setAdding(false);
+    }
+  }
+
+  async function handleRemoveTv(ip: string) {
+    try {
+      await removeTv(ip);
+      await fetchTvs();
+    } catch (e: any) {
+      setError(e.message || "Failed to remove TV");
     }
   }
 
@@ -111,6 +120,7 @@ export default function Settings() {
                     {tv.name && <span className="ml-2 text-gray-700 font-medium">{tv.name}</span>}
                     {tv.mac && <span className="ml-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">{tv.mac}</span>}
                   </div>
+                  <button onClick={() => handleRemoveTv(tv.ip)} className="text-red-500 hover:text-red-700">Delete</button>
                 </li>
               ))}
             </ul>

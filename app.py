@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
-from .const import CONNECTION_NAME
+from const import CONNECTION_NAME
 
 # Load environment variables from .env if present
 try:
@@ -209,6 +209,19 @@ def api_add_tv():
         return {'error': f'Unexpected error: {e}'}, 500
     tv = TV(ip=ip, name=name, mac=mac, token=token)
     db.session.add(tv)
+    db.session.commit()
+    return api_get_tvs()
+
+@app.route('/api/tvs', methods=['DELETE'])
+def api_remove_tv():
+    data = request.get_json()
+    ip = data.get('ip')
+    if not ip:
+        return {'error': 'TV IP required'}, 400
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return {'error': 'TV not found'}, 404
+    db.session.delete(tv)
     db.session.commit()
     return api_get_tvs()
 
