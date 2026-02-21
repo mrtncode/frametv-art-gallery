@@ -10,6 +10,8 @@ export default function Settings() {
   const [mac, setMac] = React.useState("");
   const [error, setError] = React.useState("");
   const [adding, setAdding] = React.useState(false);
+  const [showPairModal, setShowPairModal] = React.useState(false);
+  const [pairingIp, setPairingIp] = React.useState("");
 
   async function fetchTvs() {
     try {
@@ -28,12 +30,18 @@ export default function Settings() {
     e.preventDefault();
     if (!ip.trim()) { setError("IP is required"); return; }
     setAdding(true);
+    setShowPairModal(true);
+    setPairingIp(ip.trim());
     try {
       await addTv({ ip: ip.trim(), name: name.trim() || undefined, mac: mac.trim() || undefined });
       setIp(""); setName(""); setMac(""); setError("");
       await fetchTvs();
+      setShowPairModal(false);
+      setPairingIp("");
     } catch (e: any) {
       setError(e.message || "Failed to add TV");
+      setShowPairModal(false);
+      setPairingIp("");
     } finally {
       setAdding(false);
     }
@@ -41,6 +49,17 @@ export default function Settings() {
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-gray-50 w-full">
+      {showPairModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full flex flex-col items-center">
+            <h3 className="text-lg font-semibold mb-2">Pairing TV</h3>
+            <p className="mb-4 text-gray-700 text-center">Please accept the pairing request on your TV ({pairingIp}) to complete the process.</p>
+            <div className="flex gap-2">
+              <Button onClick={() => { setShowPairModal(false); setPairingIp(""); setAdding(false); }} className="bg-gray-300 text-gray-700">Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="w-full px-4 mx-auto md:max-w-2xl lg:max-w-4xl overflow-x-auto">
         <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">TV Settings</h1>
         <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-8">

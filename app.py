@@ -4,6 +4,8 @@ from werkzeug.utils import secure_filename
 from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
+from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
+from .const import CONNECTION_NAME
 
 # Load environment variables from .env if present
 try:
@@ -180,9 +182,32 @@ def api_add_tv():
     data = request.get_json()
     if not data or not data.get('ip'):
         return {'error': 'TV IP required'}, 400
-    if TV.query.filter_by(ip=data['ip']).first():
+    ip = data['ip']
+    if TV.query.filter_by(ip=ip).first():
         return {'error': 'TV already exists'}, 400
-    tv = TV(ip=data['ip'], name=data.get('name'), mac=data.get('mac'), token=data.get('token'))
+    mac = data.get('mac')
+    name = data.get('name')
+    # Attempt to connect to TV and obtain token
+    try:
+        tvws = SamsungTVWS(host=ip, port=DEFAULT_PORT, name=CONNECTION_NAME)
+        tvws.open()
+        # Wait for pairing and token
+        token = tvws.token
+        tvws.close()
+        # Extract token string if needed
+        if isinstance(token, dict) and 'token' in token:
+            token = token['token']
+        elif hasattr(token, 'token'):
+            token = token.token
+        elif not isinstance(token, str):
+            token = str(token)
+        if not token or not isinstance(token, str) or not token.isdigit():
+            return {'error': 'Token not obtained or invalid. Please accept pairing on your TV.'}, 403
+    except FrameTVError as e:
+        return {'error': f'Failed to connect to TV: {e}'}, 500
+    except Exception as e:
+        return {'error': f'Unexpected error: {e}'}, 500
+    tv = TV(ip=ip, name=name, mac=mac, token=token)
     db.session.add(tv)
     db.session.commit()
     return api_get_tvs()
