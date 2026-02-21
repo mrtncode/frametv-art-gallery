@@ -64,8 +64,16 @@ class TV(db.Model):
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
 
 # Create database
-with app.app_context():
-    db.create_all()
+def init_db():
+    """Ensure database and all tables exist."""
+    with app.app_context():
+        print("Initializing database...")
+        db.create_all()
+        print("Database initialized.")
+
+# Initialize database on startup
+init_db()
+
 
 # --- Helpers ---
 def allowed_file(filename):
