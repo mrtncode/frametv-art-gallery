@@ -14,7 +14,15 @@ docker run -d \
   -p 8000:8000 \
   frametvartgallery:latest
 
-Or use the docker-compose.yml file
+Or use the docker-compose.yml file: https://github.com/mrtncode/frametv-art-gallery/blob/main/docker-compose.yml
+
+# Update
+## Docker (docker run)
+Pull the latest image and restart the container while keeping your data (persists in volumes)
+
+Docker Compose (recommended):
+1. `docker compose pull`
+2. `docker compose up -d`
 
 # Techstack
 Frontend:
