@@ -5,7 +5,14 @@ import { Card, CardHeader, CardDescription, CardTitle, CardAction, CardFooter } 
 import { Badge } from "~/components/ui/badge";
 
 // Reusable CardInfo component
-function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footerSub }) {
+function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footerSub }: {
+  description: string;
+  title: string;
+  badgeText: string;
+  badgeIcon: React.ReactNode;
+  footerMain: React.ReactNode;
+  footerSub: React.ReactNode;
+}) {
   return (
     <Card className="@container/card flex-1">
       <CardHeader>
