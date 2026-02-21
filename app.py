@@ -1,9 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
 import os
-import json
 from werkzeug.utils import secure_filename
 from pathlib import Path
 import sys
+from flask_sqlalchemy import SQLAlchemy
 
 # Import TV control functions from the integration
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -23,52 +23,57 @@ from utils.frame_tv import (
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
-
-# --- JSON data helper ---
-DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-os.makedirs(DATA_DIR, exist_ok=True)
-
-def read_json_data(name):
-    path = os.path.join(DATA_DIR, f'{name}.json')
-    if not os.path.exists(path):
-        return None
-    with open(path, 'r', encoding='utf-8') as f:
-        try:
-            return json.load(f)
-        except Exception:
-            return None
-
-def write_json_data(name, value):
-    path = os.path.join(DATA_DIR, f'{name}.json')
-    with open(path, 'w', encoding='utf-8') as f:
-        json.dump(value, f, ensure_ascii=False, indent=2)
-
-# Albums will be stored in a JSON file for persistence
-ALBUMS_FILE = os.path.join(DATA_DIR, 'albums.json')
-
 app = Flask(__name__, static_folder="frontend/build/client")
 app.secret_key = 'frameartsecretkey'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///frametv.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(os.path.join(os.path.dirname(__file__), 'data'), exist_ok=True)
 
+db = SQLAlchemy(app)
+
+# --- Models ---
+class Album(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+    images = db.relationship('Image', backref='album', lazy=True, cascade="all, delete-orphan")
+
+class Image(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=False)
+
+class TV(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(64), unique=True, nullable=False)
+    name = db.Column(db.String(80), nullable=True)
+    mac = db.Column(db.String(32), nullable=True)
+    token = db.Column(db.Text, nullable=True)  # Store the TV token as text
+
+# --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-def load_albums():
-    return read_json_data('albums') or []
+# --- API Endpoints ---
 
-def save_albums(albums):
-    write_json_data('albums', albums)
+# List all uploaded images (not album-specific)
 @app.route('/api/images', methods=['GET'])
 def api_list_images():
     files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], f))]
     return {'images': files}
 
+
 # Album API
 @app.route('/api/albums', methods=['GET'])
 def api_list_albums():
-    return {'albums': load_albums()}
+    albums = Album.query.all()
+    result = []
+    for album in albums:
+        result.append({
+            'name': album.name,
+            'images': [img.filename for img in album.images]
+        })
+    return {'albums': result}
 
 @app.route('/api/albums', methods=['POST'])
 def api_create_album():
@@ -76,12 +81,12 @@ def api_create_album():
     name = data.get('name', '').strip()
     if not name:
         return {'error': 'Album name required'}, 400
-    albums = load_albums()
-    if any(a['name'] == name for a in albums):
+    if Album.query.filter_by(name=name).first():
         return {'error': 'Album already exists'}, 400
-    albums.append({'name': name, 'images': []})
-    save_albums(albums)
-    return {'success': True, 'albums': albums}
+    album = Album(name=name)
+    db.session.add(album)
+    db.session.commit()
+    return api_list_albums()
 
 @app.route('/api/albums/<album_name>/add', methods=['POST'])
 def api_add_image_to_album(album_name):
@@ -89,23 +94,25 @@ def api_add_image_to_album(album_name):
     image = data.get('image')
     if not image:
         return {'error': 'Image required'}, 400
-    albums = load_albums()
-    for album in albums:
-        if album['name'] == album_name:
-            if image not in album['images']:
-                album['images'].append(image)
-            save_albums(albums)
-            return {'success': True, 'albums': albums}
-    return {'error': 'Album not found'}, 404
+    album = Album.query.filter_by(name=album_name).first()
+    if not album:
+        return {'error': 'Album not found'}, 404
+    # Only add if not already present
+    if not any(img.filename == image for img in album.images):
+        img = Image(filename=image, album=album)
+        db.session.add(img)
+        db.session.commit()
+    return api_list_albums()
 
 @app.route('/api/albums/<album_name>', methods=['DELETE'])
 def api_delete_album(album_name):
-    albums = load_albums()
-    new_albums = [a for a in albums if a['name'] != album_name]
-    if len(new_albums) == len(albums):
+    album = Album.query.filter_by(name=album_name).first()
+    if not album:
         return {'error': 'Album not found'}, 404
-    save_albums(new_albums)
-    return {'success': True, 'albums': new_albums}
+    db.session.delete(album)
+    db.session.commit()
+    return api_list_albums()
+
 
 
 
@@ -125,9 +132,11 @@ def upload():
     else:
         return {'error': 'Invalid file type'}, 400
 
+
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
 
 
 # --- TV API endpoints ---
@@ -136,21 +145,22 @@ from flask import jsonify
 # TV management endpoints
 @app.route('/api/tvs', methods=['GET'])
 def api_get_tvs():
-    tvs = read_json_data('tvs')
-    return {'tvs': tvs or []}
+    tvs = TV.query.all()
+    return {'tvs': [
+        {'ip': tv.ip, 'name': tv.name, 'mac': tv.mac} for tv in tvs
+    ]}
 
 @app.route('/api/tvs', methods=['POST'])
 def api_add_tv():
     data = request.get_json()
     if not data or not data.get('ip'):
         return {'error': 'TV IP required'}, 400
-    tvs = read_json_data('tvs') or []
-    # Avoid duplicates by IP
-    if any(tv.get('ip') == data['ip'] for tv in tvs):
+    if TV.query.filter_by(ip=data['ip']).first():
         return {'error': 'TV already exists'}, 400
-    tvs.append(data)
-    write_json_data('tvs', tvs)
-    return {'success': True, 'tvs': tvs}
+    tv = TV(ip=data['ip'], name=data.get('name'), mac=data.get('mac'), token=data.get('token'))
+    db.session.add(tv)
+    db.session.commit()
+    return api_get_tvs()
 
 @app.route('/api/tv/send', methods=['POST'])
 def api_send_to_tv():
@@ -161,9 +171,11 @@ def api_send_to_tv():
     display = data.get('display', True)
     if not ip or not filename:
         return {'error': 'TV IP and filename required'}, 400
+    tv = TV.query.filter_by(ip=ip).first()
+    token = tv.token if tv else None
     try:
         art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        upload_artwork(ip, art_path, brightness=brightness, display=display)
+        upload_artwork(ip, art_path, brightness=brightness, display=display, token=token)
         return {'success': True}
     except FrameTVError as e:
         return {'error': str(e)}, 500
@@ -172,33 +184,41 @@ def api_send_to_tv():
 def api_tv_power_on(ip):
     data = request.get_json(silent=True) or {}
     mac = data.get('mac')
+    tv = TV.query.filter_by(ip=ip).first()
+    token = tv.token if tv else None
     try:
-        power_on(ip, mac)
+        power_on(ip, mac, token=token)
         return {'success': True}
     except FrameTVError as e:
         return {'error': str(e)}, 500
 
 @app.route('/api/tv/<ip>/off', methods=['POST'])
 def api_tv_power_off(ip):
+    tv = TV.query.filter_by(ip=ip).first()
+    token = tv.token if tv else None
     try:
-        power_off(ip)
+        power_off(ip, token=token)
         return {'success': True}
     except FrameTVError as e:
         return {'error': str(e)}, 500
 
 @app.route('/api/tv/<ip>/artmode', methods=['POST'])
 def api_tv_art_mode(ip):
+    tv = TV.query.filter_by(ip=ip).first()
+    token = tv.token if tv else None
     try:
-        enable_art_mode(ip)
+        enable_art_mode(ip, token=token)
         return {'success': True}
     except FrameTVError as e:
         return {'error': str(e)}, 500
 
 @app.route('/api/tv/<ip>/status', methods=['GET'])
 def api_tv_status(ip):
+    tv = TV.query.filter_by(ip=ip).first()
+    token = tv.token if tv else None
     try:
-        art_mode = is_art_mode_on(ip)
-        screen_on = is_tv_reachable(ip)
+        art_mode = is_art_mode_on(ip, token=token)
+        screen_on = is_tv_reachable(ip, token=token)
         return {'art_mode': art_mode, 'screen_on': screen_on}
     except FrameTVError as e:
         return {'error': str(e)}, 500
@@ -255,4 +275,6 @@ def serve(path):
 
 
 if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
     app.run(debug=True)
