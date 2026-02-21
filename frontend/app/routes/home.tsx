@@ -77,6 +77,7 @@ export default function Home() {
       title: loading ? "-" : images.length.toString(),
       badgeText: images.length > 0 ? `+${images.length}` : "0",
       badgeIcon: <ChartBarIcon />, 
+      footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
     {
@@ -84,6 +85,7 @@ export default function Home() {
       title: loading ? "-" : albums.length.toString(),
       badgeText: albums.length > 0 ? `+${albums.length}` : "0",
       badgeIcon: <ChartBarIcon />, 
+      footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
     {
@@ -91,6 +93,7 @@ export default function Home() {
       title: loading || imagesThisMonth === null ? "-" : imagesThisMonth.toString(),
       badgeText: imagesThisMonth !== null ? `+${imagesThisMonth}` : "0",
       badgeIcon: <ChartBarIcon />, 
+      footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
   ];
