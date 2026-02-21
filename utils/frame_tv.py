@@ -6,7 +6,7 @@ from samsungtvws.helper import get_ssl_context
 DEFAULT_PORT = 8002
 DEFAULT_TIMEOUT = 8
 
-TOKEN_DIR = Path(__file__).resolve().parent / "tokens"
+TOKEN_DIR = Path(__file__).resolve().parent.parent / "data"
 TOKEN_DIR.mkdir(parents=True, exist_ok=True)
 
 class FrameTVError(Exception):

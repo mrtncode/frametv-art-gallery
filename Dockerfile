@@ -1,22 +1,31 @@
-# Dockerfile for frametv-art-gallery (backend)
-# Use official Python image as base
-FROM python:3.11-slim
+# ---------- Builder ----------
+FROM python:3.13-slim AS builder
 
-# Set working directory
+# Install git only for dependency build
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements.txt .
+
+# Upgrade pip and install dependencies into custom prefix
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+
+# ---------- Runtime ----------
+FROM python:3.13-slim
+
 WORKDIR /app
 
-# Copy requirements and install dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed packages
+COPY --from=builder /install /usr/local
 
 # Copy app code
 COPY . .
 
-# Expose port (adjust if needed)
-EXPOSE 8000
-
-# Set environment variables (optional)
 ENV PYTHONUNBUFFERED=1
 
-# Start the app with gunicorn
+EXPOSE 8000
+
 CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]

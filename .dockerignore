@@ -1,0 +1,28 @@
+# Data / uploads / logs
+data/
+uploads/
+logs/
+*.db
+*.sqlite
+
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.venv/
+venv/
+
+
+# Node / Frontend build artifacts (except final dist)
+frontend/node_modules/
+
+# Secrets / configs
+.env
+*.pem
+*.key
+*.crt
+
+# Git
+.git/
+.gitignore
