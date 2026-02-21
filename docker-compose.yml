@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+  frametv:
+    image: frametvartgallery:latest
+    container_name: frametv
+    ports:
+      - "8000:8000"
+    volumes:
+      - frametv_uploads:/app/uploads
+      - frametv_db:/app/instance
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=supersecretkey
+
+volumes:
+  frametv_uploads:
+  frametv_db:
