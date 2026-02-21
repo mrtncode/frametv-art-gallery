@@ -6,10 +6,8 @@ const VERSION = "v1.0.0";
 
 const pageNames: { [key: string]: string } = {
   "/": "Home",
-  "/wallet": "Wallet",
-  "/new": "New Artwork",
-  "/settings": "Settings",
-  "/profile": "Profile",
+  "/gallery": "Gallery",
+  "/settings": "Settings"
 };
 
 export default function Header() {
