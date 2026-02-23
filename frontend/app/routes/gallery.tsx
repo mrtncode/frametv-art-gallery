@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum } from "../utils/galleryApi";
-import { sendToTV, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs } from "../utils/tvApi";
+import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs } from "../utils/tvApi";
 type Album = { name: string; images: string[] };
 
 export default function Gallery() {
@@ -167,6 +167,22 @@ export default function Gallery() {
     }
   }
 
+  async function handlePlayUploadedImage(filename: string) {
+    if (!selectedTvIp) {
+      setError("Select a TV");
+      return;
+    }
+    setTvLoading(true);
+    try {
+      await playUploadedImage({ ip: selectedTvIp, filename });
+      setError("");
+    } catch (e: any) {
+      setError(e.message || "Failed to play uploaded image on TV");
+    } finally {
+      setTvLoading(false);
+    }
+  }
+
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
@@ -308,6 +324,13 @@ export default function Gallery() {
                     </button>
                     <button
                       className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                      onClick={() => handlePlayUploadedImage(modal.data)}
+                      disabled={tvLoading || !selectedTvIp}
+                    >
+                      Play on TV
+                    </button>
+                    <button
+                      className="bg-gray-600 text-white px-3 py-1 rounded disabled:opacity-50"
                       onClick={handleTvPowerOn}
                       disabled={tvLoading || !selectedTvIp}
                     >

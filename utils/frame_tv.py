@@ -76,6 +76,20 @@ def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
     if debug:
         print("Deleted %s old images", len(deletions))
 
+
+def play_uploaded_content(ip: str, content_id: str, token: Optional[str] = None) -> None:
+    """
+    Play an already uploaded image on the Frame TV using its content_id.
+    Args:
+        ip (str): IP address of the TV.
+        content_id (str): Content ID of the uploaded image.
+        token (Optional[str]): Token string to use for authentication.
+    """
+    tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME)
+    tv.open()
+    tv.art().select_image(content_id, show=True)
+    tv.close()
+
 def set_brightness(ip: str, brightness: int, token: Optional[str] = None) -> None:
     """
     Set the brightness of the Frame TV in art mode.

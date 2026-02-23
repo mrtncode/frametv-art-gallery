@@ -1,3 +1,13 @@
+// Play an already uploaded image on the TV by content_id (filename)
+export async function playUploadedImage({ ip, filename }: { ip: string, filename: string }) {
+  const res = await fetch('/api/tv/play_uploaded', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ip, filename }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to play uploaded image on TV');
+  return await res.json();
+}
 // API service for TV actions
 
 // TV management (add/get TVs)

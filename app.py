@@ -74,6 +74,17 @@ class TV(db.Model):
     mac = db.Column(db.String(32), nullable=True)
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
 
+# New table to track uploaded images per TV
+class UploadedImage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=False)
+    tv_id = db.Column(db.Integer, db.ForeignKey('tv.id'), nullable=False)
+    content_id = db.Column(db.String(255), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+    image = db.relationship('Image', backref='uploaded_images')
+    tv = db.relationship('TV', backref='uploaded_images')
+
 # Create database
 def init_db():
     """Ensure database and all tables exist."""
@@ -178,6 +189,35 @@ def upload():
         return {'success': True, 'filename': filename}
     else:
         return {'error': 'Invalid file type'}, 400
+    
+# --- Play Uploaded Image on TV ---
+@app.route('/api/tv/play_uploaded', methods=['POST'])
+def api_play_uploaded_image():
+    """
+    Play an image on a TV using the stored content_id, without re-uploading.
+    Expects JSON: {"ip": ..., "filename": ...}
+    """
+    data = request.get_json()
+    ip = data.get('ip')
+    filename = data.get('filename')
+    if not ip or not filename:
+        return {'error': 'TV IP and filename required'}, 400
+    tv = TV.query.filter_by(ip=ip).first()
+    image = Image.query.filter_by(filename=filename).first()
+    if not tv or not image:
+        return {'error': 'TV or image not found'}, 404
+    uploaded = UploadedImage.query.filter_by(tv_id=tv.id, image_id=image.id).first()
+    if not uploaded:
+        return {'error': 'Image not uploaded to this TV'}, 404
+    content_id = uploaded.content_id
+    token = tv.token if tv else None
+    try:
+        # Use frame_tv API to play by content_id (assume function exists)
+        from utils.frame_tv import play_uploaded_content
+        play_uploaded_content(ip, content_id, token=token)
+        return {'success': True}
+    except FrameTVError as e:
+        return {'error': str(e)}, 500
 
 
 @app.route('/uploads/<filename>')
@@ -258,8 +298,20 @@ def api_send_to_tv():
     token = tv.token if tv else None
     try:
         art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        upload_artwork(ip, art_path, brightness=brightness, display=display, token=token)
-        return {'success': True}
+        # upload_artwork should return content_id
+        content_id = upload_artwork(ip, art_path, brightness=brightness, display=display, token=token)
+        # Store UploadedImage record
+        image = Image.query.filter_by(filename=filename).first()
+        if image and tv and content_id:
+            from sqlalchemy import and_
+            exists = UploadedImage.query.filter(
+                and_(UploadedImage.image_id == image.id, UploadedImage.tv_id == tv.id)
+            ).first()
+            if not exists:
+                uploaded = UploadedImage(image_id=image.id, tv_id=tv.id, content_id=str(content_id))
+                db.session.add(uploaded)
+                db.session.commit()
+        return {'success': True, 'content_id': content_id}
     except FrameTVError as e:
         return {'error': str(e)}, 500
 
