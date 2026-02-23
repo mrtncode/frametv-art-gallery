@@ -237,8 +237,24 @@ from flask import jsonify
 def api_get_tvs():
     tvs = TV.query.all()
     return {'tvs': [
-        {'ip': tv.ip, 'name': tv.name, 'mac': tv.mac} for tv in tvs
+        {
+            'ip': tv.ip,
+            'name': tv.name,
+            'mac': tv.mac,
+            'delete_other_images_on_upload': getattr(tv, 'delete_other_images_on_upload', False)
+        } for tv in tvs
     ]}
+
+@app.route('/api/tvs/<ip>', methods=['PATCH'])
+def api_update_tv(ip):
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return {'error': 'TV not found'}, 404
+    data = request.get_json()
+    if 'delete_other_images_on_upload' in data:
+        tv.delete_other_images_on_upload = bool(data['delete_other_images_on_upload'])
+    db.session.commit()
+    return {'success': True}
 
 @app.route('/api/tvs', methods=['POST'])
 def api_add_tv():

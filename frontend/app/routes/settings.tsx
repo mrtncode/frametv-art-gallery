@@ -4,7 +4,7 @@ import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 
 export default function Settings() {
-  const [tvs, setTvs] = React.useState<{ ip: string; name?: string; mac?: string }[]>([]);
+  const [tvs, setTvs] = React.useState<{ ip: string; name?: string; mac?: string; delete_other_images_on_upload?: boolean }[]>([]);
   const [ip, setIp] = React.useState("");
   const [name, setName] = React.useState("");
   const [mac, setMac] = React.useState("");
@@ -53,6 +53,19 @@ export default function Settings() {
       await fetchTvs();
     } catch (e: any) {
       setError(e.message || "Failed to remove TV");
+    }
+  }
+
+  async function handleToggleDeleteOthers(ip: string, value: boolean) {
+    try {
+      await fetch(`/api/tvs/${encodeURIComponent(ip)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delete_other_images_on_upload: value }),
+      });
+      await fetchTvs();
+    } catch (e: any) {
+      setError(e.message || 'Failed to update TV setting');
     }
   }
 
@@ -119,6 +132,15 @@ export default function Settings() {
                     <span className="font-mono text-gray-800 text-base">{tv.ip}</span>
                     {tv.name && <span className="ml-2 text-gray-700 font-medium">{tv.name}</span>}
                     {tv.mac && <span className="ml-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">{tv.mac}</span>}
+                    <label className="ml-4 flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={!!tv.delete_other_images_on_upload}
+                        onChange={e => handleToggleDeleteOthers(tv.ip, e.target.checked)}
+                        className="accent-blue-600"
+                      />
+                      Delete other images on upload
+                    </label>
                   </div>
                   <button onClick={() => handleRemoveTv(tv.ip)} className="text-red-500 hover:text-red-700">Delete</button>
                 </li>
