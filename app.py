@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
+from samsungtvws.exceptions import HttpApiError
 from const import CONNECTION_NAME
 from datetime import datetime
 from flask_migrate import Migrate
@@ -311,9 +312,11 @@ def api_send_to_tv():
                 uploaded = UploadedImage(image_id=image.id, tv_id=tv.id, content_id=str(content_id))
                 db.session.add(uploaded)
                 db.session.commit()
-        return {'success': True, 'content_id': content_id}
-    except FrameTVError as e:
-        return {'error': str(e)}, 500
+            return jsonify({'success': True, 'content_id': content_id})
+    except (FrameTVError, HttpApiError) as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': 'Unexpected error', 'details': str(e)}), 500
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])
 def api_tv_power_on(ip):
