@@ -74,6 +74,7 @@ class TV(db.Model):
     name = db.Column(db.String(80), nullable=True)
     mac = db.Column(db.String(32), nullable=True)
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
+    delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
 
 # New table to track uploaded images per TV
 class UploadedImage(db.Model):
@@ -301,8 +302,14 @@ def api_send_to_tv():
     token = tv.token if tv else None
     try:
         art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        # Check TV option for deleting other images on upload
+        delete_others = False
+        if tv and hasattr(tv, 'delete_other_images_on_upload'):
+            delete_others = bool(tv.delete_other_images_on_upload)
         # upload_artwork should return content_id
-        content_id = upload_artwork(ip, art_path, brightness=brightness, display=display, token=token)
+        content_id = upload_artwork(
+            ip, art_path, brightness=brightness, display=display, token=token, delete_others=delete_others
+        )
         # Store UploadedImage record
         image = Image.query.filter_by(filename=filename).first()
         if image and tv and content_id:
