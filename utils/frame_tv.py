@@ -48,7 +48,33 @@ def upload_artwork(
     if display and content_id:
         tv.art().select_image(content_id, show=True)
     tv.close()
+
+    if delete_others:
+        _delete_other_images(tv.art(), content_id, debug=True)
+
     return content_id
+
+def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
+    try:
+        # art.available() returns a content list
+        available = art.available() or []
+    except Exception as err:  # pylint: disable=broad-except
+        print(f"Could not enumerate TV gallery: {err}")
+
+    deletions = [item.get("content_id") for item in available if item.get("content_id") and item.get("content_id") != keep_content_id]
+    
+    kept = [item.get("content_id") for item in available if item.get("content_id") == keep_content_id]
+    if len(kept) > 1:
+        print(f"Warning: Found {len(kept)} copies of active image {keep_content_id}. Keeping all to avoid accidental deletion.")
+    
+    if not deletions:
+        print("No other images to delete")
+        return
+
+    print(f"Deleting {len(deletions)} old images: {deletions}")
+    art.delete_list(deletions)
+    if debug:
+        print("Deleted %s old images", len(deletions))
 
 def set_brightness(ip: str, brightness: int, token: Optional[str] = None) -> None:
     """
