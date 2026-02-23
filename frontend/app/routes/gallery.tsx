@@ -162,7 +162,9 @@ export default function Gallery() {
       setUploadFile(null);
     } catch (e: any) {
       setError(e.message || "Failed to upload");
-    } finally {
+      if (e.status == 400) {
+        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.")
+      }
       setUploading(false);
     }
   }

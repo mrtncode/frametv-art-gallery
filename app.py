@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
-from samsungtvws.exceptions import HttpApiError
+from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
 from flask_migrate import Migrate
@@ -175,6 +175,7 @@ def api_delete_album(album_name):
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    """ Upload image to the gallery """
     if 'file' not in request.files:
         return {'error': 'No file part'}, 400
     file = request.files['file']
@@ -288,6 +289,7 @@ def api_remove_tv():
 
 @app.route('/api/tv/send', methods=['POST'])
 def api_send_to_tv():
+    """ Upload an image to the TV """
     data = request.get_json()
     ip = data.get('ip')
     filename = data.get('filename')
@@ -315,7 +317,10 @@ def api_send_to_tv():
             return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
         return jsonify({'error': str(e)}), 500
+    except (ResponseError) as e:
+        return jsonify({'error': str(e)}), 400
     except Exception as e:
+        print("Unexpected error:", e)
         return jsonify({'error': 'Unexpected error', 'details': str(e)}), 500
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])
