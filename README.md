@@ -24,6 +24,11 @@ Docker Compose (recommended):
 1. `docker compose pull`
 2. `docker compose up -d`
 
+# Troubleshooting
+- Errors when uploading images to the TV
+-> Check that the TV is on and has enough free storage space. When the storage space for art images is full, the upload fails. 
+-> Try uploading an image with the SmartThings App. There will appear a more specific error message.
+
 # Techstack
 Frontend:
 - React.js
