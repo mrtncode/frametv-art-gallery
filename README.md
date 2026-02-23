@@ -33,4 +33,4 @@ Backend:
 - Flask (Python)
 
 # Credits
-Speical thanks to https://github.com/billyfw/frame-art-shuffler and https://github.com/NickWaterton/samsung-tv-ws-api
+Speical thanks to https://github.com/billyfw/frame-art-shuffler and https://github.com/xchwarze/samsung-tv-ws-api
