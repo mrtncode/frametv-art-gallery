@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum } from "../utils/galleryApi";
-import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs } from "../utils/tvApi";
+import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
 type Album = { name: string; images: string[] };
 
 export default function Gallery() {
@@ -27,7 +27,12 @@ export default function Gallery() {
       await sendToTV({ ip: selectedTvIp, filename });
       setError("");
     } catch (e: any) {
-      setError(e.message || "Failed to send to TV");
+      console.log("error", e)
+      if (e instanceof TVError && e.status === 400) {
+        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.")
+        return
+      }
+      setError((e as Error).message || "Failed to send to TV");
     } finally {
       setTvLoading(false);
     }
@@ -162,9 +167,6 @@ export default function Gallery() {
       setUploadFile(null);
     } catch (e: any) {
       setError(e.message || "Failed to upload");
-      if (e.status == 400) {
-        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.")
-      }
       setUploading(false);
     }
   }
@@ -184,6 +186,7 @@ export default function Gallery() {
       setTvLoading(false);
     }
   }
+  console.log("test")
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">

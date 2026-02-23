@@ -1,3 +1,15 @@
+// API service for TV actions
+
+export class TVError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = "TVError";
+    this.status = status;
+  } 
+}
+
+
 // Play an already uploaded image on the TV by content_id (filename)
 export async function playUploadedImage({ ip, filename }: { ip: string, filename: string }) {
   const res = await fetch('/api/tv/play_uploaded', {
@@ -8,7 +20,6 @@ export async function playUploadedImage({ ip, filename }: { ip: string, filename
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to play uploaded image on TV');
   return await res.json();
 }
-// API service for TV actions
 
 // TV management (add/get TVs)
 export async function getTvs() {
@@ -43,8 +54,19 @@ export async function sendToTV({ ip, filename, brightness, display }: { ip: stri
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ip, filename, brightness, display }),
   });
-  if (!res.ok) throw new Error((await res.json()).error || 'Failed to send to TV');
-  return await res.json();
+
+  let data: any;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  console.log("res stat", res.status)
+  if (!res.ok) {
+    throw new TVError(data?.error || 'Failed to send to TV', res.status);
+  }
+
+  return data; // ok, gibt JSON zurück
 }
 
 export async function tvPowerOn(ip: string, mac?: string) {
