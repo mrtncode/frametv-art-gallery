@@ -28,7 +28,7 @@ class ImmichProvider(MediaProvider):
 
     async def get_album_images(self, album_id: str) -> List[Dict]:
         immich, session = await self._get_client()
-        assets = await immich.albums.async_get_album_assets(album_id)
+        album = await immich.albums.async_get_album_info(album_id, without_assests=False)
         await session.close()
         return [
             {
@@ -36,7 +36,7 @@ class ImmichProvider(MediaProvider):
                 "filename": asset.original_file_name,
                 "thumb_url": asset.thumbnail_url,
                 "metadata": asset.metadata
-            } for asset in assets
+            } for asset in album.assets
         ]
 
     async def stream_image(self, image_id: str, size: str = "fullsize") -> Optional[bytes]:
