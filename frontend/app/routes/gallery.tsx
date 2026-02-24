@@ -1,12 +1,17 @@
 
 import React, { useEffect, useState } from "react";
-import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum } from "../utils/galleryApi";
+import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
 type Album = { name: string; images: string[] };
+type ProviderAlbum = { id: string; name: string; asset_count: number };
+type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
 
 export default function Gallery() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [images, setImages] = useState<string[]>([]);
+  const [providerAlbums, setProviderAlbums] = useState<ProviderAlbum[]>([]);
+  const [providerImages, setProviderImages] = useState<ProviderImage[]>([]);
+  const [useProvider, setUseProvider] = useState(true); // toggle to test
   const [albumName, setAlbumName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -16,7 +21,7 @@ export default function Gallery() {
   const [tvs, setTvs] = useState<{ ip: string; name?: string; mac?: string }[]>([]);
   const [selectedTvIp, setSelectedTvIp] = useState<string>("");
   const [tvStatusState, setTvStatusState] = useState<any>(null);
-  
+
   async function handleSendToTV(filename: string) {
     if (!selectedTvIp) {
       setError("Select a TV");
@@ -91,7 +96,7 @@ export default function Gallery() {
     } finally { setTvLoading(false); }
   }
 
-  async function loadAll() {
+  async function loadLocalGallery() {
     setLoading(true);
     try {
       const [imgs, als] = await Promise.all([fetchImages(), fetchAlbums()]);
@@ -104,10 +109,39 @@ export default function Gallery() {
     }
   }
 
+  async function loadProviderGallery() {
+    setLoading(true);
+    try {
+      const als = await fetchProviderAlbums();
+      setProviderAlbums(als);
+      setProviderImages([]);
+    } catch (e: any) {
+      setError(e.message || "Failed to load provider gallery");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    loadAll();
+    if (useProvider) {
+      loadProviderGallery();
+    } else {
+      loadLocalGallery();
+    }
     getTvs().then(setTvs).catch(() => setTvs([]));
-  }, []);
+  }, [useProvider]);
+
+  async function handleProviderAlbumSelect(albumId: string) {
+    setLoading(true);
+    try {
+      const imgs = await fetchProviderAlbumImages(albumId);
+      setProviderImages(imgs);
+    } catch (e: any) {
+      setError(e.message || "Failed to load provider album images");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function handleCreateAlbum(e: React.FormEvent) {
     e.preventDefault();
@@ -117,7 +151,7 @@ export default function Gallery() {
       await createAlbum(albumName.trim());
       setAlbumName("");
       setError("");
-      await loadAll();
+      await loadLocalGallery();
     } catch (e: any) {
       setError(e.message || "Failed to create album");
     } finally {
@@ -128,7 +162,7 @@ export default function Gallery() {
   async function handleAddToAlbum(album: string, image: string) {
     try {
       await addImageToAlbum(album, image);
-      await loadAll();
+      await loadLocalGallery();
     } catch (e: any) {
       setError(e.message || "Failed to add image");
     }
@@ -138,7 +172,7 @@ export default function Gallery() {
     if (!window.confirm(`Delete album "${album}"?`)) return;
     try {
       await deleteAlbum(album);
-      await loadAll();
+      await loadLocalGallery();
     } catch (e: any) {
       setError(e.message || "Failed to delete album");
     }
@@ -163,7 +197,7 @@ export default function Gallery() {
       if (!res.ok) {
         throw new Error("Upload failed");
       }
-      await loadAll();
+      await loadLocalGallery();
       setUploadFile(null);
     } catch (e: any) {
       setError(e.message || "Failed to upload");

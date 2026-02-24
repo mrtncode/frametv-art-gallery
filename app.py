@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
 import os
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -9,13 +9,30 @@ from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
 from flask_migrate import Migrate
-
+import importlib
 # Load environment variables from .env if present
 try:
     from dotenv import load_dotenv
     load_dotenv()
 except ImportError:
     pass
+
+# --- Media Provider Integration ---
+MEDIA_PROVIDER = os.environ.get("MEDIA_PROVIDER", "local")  # "immich" or "local"
+IMMICH_API_KEY = os.environ.get("IMMICH_API_KEY")
+IMMICH_HOST = os.environ.get("IMMICH_HOST")
+IMMICH_PORT = int(os.environ.get("IMMICH_PORT", 443))
+
+media_provider = None
+print("media provider", MEDIA_PROVIDER)
+if MEDIA_PROVIDER == "immich" and IMMICH_API_KEY and IMMICH_HOST:
+    try:
+        ImmichProvider = importlib.import_module("utils.immich_provider").ImmichProvider
+        media_provider = ImmichProvider(IMMICH_API_KEY, IMMICH_HOST, IMMICH_PORT)
+    except Exception as e:
+        print(f"Failed to initialize Immich provider: {e}")
+else:
+    media_provider = None
 
 # Import TV control functions from the integration
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -441,6 +458,63 @@ def tv_status(ip):
         }
     except FrameTVError as e:
         return {'error': str(e)}, 500
+    
+
+# --- API Endpoints ---
+
+# --- Immich/Media Provider Endpoints ---
+import asyncio
+
+@app.route('/api/provider/albums', methods=['GET'])
+def api_provider_albums():
+    if not media_provider:
+        return jsonify({"error": "No external provider configured"}), 404
+    loop = asyncio.new_event_loop()
+    albums = loop.run_until_complete(media_provider.get_albums())
+    loop.close()
+    return jsonify({"albums": albums})
+
+@app.route('/api/provider/albums/<album_id>/images', methods=['GET'])
+def api_provider_album_images(album_id):
+    if not media_provider:
+        return jsonify({"error": "No external provider configured"}), 404
+    loop = asyncio.new_event_loop()
+    images = loop.run_until_complete(media_provider.get_album_images(album_id))
+    loop.close()
+    return jsonify({"images": images})
+
+@app.route('/api/provider/images/<image_id>/stream', methods=['GET'])
+def api_provider_stream_image(image_id):
+    if not media_provider:
+        return jsonify({"error": "No external provider configured"}), 404
+    size = request.args.get("size", "fullsize")
+    # Simple in-memory cache
+    if not hasattr(app, "_provider_image_cache"):
+        app._provider_image_cache = {}
+    cache_key = f"{image_id}:{size}"
+    if cache_key in app._provider_image_cache:
+        image_bytes = app._provider_image_cache[cache_key]
+    else:
+        loop = asyncio.new_event_loop()
+        image_bytes = loop.run_until_complete(media_provider.stream_image(image_id, size=size))
+        loop.close()
+        if image_bytes:
+            app._provider_image_cache[cache_key] = image_bytes
+    if not image_bytes:
+        return jsonify({"error": "Image not found"}), 404
+    from flask import Response
+    return Response(image_bytes, mimetype="image/jpeg")
+
+@app.route('/api/provider/images/<image_id>/metadata', methods=['GET'])
+def api_provider_image_metadata(image_id):
+    if not media_provider:
+        return jsonify({"error": "No external provider configured"}), 404
+    loop = asyncio.new_event_loop()
+    metadata = loop.run_until_complete(media_provider.get_image_metadata(image_id))
+    loop.close()
+    return jsonify({"metadata": metadata})
+
+
     
 # Place at the bottom for lowest priority 
 @app.route('/', defaults={'path': ''})
