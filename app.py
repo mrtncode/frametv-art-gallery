@@ -30,6 +30,7 @@ from utils.frame_tv import (
     power_off,
     enable_art_mode,
     FrameTVError,
+    delete_all_images_from_tv
 )
 
 DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
@@ -345,6 +346,18 @@ def api_send_to_tv():
     except Exception as e:
         print("Unexpected error:", e)
         return jsonify({'error': 'Unexpected error', 'details': str(e)}), 500
+    
+@app.route("/api/tv/<ip>/images", methods=['DELETE'])
+def api_remove_all_tv_images(ip):
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+    try:
+        delete_all_images_from_tv(ip, token=tv.token)
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Failed to remove all images from TV', 'details': str(e)}), 500
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])
 def api_tv_power_on(ip):

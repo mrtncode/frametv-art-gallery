@@ -1,5 +1,5 @@
 import React from 'react'
-import { getTvs, addTv, removeTv } from '~/utils/tvApi';
+import { getTvs, addTv, removeTv, removeAllTvImages } from '~/utils/tvApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 
@@ -53,6 +53,15 @@ export default function Settings() {
       await fetchTvs();
     } catch (e: any) {
       setError(e.message || "Failed to remove TV");
+    }
+  }
+
+  async function handleRemoveAllTvImages(ip: string) {
+    try {
+      await removeAllTvImages(ip);
+      await fetchTvs();
+    } catch (e: any) {
+      setError(e.message || "Failed to remove all images from TV");
     }
   }
 
@@ -125,27 +134,36 @@ export default function Settings() {
           {tvs.length === 0 ? (
             <div className="text-gray-400 text-center">No TVs added yet.</div>
           ) : (
-            <ul className="divide-y divide-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {tvs.map((tv) => (
-                <li key={tv.ip} className="py-3 flex items-center justify-between">
-                  <div>
-                    <span className="font-mono text-gray-800 text-base">{tv.ip}</span>
-                    {tv.name && <span className="ml-2 text-gray-700 font-medium">{tv.name}</span>}
-                    {tv.mac && <span className="ml-2 text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">{tv.mac}</span>}
-                    <label className="ml-4 flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={!!tv.delete_other_images_on_upload}
-                        onChange={e => handleToggleDeleteOthers(tv.ip, e.target.checked)}
-                        className="accent-blue-600"
-                      />
-                      Delete other images on upload
-                    </label>
+                <div key={tv.ip} className="bg-white shadow-md rounded-xl p-5 flex flex-col gap-3 border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    {tv.name && <span className="text-gray-700 font-semibold text-base text-center">{tv.name}</span>}
+                    <br />
+                    <span className="font-mono text-blue-700 text-lg text-center">{tv.ip}</span>
+                    {tv.mac && <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">{tv.mac}</span>}
                   </div>
-                  <button onClick={() => handleRemoveTv(tv.ip)} className="text-red-500 hover:text-red-700">Delete</button>
-                </li>
+                  <div className="flex flex-col gap-2 mt-2">
+                    <div className="flex flex-col gap-1 mt-2">
+                      <span className="text-xs text-gray-500">Options:</span>
+                        <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={!!tv.delete_other_images_on_upload}
+                          onChange={e => handleToggleDeleteOthers(tv.ip, e.target.checked)}
+                          className="accent-blue-600"
+                        />
+                        <span>Delete other images on upload (managed mode)</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-end mt-2 gap-3">
+                    <button onClick={() => handleRemoveAllTvImages(tv.ip)} className="text-red-500 hover:text-red-700 font-medium ml-2">Delete all Images from TV</button>
+                    <button onClick={() => handleRemoveTv(tv.ip)} className="text-white bg-red-500 px-3 py-2 rounded-xl hover:text-red-700 font-medium">Remove TV</button>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       </div>

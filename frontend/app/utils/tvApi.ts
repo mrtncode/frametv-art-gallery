@@ -48,6 +48,14 @@ export async function removeTv(ip: string) {
   return (await res.json()).tvs;
 }
 
+export async function removeAllTvImages(ip: string) {
+  const res = await fetch(`/api/tv/${encodeURIComponent(ip)}/images`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to remove all images from TV');
+  return (await res.json()).tvs;
+}
+
 export async function sendToTV({ ip, filename, brightness, display }: { ip: string, filename: string, brightness?: number, display?: boolean }) {
   const res = await fetch('/api/tv/send', {
     method: 'POST',

@@ -76,6 +76,27 @@ def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
     if debug:
         print("Deleted %s old images", len(deletions))
 
+def delete_all_images_from_tv(ip: str, token: Optional[str] = None) -> None:
+    """
+    Delete all uploaded images from the Frame TV.
+    Args:
+        ip (str): IP address of the TV.
+        token (Optional[str]): Token string to use for authentication.
+    """
+    tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME)
+    tv.open()
+    try:
+        available = tv.art().available() or []
+        content_ids = [item.get("content_id") for item in available if item.get("content_id")]
+        if content_ids:
+            tv.art().delete_list(content_ids)
+            print(f"Deleted {len(content_ids)} images from TV {ip}")
+        else:
+            print(f"No images found on TV {ip} to delete")
+    except Exception as err:  # pylint: disable=broad-except
+        print(f"Error while deleting images from TV {ip}: {err}")
+    finally:
+        tv.close()
 
 def play_uploaded_content(ip: str, content_id: str, token: Optional[str] = None) -> None:
     """
