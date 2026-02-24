@@ -496,7 +496,7 @@ def api_provider_stream_image(image_id):
         image_bytes = app._provider_image_cache[cache_key]
     else:
         loop = asyncio.new_event_loop()
-        image_bytes = loop.run_until_complete(media_provider.stream_image(image_id, size=size))
+        image_bytes = loop.run_until_complete(media_provider.stream_image(image_id=image_id, size=size))
         loop.close()
         if image_bytes:
             app._provider_image_cache[cache_key] = image_bytes

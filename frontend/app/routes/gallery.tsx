@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
+import ImageCard from "../components/imageCard";
 type Album = { name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
 type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
@@ -264,29 +265,15 @@ export default function Gallery() {
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               {images.map(img => (
-                <div key={img} className="border rounded p-2 flex flex-col items-center">
-                  <img
-                    src={`/uploads/${img}`}
-                    alt={img}
-                    className="w-full h-32 object-contain mb-2 bg-gray-100"
-                    onClick={() => setModal({ type: 'image', data: img })}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <div className="flex flex-wrap gap-1 mb-2">
-                    {albums.map(album => (
-                      <button
-                        key={album.name}
-                        className="text-xs bg-gray-200 px-2 py-1 rounded hover:bg-blue-200"
-                        onClick={() => handleAddToAlbum(album.name, img)}
-                      >Add to {album.name}</button>
-                    ))}
-                  </div>
-                  <button
-                    className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
-                    onClick={() => handleSendToTV(img)}
-                    disabled={tvLoading}
-                  >Send to TV</button>
-                </div>
+                <ImageCard
+                  key={img}
+                  src={`/uploads/${img}`}
+                  alt={img}
+                  filename={img}
+                  onClick={() => setModal({ type: 'image', data: img })}
+                  onSendToTV={() => handleSendToTV(img)}
+                  tvLoading={tvLoading}
+                />
               ))}
             </div>
           )}
@@ -337,21 +324,18 @@ export default function Gallery() {
                   </div>
                 </div>
               ))}
-              <div className="flex flex-wrap gap-2 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                 {providerImages.length === 0 && <span className="text-gray-400">No images selected</span>}
                 {providerImages.map(img => (
-                  <span key={img.id} className="flex flex-col items-center">
-                    <img
-                      src={getProviderImageStreamUrl(img.id, "thumb")}
-                      alt={img.filename}
-                      style={{ width: 100 }}
-                    />
-                    <button
-                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 mt-1"
-                      onClick={() => handleSendToTV(img.id)}
-                      disabled={tvLoading}
-                    >Send to TV</button>
-                  </span>
+                  <ImageCard
+                    key={img.id}
+                    src={getProviderImageStreamUrl(img.id, "fullsize")}
+                    alt={img.filename}
+                    filename={img.filename}
+                    onClick={() => setModal({ type: 'image', data: img.id })}
+                    onSendToTV={() => handleSendToTV(img.id)}
+                    tvLoading={tvLoading}
+                  />
                 ))}
               </div>
             </>
@@ -366,55 +350,73 @@ export default function Gallery() {
                   onClick={() => setModal(null)}
                   aria-label="Close"
                 >×</button>
-                {modal.type === 'image' && (
-                  <>
-                    <img src={`/uploads/${modal.data}`} alt={modal.data} className="w-full max-h-64 object-contain mb-4" />
-                    <div className="mb-2 text-sm text-gray-700">{modal.data}</div>
-                    {/* TV controls */}
-                    <div className="mt-4">
-                      <div className="mb-2">
-                        <label className="block text-sm mb-1">Select TV:</label>
-                        <select
-                          className="border px-2 py-1 rounded w-full"
-                          value={selectedTvIp}
-                          onChange={e => setSelectedTvIp(e.target.value)}
-                          disabled={tvLoading}
-                        >
-                          <option value="">-- Select TV --</option>
-                          {tvs.map(tv => (
-                            <option key={tv.ip} value={tv.ip}>
-                              {tv.name || tv.ip}
-                            </option>
-                          ))}
-                        </select>
+                {modal.type === 'image' && (() => {
+                  // Determine if modal.data is a local image (string filename) or Immich image (id)
+                  const localImg = images.includes(modal.data);
+                  let imgSrc = "";
+                  let imgAlt = "";
+                  let filename = "";
+                  if (localImg) {
+                    imgSrc = `/uploads/${modal.data}`;
+                    imgAlt = modal.data;
+                    filename = modal.data;
+                  } else {
+                    // Try to find Immich image object
+                    const immichImg = providerImages.find(i => i.id === modal.data);
+                    imgSrc = immichImg ? getProviderImageStreamUrl(immichImg.id, "fullsize") : "";
+                    imgAlt = immichImg ? immichImg.filename : modal.data;
+                    filename = immichImg ? immichImg.filename : modal.data;
+                  }
+                  return (
+                    <>
+                      <img src={imgSrc} alt={imgAlt} className="w-full max-h-64 object-contain mb-4" />
+                      <div className="mb-2 text-sm text-gray-700">{filename}</div>
+                      {/* TV controls */}
+                      <div className="mt-4">
+                        <div className="mb-2">
+                          <label className="block text-sm mb-1">Select TV:</label>
+                          <select
+                            className="border px-2 py-1 rounded w-full"
+                            value={selectedTvIp}
+                            onChange={e => setSelectedTvIp(e.target.value)}
+                            disabled={tvLoading}
+                          >
+                            <option value="">-- Select TV --</option>
+                            {tvs.map(tv => (
+                              <option key={tv.ip} value={tv.ip}>
+                                {tv.name || tv.ip}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                            onClick={() => handleSendToTV(modal.data)}
+                            disabled={tvLoading || !selectedTvIp}
+                          >
+                            {tvLoading ? 'Uploading…' : 'Upload to TV'}
+                          </button>
+                          <button
+                            className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                            onClick={() => handlePlayUploadedImage(modal.data)}
+                            disabled={tvLoading || !selectedTvIp}
+                          >
+                            Play on TV
+                          </button>
+                          <button
+                            className="bg-gray-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                            onClick={handleTvPowerOn}
+                            disabled={tvLoading || !selectedTvIp}
+                          >
+                            Turn On TV
+                          </button>
+                        </div>
+                        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
                       </div>
-                      <div className="flex gap-2 mb-2">
-                        <button
-                          className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                          onClick={() => handleSendToTV(modal.data)}
-                          disabled={tvLoading || !selectedTvIp}
-                        >
-                          {tvLoading ? 'Uploading…' : 'Upload to TV'}
-                        </button>
-                        <button
-                          className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                          onClick={() => handlePlayUploadedImage(modal.data)}
-                          disabled={tvLoading || !selectedTvIp}
-                        >
-                          Play on TV
-                        </button>
-                        <button
-                          className="bg-gray-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                          onClick={handleTvPowerOn}
-                          disabled={tvLoading || !selectedTvIp}
-                        >
-                          Turn On TV
-                        </button>
-                      </div>
-                      {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-                    </div>
-                  </>
-                )}
+                    </>
+                  );
+                })()}
                 {modal.type === 'album' && (
                   <>
                     <div className="text-lg font-bold mb-2">{modal.data.name}</div>

@@ -32,14 +32,18 @@ class ImmichProvider(MediaProvider):
         await session.close()
         return [
             {
-                "id": asset.asset_id,
-                "filename": asset.original_file_name,
-                "thumb_url": asset.thumbnail_url,
-                "metadata": asset.metadata
+            "id": asset.asset_id,
+            "filename": asset.original_file_name,
+            "thumbhash": asset.thumbhash,
+            "has_metadata": asset.has_metadata
             } for asset in album.assets
         ]
 
     async def stream_image(self, image_id: str, size: str = "fullsize") -> Optional[bytes]:
+        allowed_sizes = {"original", "fullsize", "preview", "thumbnail"}
+        # Validate size, fallback to 'fullsize' if invalid
+        if size not in allowed_sizes:
+            size = "fullsize"
         immich, session = await self._get_client()
         asset_bytes = await immich.assets.async_view_asset(image_id, size=size)
         await session.close()
