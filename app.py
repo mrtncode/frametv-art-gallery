@@ -57,8 +57,6 @@ DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
 UPLOAD_FOLDER = os.path.join(DATA_DIR, "uploads")
 INSTANCE_FOLDER = os.path.join(DATA_DIR, "instance")
 
-print("instanc efolder", INSTANCE_FOLDER)
-
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(INSTANCE_FOLDER, exist_ok=True)
