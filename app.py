@@ -10,6 +10,8 @@ from const import CONNECTION_NAME
 from datetime import datetime
 from flask_migrate import Migrate
 import importlib
+from media_provider_routes import media_provider_routes
+
 # Load environment variables from .env if present
 try:
     from dotenv import load_dotenv
@@ -73,6 +75,10 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
+
+# Import blueprints
+app.register_blueprint(media_provider_routes)
+app.media_provider = media_provider
 
 # --- Models ---
 class Album(db.Model):
@@ -458,63 +464,6 @@ def tv_status(ip):
         }
     except FrameTVError as e:
         return {'error': str(e)}, 500
-    
-
-# --- API Endpoints ---
-
-# --- Immich/Media Provider Endpoints ---
-import asyncio
-
-@app.route('/api/provider/albums', methods=['GET'])
-def api_provider_albums():
-    if not media_provider:
-        return jsonify({"error": "No external provider configured"}), 404
-    loop = asyncio.new_event_loop()
-    albums = loop.run_until_complete(media_provider.get_albums())
-    loop.close()
-    return jsonify({"albums": albums})
-
-@app.route('/api/provider/albums/<album_id>/images', methods=['GET'])
-def api_provider_album_images(album_id):
-    if not media_provider:
-        return jsonify({"error": "No external provider configured"}), 404
-    loop = asyncio.new_event_loop()
-    images = loop.run_until_complete(media_provider.get_album_images(album_id))
-    loop.close()
-    return jsonify({"images": images})
-
-@app.route('/api/provider/images/<image_id>/stream', methods=['GET'])
-def api_provider_stream_image(image_id):
-    if not media_provider:
-        return jsonify({"error": "No external provider configured"}), 404
-    size = request.args.get("size", "fullsize")
-    # Simple in-memory cache
-    if not hasattr(app, "_provider_image_cache"):
-        app._provider_image_cache = {}
-    cache_key = f"{image_id}:{size}"
-    if cache_key in app._provider_image_cache:
-        image_bytes = app._provider_image_cache[cache_key]
-    else:
-        loop = asyncio.new_event_loop()
-        image_bytes = loop.run_until_complete(media_provider.stream_image(image_id=image_id, size=size))
-        loop.close()
-        if image_bytes:
-            app._provider_image_cache[cache_key] = image_bytes
-    if not image_bytes:
-        return jsonify({"error": "Image not found"}), 404
-    from flask import Response
-    return Response(image_bytes, mimetype="image/jpeg")
-
-@app.route('/api/provider/images/<image_id>/metadata', methods=['GET'])
-def api_provider_image_metadata(image_id):
-    if not media_provider:
-        return jsonify({"error": "No external provider configured"}), 404
-    loop = asyncio.new_event_loop()
-    metadata = loop.run_until_complete(media_provider.get_image_metadata(image_id))
-    loop.close()
-    return jsonify({"metadata": metadata})
-
-
     
 # Place at the bottom for lowest priority 
 @app.route('/', defaults={'path': ''})
