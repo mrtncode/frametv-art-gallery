@@ -11,6 +11,7 @@ from datetime import datetime
 from flask_migrate import Migrate
 import importlib
 from media_provider_routes import media_provider_routes
+from provider_config_routes import provider_config_routes
 
 # Load environment variables from .env if present
 try:
@@ -55,61 +56,14 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+from models import db, Album, Image, TV, UploadedImage, ProviderConfig
+db.init_app(app)
 
 # Import blueprints
 app.register_blueprint(media_provider_routes)
+app.register_blueprint(provider_config_routes)
 
-# --- Models ---
-class Album(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), unique=True, nullable=False)
-    images = db.relationship('Image', backref='album', lazy=True, cascade="all, delete-orphan")
-
-class Image(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(255), nullable=False)
-    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-
-class TV(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ip = db.Column(db.String(64), unique=True, nullable=False)
-    name = db.Column(db.String(80), nullable=True)
-    mac = db.Column(db.String(32), nullable=True)
-    token = db.Column(db.Text, nullable=True)  # Store the TV token as text
-    delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
-
-# New table to track uploaded images per TV
-class UploadedImage(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=False)
-    tv_id = db.Column(db.Integer, db.ForeignKey('tv.id'), nullable=False)
-    content_id = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-
-    image = db.relationship('Image', backref='uploaded_images')
-    tv = db.relationship('TV', backref='uploaded_images')
-
-# --- External Provider Config Model ---
-class ProviderConfig(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(32), nullable=False, unique=True)  # e.g. 'immich'
-    host = db.Column(db.String(255), nullable=True)
-    port = db.Column(db.Integer, nullable=True)
-    api_key = db.Column(db.String(255), nullable=True)
-    enabled = db.Column(db.Boolean, nullable=False, default=False)
-    # Add more fields as needed for other providers
-
-    def as_dict(self):
-        return {
-            'id': self.id,
-            'provider': self.provider,
-            'host': self.host,
-            'port': self.port,
-            'api_key': self.api_key,
-            'enabled': self.enabled,
-        }
+# ...models are now imported from models.py...
 
 # Create database
 def init_db():
@@ -179,42 +133,6 @@ def api_list_albums():
         })
     return {'albums': result}
 
-# --- Provider Config API ---
-@app.route('/api/providers', methods=['GET'])
-def api_list_providers():
-    configs = ProviderConfig.query.all()
-    return {'providers': [c.as_dict() for c in configs]}
-
-@app.route('/api/providers/<provider>', methods=['GET'])
-def api_get_provider(provider):
-    config = ProviderConfig.query.filter_by(provider=provider).first()
-    if not config:
-        return {'error': 'Provider not found'}, 404
-    return config.as_dict()
-
-@app.route('/api/providers/<provider>', methods=['POST', 'PUT'])
-def api_set_provider(provider):
-    data = request.get_json()
-    config = ProviderConfig.query.filter_by(provider=provider).first()
-    if not config:
-        config = ProviderConfig(provider=provider)
-        db.session.add(config)
-    # Update fields
-    config.host = data.get('host')
-    config.port = data.get('port')
-    config.api_key = data.get('api_key')
-    config.enabled = bool(data.get('enabled', False))
-    db.session.commit()
-    return config.as_dict()
-
-@app.route('/api/providers/<provider>', methods=['DELETE'])
-def api_delete_provider(provider):
-    config = ProviderConfig.query.filter_by(provider=provider).first()
-    if not config:
-        return {'error': 'Provider not found'}, 404
-    db.session.delete(config)
-    db.session.commit()
-    return {'success': True}
 
 @app.route('/api/albums', methods=['POST'])
 def api_create_album():
