@@ -19,23 +19,6 @@ try:
 except ImportError:
     pass
 
-# --- Media Provider Integration ---
-MEDIA_PROVIDER = os.environ.get("MEDIA_PROVIDER", "local")  # "immich" or "local"
-IMMICH_API_KEY = os.environ.get("IMMICH_API_KEY")
-IMMICH_HOST = os.environ.get("IMMICH_HOST")
-IMMICH_PORT = int(os.environ.get("IMMICH_PORT", 443))
-
-media_provider = None
-print("media provider", MEDIA_PROVIDER)
-if MEDIA_PROVIDER == "immich" and IMMICH_API_KEY and IMMICH_HOST:
-    try:
-        ImmichProvider = importlib.import_module("utils.immich_provider").ImmichProvider
-        media_provider = ImmichProvider(IMMICH_API_KEY, IMMICH_HOST, IMMICH_PORT)
-    except Exception as e:
-        print(f"Failed to initialize Immich provider: {e}")
-else:
-    media_provider = None
-
 # Import TV control functions from the integration
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -76,7 +59,6 @@ db = SQLAlchemy(app)
 
 # Import blueprints
 app.register_blueprint(media_provider_routes)
-app.media_provider = media_provider
 
 # --- Models ---
 class Album(db.Model):
@@ -109,6 +91,26 @@ class UploadedImage(db.Model):
     image = db.relationship('Image', backref='uploaded_images')
     tv = db.relationship('TV', backref='uploaded_images')
 
+# --- External Provider Config Model ---
+class ProviderConfig(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(32), nullable=False, unique=True)  # e.g. 'immich'
+    host = db.Column(db.String(255), nullable=True)
+    port = db.Column(db.Integer, nullable=True)
+    api_key = db.Column(db.String(255), nullable=True)
+    enabled = db.Column(db.Boolean, nullable=False, default=False)
+    # Add more fields as needed for other providers
+
+    def as_dict(self):
+        return {
+            'id': self.id,
+            'provider': self.provider,
+            'host': self.host,
+            'port': self.port,
+            'api_key': self.api_key,
+            'enabled': self.enabled,
+        }
+
 # Create database
 def init_db():
     """Ensure database and all tables exist."""
@@ -125,6 +127,27 @@ migrate = Migrate(app, db)
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# --- Media Provider Integration ---
+media_provider = None
+def load_media_provider():
+    global media_provider
+    with app.app_context():
+        config = ProviderConfig.query.filter_by(provider='immich', enabled=True).first()
+        if config and config.api_key and config.host:
+            try:
+                ImmichProvider = importlib.import_module("utils.immich_provider").ImmichProvider
+                port = config.port or 443
+                media_provider = ImmichProvider(config.api_key, config.host, port)
+                print("Loaded Immich provider from DB config")
+            except Exception as e:
+                print(f"Failed to initialize Immich provider: {e}")
+        else:
+            media_provider = None
+
+# Load provider at startup
+load_media_provider()
+app.media_provider = media_provider
 
 
 # --- API Endpoints ---
@@ -155,6 +178,43 @@ def api_list_albums():
             'images': [img.filename for img in album.images]
         })
     return {'albums': result}
+
+# --- Provider Config API ---
+@app.route('/api/providers', methods=['GET'])
+def api_list_providers():
+    configs = ProviderConfig.query.all()
+    return {'providers': [c.as_dict() for c in configs]}
+
+@app.route('/api/providers/<provider>', methods=['GET'])
+def api_get_provider(provider):
+    config = ProviderConfig.query.filter_by(provider=provider).first()
+    if not config:
+        return {'error': 'Provider not found'}, 404
+    return config.as_dict()
+
+@app.route('/api/providers/<provider>', methods=['POST', 'PUT'])
+def api_set_provider(provider):
+    data = request.get_json()
+    config = ProviderConfig.query.filter_by(provider=provider).first()
+    if not config:
+        config = ProviderConfig(provider=provider)
+        db.session.add(config)
+    # Update fields
+    config.host = data.get('host')
+    config.port = data.get('port')
+    config.api_key = data.get('api_key')
+    config.enabled = bool(data.get('enabled', False))
+    db.session.commit()
+    return config.as_dict()
+
+@app.route('/api/providers/<provider>', methods=['DELETE'])
+def api_delete_provider(provider):
+    config = ProviderConfig.query.filter_by(provider=provider).first()
+    if not config:
+        return {'error': 'Provider not found'}, 404
+    db.session.delete(config)
+    db.session.commit()
+    return {'success': True}
 
 @app.route('/api/albums', methods=['POST'])
 def api_create_album():

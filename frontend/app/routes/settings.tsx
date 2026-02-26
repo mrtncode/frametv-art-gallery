@@ -2,8 +2,76 @@ import React from 'react'
 import { getTvs, addTv, removeTv, removeAllTvImages } from '~/utils/tvApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
+import { getProviders, setProvider, getProvider, deleteProvider } from '~/utils/providerApi';
+
+import type { ProviderConfig } from '~/utils/providerApi';
 
 export default function Settings() {
+    // Provider config state
+    const [providers, setProviders] = React.useState<ProviderConfig[]>([]);
+    const [immichHost, setImmichHost] = React.useState("");
+    const [immichPort, setImmichPort] = React.useState<number|undefined>(undefined);
+    const [immichApiKey, setImmichApiKey] = React.useState("");
+    const [immichEnabled, setImmichEnabled] = React.useState(false);
+    const [providerError, setProviderError] = React.useState("");
+    const [providerSaving, setProviderSaving] = React.useState(false);
+
+    async function fetchProviders() {
+      try {
+        const data = await getProviders();
+        setProviders(data);
+        const immich = data.find(p => p.provider === 'immich');
+        if (immich) {
+          setImmichHost(immich.host || "");
+          setImmichPort(immich.port);
+          setImmichApiKey(immich.api_key || "");
+          setImmichEnabled(!!immich.enabled);
+        }
+      } catch (e: any) {
+        setProviderError(e.message || 'Failed to fetch providers');
+      }
+    }
+
+    React.useEffect(() => {
+      fetchProviders();
+    }, []);
+
+    async function handleSaveImmich(e: React.FormEvent) {
+      e.preventDefault();
+      setProviderSaving(true);
+      setProviderError("");
+      try {
+        await setProvider('immich', {
+          host: immichHost,
+          port: immichPort,
+          api_key: immichApiKey,
+          enabled: immichEnabled,
+        });
+        await fetchProviders();
+        alert("Successfully saved Immich config - Restart Frame Gallery to apply all changes.");
+      } catch (e: any) {
+        setProviderError(e.message || 'Failed to save Immich config');
+      } finally {
+        setProviderSaving(false);
+      }
+    }
+
+    async function handleDeleteImmich() {
+      setProviderSaving(true);
+      setProviderError("");
+      try {
+        await deleteProvider('immich');
+        setImmichHost("");
+        setImmichPort(undefined);
+        setImmichApiKey("");
+        setImmichEnabled(false);
+        await fetchProviders();
+      } catch (e: any) {
+        setProviderError(e.message || 'Failed to delete Immich config');
+      } finally {
+        setProviderSaving(false);
+      }
+    }
   const [tvs, setTvs] = React.useState<{ ip: string; name?: string; mac?: string; delete_other_images_on_upload?: boolean }[]>([]);
   const [ip, setIp] = React.useState("");
   const [name, setName] = React.useState("");
@@ -101,7 +169,7 @@ export default function Settings() {
               value={ip}
               onChange={e => setIp(e.target.value)}
               placeholder="IP address"
-              className="flex-grow min-w-0 md:w-1/4"
+              className="grow min-w-0 md:w-1/4"
               required
             />
             <Input
@@ -109,14 +177,14 @@ export default function Settings() {
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="Name (optional)"
-              className="flex-grow min-w-0 md:w-1/4"
+              className="grow min-w-0 md:w-1/4"
             />
             <Input
               type="text"
               value={mac}
               onChange={e => setMac(e.target.value)}
               placeholder="MAC (optional)"
-              className="flex-grow min-w-0 md:w-1/4"
+              className="grow min-w-0 md:w-1/4"
             />
 
             <Button
@@ -165,6 +233,52 @@ export default function Settings() {
               ))}
             </div>
           )}
+        </div>
+
+        <div className="bg-white mt-4 rounded-2xl border border-gray-200 p-5">
+          <h2 className="text-lg font-semibold mb-4 text-gray-700">External Providers</h2>
+          <form onSubmit={handleSaveImmich} className="flex flex-col gap-3 max-w-lg">
+            <div className="font-semibold text-gray-700 mb-1">Immich</div>
+            <Input
+              type="text"
+              value={immichHost}
+              onChange={e => setImmichHost(e.target.value)}
+              placeholder="Immich Host (e.g. immich.example.com)"
+              className=""
+              required={immichEnabled}
+            />
+            <Input
+              type="number"
+              value={immichPort === undefined ? '' : immichPort}
+              onChange={e => setImmichPort(e.target.value ? parseInt(e.target.value) : undefined)}
+              placeholder="Port (default 443)"
+            />
+            <Input
+              type="text"
+              value={immichApiKey}
+              onChange={e => setImmichApiKey(e.target.value)}
+              placeholder="Immich API Key"
+              required={immichEnabled}
+            />
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={immichEnabled}
+                onChange={e => setImmichEnabled(e.target.checked)}
+                className="accent-blue-600"
+              />
+              <span>Enable Immich</span>
+            </label>
+            <div className="flex gap-2 mt-2">
+              <Button type="submit" className="bg-blue-600 hover:bg-blue-900" disabled={providerSaving}>
+                {providerSaving ? 'Saving…' : 'Save Immich Config'}
+              </Button>
+              <Button type="button" className="bg-gray-300 text-gray-700" onClick={handleDeleteImmich} disabled={providerSaving}>
+                Delete Config
+              </Button>
+            </div>
+            {providerError && <div className="text-red-500 text-sm mt-1">{providerError}</div>}
+          </form>
         </div>
       </div>
     </div>
