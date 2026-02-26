@@ -352,12 +352,12 @@ def api_send_to_tv():
             try:
                 # If provider is specified and is 'immich', use download_image_by_id
                 if provider == 'immich' and provider_id:
-                    app.media_provider.download_image_by_id(provider_id, art_path)
+                    app.media_provider.download_image_by_id_sync(provider_id, art_path)
                 elif provider_url:
                     app.media_provider.download_image(provider_url, art_path)
                 elif provider_id:
                     # fallback for other providers
-                    app.media_provider.download_image_by_id(provider_id, art_path)
+                    app.media_provider.download_image_by_id_sync(provider_id, art_path)
             except Exception as e:
                 return {'error': f'Failed to fetch image from provider: {e}'}, 500
         # Check TV option for deleting other images on upload

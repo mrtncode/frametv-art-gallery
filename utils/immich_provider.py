@@ -43,6 +43,12 @@ class ImmichProvider(MediaProvider):
         await session.close()
         async with aiofiles.open(dest_path, "wb") as f:
             await f.write(asset_bytes)
+            print("download complete")
+
+    def download_image_by_id_sync(self, image_id: str, dest_path: str, size: str = "fullsize"):
+        """Sync wrapper for download_image_by_id for use in sync code."""
+        import asyncio
+        asyncio.run(self.download_image_by_id(image_id, dest_path, size))
 
     async def get_album_images(self, album_id: str) -> List[Dict]:
         immich, session = await self._get_client()
