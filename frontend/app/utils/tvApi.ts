@@ -56,11 +56,12 @@ export async function removeAllTvImages(ip: string) {
   return (await res.json()).tvs;
 }
 
-export async function sendToTV({ ip, filename, brightness, display }: { ip: string, filename: string, brightness?: number, display?: boolean }) {
+export async function sendToTV({payload, brightness, display }: { payload: any, brightness?: number, display?: boolean }) {
+  console.log("received payload", payload)
   const res = await fetch('/api/tv/send', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ip, filename, brightness, display }),
+    body: JSON.stringify({ ...payload, brightness, display }),
   });
 
   let data: any;

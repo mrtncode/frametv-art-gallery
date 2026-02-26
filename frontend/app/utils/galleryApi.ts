@@ -1,4 +1,21 @@
 // API service for gallery and albums
+
+// --- Provider (Immich/other) API ---
+export async function fetchProviderAlbums() {
+  const res = await fetch('/api/provider/albums');
+  if (!res.ok) throw new Error('Failed to fetch provider albums');
+  return (await res.json()).albums;
+}
+
+export async function fetchProviderAlbumImages(albumId: string) {
+  const res = await fetch(`/api/provider/albums/${encodeURIComponent(albumId)}/images`);
+  if (!res.ok) throw new Error('Failed to fetch provider album images');
+  return (await res.json()).images;
+}
+
+export function getProviderImageStreamUrl(imageId: string, size: string = "fullsize") {
+  return `/api/provider/images/${encodeURIComponent(imageId)}/stream?size=${encodeURIComponent(size)}`;
+}
 export async function fetchImages() {
   const res = await fetch('/api/images');
   if (!res.ok) throw new Error('Failed to fetch images');

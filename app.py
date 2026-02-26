@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
 import os
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -9,6 +9,9 @@ from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
 from flask_migrate import Migrate
+import importlib
+from media_provider_routes import media_provider_routes
+from provider_config_routes import provider_config_routes
 
 # Load environment variables from .env if present
 try:
@@ -38,8 +41,6 @@ DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
 UPLOAD_FOLDER = os.path.join(DATA_DIR, "uploads")
 INSTANCE_FOLDER = os.path.join(DATA_DIR, "instance")
 
-print("instanc efolder", INSTANCE_FOLDER)
-
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(INSTANCE_FOLDER, exist_ok=True)
@@ -55,38 +56,14 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+from models import db, Album, Image, TV, UploadedImage, ProviderConfig
+db.init_app(app)
 
-# --- Models ---
-class Album(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(80), unique=True, nullable=False)
-    images = db.relationship('Image', backref='album', lazy=True, cascade="all, delete-orphan")
+# Import blueprints
+app.register_blueprint(media_provider_routes)
+app.register_blueprint(provider_config_routes)
 
-class Image(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    filename = db.Column(db.String(255), nullable=False)
-    album_id = db.Column(db.Integer, db.ForeignKey('album.id'), nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-
-class TV(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    ip = db.Column(db.String(64), unique=True, nullable=False)
-    name = db.Column(db.String(80), nullable=True)
-    mac = db.Column(db.String(32), nullable=True)
-    token = db.Column(db.Text, nullable=True)  # Store the TV token as text
-    delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
-
-# New table to track uploaded images per TV
-class UploadedImage(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=False)
-    tv_id = db.Column(db.Integer, db.ForeignKey('tv.id'), nullable=False)
-    content_id = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
-
-    image = db.relationship('Image', backref='uploaded_images')
-    tv = db.relationship('TV', backref='uploaded_images')
+# ...models are now imported from models.py...
 
 # Create database
 def init_db():
@@ -104,6 +81,27 @@ migrate = Migrate(app, db)
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# --- Media Provider Integration ---
+media_provider = None
+def load_media_provider():
+    global media_provider
+    with app.app_context():
+        config = ProviderConfig.query.filter_by(provider='immich', enabled=True).first()
+        if config and config.api_key and config.host:
+            try:
+                ImmichProvider = importlib.import_module("utils.immich_provider").ImmichProvider
+                port = config.port or 443
+                media_provider = ImmichProvider(config.api_key, config.host, port)
+                print("Loaded Immich provider from DB config")
+            except Exception as e:
+                print(f"Failed to initialize Immich provider: {e}")
+        else:
+            media_provider = None
+
+# Load provider at startup
+load_media_provider()
+app.media_provider = media_provider
 
 
 # --- API Endpoints ---
@@ -134,6 +132,7 @@ def api_list_albums():
             'images': [img.filename for img in album.images]
         })
     return {'albums': result}
+
 
 @app.route('/api/albums', methods=['POST'])
 def api_create_album():
@@ -313,12 +312,32 @@ def api_send_to_tv():
     filename = data.get('filename')
     brightness = data.get('brightness')
     display = data.get('display', True)
+    provider = data.get('provider')
+    provider_id = data.get('provider_id')
+    # provider_url is deprecated, but fallback if present
+    provider_url = data.get('provider_url')
     if not ip or not filename:
         return {'error': 'TV IP and filename required'}, 400
     tv = TV.query.filter_by(ip=ip).first()
     token = tv.token if tv else None
     try:
         art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        # If the file does not exist locally, try to fetch from media provider
+        if not os.path.isfile(art_path) and (provider_id or provider_url):
+            if not hasattr(app, 'media_provider') or not app.media_provider:
+                return {'error': 'No media provider configured'}, 400
+            try:
+                # If provider is specified and is 'immich', use download_image_by_id
+                if provider == 'immich' and provider_id:
+                    app.media_provider.download_image_by_id_sync(provider_id, art_path)
+                elif provider_url:
+                    app.media_provider.download_image(provider_url, art_path)
+                elif provider_id:
+                    # fallback for other providers
+                    app.media_provider.download_image_by_id_sync(provider_id, art_path)
+            except Exception as e:
+                return {'error': f'Failed to fetch image from provider: {e}'}, 500
         # Check TV option for deleting other images on upload
         delete_others = False
         if tv and hasattr(tv, 'delete_other_images_on_upload'):
@@ -338,7 +357,7 @@ def api_send_to_tv():
                 uploaded = UploadedImage(image_id=image.id, tv_id=tv.id, content_id=str(content_id))
                 db.session.add(uploaded)
                 db.session.commit()
-            return jsonify({'success': True, 'content_id': content_id})
+        return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
         return jsonify({'error': str(e)}), 500
     except (ResponseError) as e:
