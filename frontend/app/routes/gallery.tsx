@@ -163,6 +163,10 @@ export default function Gallery() {
     setProviderImagesPage(0);
     await getImageFromProviderAlbum(albumId, 0);
     setLoading(false);
+    setTimeout(() => {
+      const element = document.getElementById("provider_images");
+      if (element) element.scrollIntoView({ behavior: "smooth" });
+    }, 0);
   }
 
   async function getImageFromProviderAlbum(albumId: string, page: number) {
@@ -372,8 +376,8 @@ export default function Gallery() {
           {providerEnabled && (
             <>
               <hr className="my-8" />
-              <h3 className="text-xl font-semibold mb-2">Immich Albums</h3>
-              {providerAlbums.length === 0 && <div className="text-gray-500">No Immich albums found.</div>}
+              <h3 className="text-xl font-semibold mb-2">External Albums</h3>
+              {providerAlbums.length === 0 && <div className="text-gray-500">No external albums found.</div>}
               {providerAlbums.map(album => (
                 <div key={album.id} className="border rounded p-3 mb-2">
                   <div className="font-bold mb-2 flex items-center justify-between">
@@ -385,6 +389,7 @@ export default function Gallery() {
                   </div>
                 </div>
               ))}
+              <h3 className="text-xl font-semibold mb-2" id="provider_images">External Images</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                 {providerImages.length === 0 && <span className="text-gray-400">No images selected</span>}
                 {providerImages.map(img => (
