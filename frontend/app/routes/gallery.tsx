@@ -26,7 +26,7 @@ export default function Gallery() {
   const [providerImagesPage, setProviderImagesPage] = useState(0);
   const [providerImagesHasMore, setProviderImagesHasMore] = useState(false);
   const [providerImagesAlbumId, setProviderImagesAlbumId] = useState<string | null>(null);
-  const [providerEnabled, setProviderEnabled] = useState(true); // show provider section if enabled
+  const [providerEnabled, setProviderEnabled] = useState<boolean>(false); // dynamically set
   const [albumName, setAlbumName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -142,8 +142,10 @@ export default function Gallery() {
       const als = await fetchProviderAlbums();
       setProviderAlbums(als);
       setProviderImages([]);
+      setProviderEnabled(Array.isArray(als) && als.length > 0);
     } catch (e: any) {
       setError(e.message || "Failed to load provider gallery");
+      setProviderEnabled(false);
     } finally {
       setLoading(false);
     }
@@ -151,11 +153,9 @@ export default function Gallery() {
 
   useEffect(() => {
     loadLocalGallery();
-    if (providerEnabled) {
-      loadProviderGallery();
-    }
+    loadProviderGallery();
     getTvs().then(setTvs).catch(() => setTvs([]));
-  }, [providerEnabled]);
+  }, []);
 
   async function handleProviderAlbumSelect(albumId: string) {
     setLoading(true);
@@ -381,7 +381,7 @@ export default function Gallery() {
                     <button
                       className="text-xs text-blue-600 hover:underline ml-2"
                       onClick={() => handleProviderAlbumSelect(album.id)}
-                    >Show Images</button>
+                    >Load Images</button>
                   </div>
                 </div>
               ))}
