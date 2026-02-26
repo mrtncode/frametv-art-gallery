@@ -1,5 +1,6 @@
 import asyncio
 import aiohttp
+import aiofiles
 from typing import List, Dict, Optional
 from aioimmich import Immich
 from .media_provider import MediaProvider
@@ -25,6 +26,23 @@ class ImmichProvider(MediaProvider):
                 "asset_count": album.asset_count
             } for album in albums
         ]
+
+    def download_image(self, url: str, dest_path: str):
+        """Download an image from a direct Immich asset URL and save to dest_path."""
+        import requests
+        resp = requests.get(url, headers={"x-api-key": self.api_key}, stream=True)
+        resp.raise_for_status()
+        with open(dest_path, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+    async def download_image_by_id(self, image_id: str, dest_path: str, size: str = "fullsize"):
+        """Download an image by Immich asset ID and save to dest_path using aioimmich."""
+        immich, session = await self._get_client()
+        asset_bytes = await immich.assets.async_view_asset(image_id, size=size)
+        await session.close()
+        async with aiofiles.open(dest_path, "wb") as f:
+            await f.write(asset_bytes)
 
     async def get_album_images(self, album_id: str) -> List[Dict]:
         immich, session = await self._get_client()

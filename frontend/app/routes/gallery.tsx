@@ -1,17 +1,31 @@
 
+
 import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
 import ImageCard from "../components/imageCard";
+
 type Album = { name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
 type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
 
+type GalleryImage = {
+  id: string;
+  filename: string;
+  provider?: string;
+  type: "local" | "provider";
+  thumb_url?: string;
+  metadata?: any;
+};
+
 export default function Gallery() {
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<GalleryImage[]>([]);
   const [providerAlbums, setProviderAlbums] = useState<ProviderAlbum[]>([]);
-  const [providerImages, setProviderImages] = useState<ProviderImage[]>([]);
+  const [providerImages, setProviderImages] = useState<GalleryImage[]>([]);
+  const [providerImagesPage, setProviderImagesPage] = useState(0);
+  const [providerImagesHasMore, setProviderImagesHasMore] = useState(false);
+  const [providerImagesAlbumId, setProviderImagesAlbumId] = useState<string | null>(null);
   const [providerEnabled, setProviderEnabled] = useState(true); // show provider section if enabled
   const [albumName, setAlbumName] = useState("");
   const [error, setError] = useState("");
@@ -23,20 +37,27 @@ export default function Gallery() {
   const [selectedTvIp, setSelectedTvIp] = useState<string>("");
   const [tvStatusState, setTvStatusState] = useState<any>(null);
 
-  async function handleSendToTV(filename: string) {
+  async function handleSendToTV(image: GalleryImage) {
+    console.log("gallery image", image)
     if (!selectedTvIp) {
       setError("Select a TV");
       return;
     }
     setTvLoading(true);
     try {
-      await sendToTV({ ip: selectedTvIp, filename });
+      let payload: any = { ip: selectedTvIp, filename: image.filename };
+      if (image.type === "provider") {
+        payload.provider_id = image.id;
+        payload.provider = image.provider;
+      }
+      console.log("payload", payload);
+      await sendToTV({ payload });
       setError("");
     } catch (e: any) {
       console.log("error", e)
       if (e instanceof TVError && e.status === 400) {
-        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.")
-        return
+        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.");
+        return;
       }
       setError((e as Error).message || "Failed to send to TV");
     } finally {
@@ -101,7 +122,12 @@ export default function Gallery() {
     setLoading(true);
     try {
       const [imgs, als] = await Promise.all([fetchImages(), fetchAlbums()]);
-      setImages(imgs);
+      // Convert to GalleryImage objects
+      setImages(imgs.map((img: string) => ({
+        id: img,
+        filename: img,
+        type: "local"
+      })));
       setAlbums(als);
     } catch (e: any) {
       setError(e.message || "Failed to load gallery");
@@ -133,15 +159,50 @@ export default function Gallery() {
 
   async function handleProviderAlbumSelect(albumId: string) {
     setLoading(true);
+    setProviderImagesAlbumId(albumId);
+    setProviderImagesPage(0);
+    await getImageFromProviderAlbum(albumId, 0);
+    setLoading(false);
+  }
+
+  async function getImageFromProviderAlbum(albumId: string, page: number) {
     try {
       const imgs = await fetchProviderAlbumImages(albumId);
-      setProviderImages(imgs);
+      // Pagination: slice the images for the current page (10 per page)
+      const pageSize = 10;
+      const start = page * pageSize;
+      const end = start + pageSize;
+      const pageImgs = imgs.slice(start, end);
+      const galleryImgs = pageImgs.map((img: any) => ({
+        id: img.id,
+        filename: img.filename,
+        type: "provider",
+        provider: "immich",
+        thumb_url: img.thumb_url,
+        metadata: img.metadata
+      }));
+      if (page === 0) {
+        setProviderImages(galleryImgs);
+      } else {
+        setProviderImages(prev => [...prev, ...galleryImgs]);
+      }
+      setProviderImagesHasMore(end < imgs.length);
     } catch (e: any) {
       setError(e.message || "Failed to load provider album images");
     } finally {
       setLoading(false);
     }
   }
+
+  async function handleProviderImagesLoadMore() {
+    if (!providerImagesAlbumId) return;
+    const nextPage = providerImagesPage + 1;
+    setProviderImagesPage(nextPage);
+    setLoading(true);
+    await getImageFromProviderAlbum(providerImagesAlbumId, nextPage);
+    setLoading(false);
+  }
+
 
   async function handleCreateAlbum(e: React.FormEvent) {
     e.preventDefault();
@@ -205,14 +266,14 @@ export default function Gallery() {
     }
   }
 
-  async function handlePlayUploadedImage(filename: string) {
+  async function handlePlayUploadedImage(image: GalleryImage) {
     if (!selectedTvIp) {
       setError("Select a TV");
       return;
     }
     setTvLoading(true);
     try {
-      await playUploadedImage({ ip: selectedTvIp, filename });
+      await playUploadedImage({ ip: selectedTvIp, filename: image.filename });
       setError("");
     } catch (e: any) {
       setError(e.message || "Failed to play uploaded image on TV");
@@ -266,10 +327,10 @@ export default function Gallery() {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
               {images.map(img => (
                 <ImageCard
-                  key={img}
-                  src={`/uploads/${img}`}
-                  alt={img}
-                  filename={img}
+                  key={img.id}
+                  src={`/uploads/${img.filename}`}
+                  alt={img.filename}
+                  filename={img.filename}
                   onClick={() => setModal({ type: 'image', data: img })}
                   onSendToTV={() => handleSendToTV(img)}
                   tvLoading={tvLoading}
@@ -298,7 +359,7 @@ export default function Gallery() {
                       src={`/uploads/${img}`}
                       alt={img}
                       className="w-16 h-16 object-cover rounded border"
-                      onClick={() => setModal({ type: 'image', data: img })}
+                      onClick={() => setModal({ type: 'image', data: images.find(i => i.filename === img) })}
                       style={{ cursor: 'pointer' }}
                     />
                   ))}
@@ -332,12 +393,23 @@ export default function Gallery() {
                     src={getProviderImageStreamUrl(img.id, "fullsize")}
                     alt={img.filename}
                     filename={img.filename}
-                    onClick={() => setModal({ type: 'image', data: img.id })}
-                    onSendToTV={() => handleSendToTV(img.id)}
+                    onClick={() => setModal({ type: 'image', data: img })}
+                    onSendToTV={() => handleSendToTV(img)}
                     tvLoading={tvLoading}
                   />
                 ))}
               </div>
+              {providerImagesHasMore && (
+                <div className="flex justify-center mt-4">
+                  <button
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    onClick={handleProviderImagesLoadMore}
+                    disabled={loading}
+                  >
+                    {loading ? "Loading…" : "Load More"}
+                  </button>
+                </div>
+              )}
             </>
           )}
 
@@ -351,22 +423,12 @@ export default function Gallery() {
                   aria-label="Close"
                 >×</button>
                 {modal.type === 'image' && (() => {
-                  // Determine if modal.data is a local image (string filename) or Immich image (id)
-                  const localImg = images.includes(modal.data);
-                  let imgSrc = "";
-                  let imgAlt = "";
-                  let filename = "";
-                  if (localImg) {
-                    imgSrc = `/uploads/${modal.data}`;
-                    imgAlt = modal.data;
-                    filename = modal.data;
-                  } else {
-                    // Try to find Immich image object
-                    const immichImg = providerImages.find(i => i.id === modal.data);
-                    imgSrc = immichImg ? getProviderImageStreamUrl(immichImg.id, "fullsize") : "";
-                    imgAlt = immichImg ? immichImg.filename : modal.data;
-                    filename = immichImg ? immichImg.filename : modal.data;
-                  }
+                  const imgObj: GalleryImage = modal.data;
+                  let imgSrc = imgObj.type === "local"
+                    ? `/uploads/${imgObj.filename}`
+                    : getProviderImageStreamUrl(imgObj.id, "fullsize");
+                  let imgAlt = imgObj.filename;
+                  let filename = imgObj.filename;
                   return (
                     <>
                       <img src={imgSrc} alt={imgAlt} className="w-full max-h-64 object-contain mb-4" />
@@ -392,14 +454,14 @@ export default function Gallery() {
                         <div className="flex gap-2 mb-2">
                           <button
                             className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                            onClick={() => handleSendToTV(modal.data)}
+                            onClick={() => handleSendToTV(imgObj)}
                             disabled={tvLoading || !selectedTvIp}
                           >
                             {tvLoading ? 'Uploading…' : 'Upload to TV'}
                           </button>
                           <button
                             className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                            onClick={() => handlePlayUploadedImage(modal.data)}
+                            onClick={() => handlePlayUploadedImage(imgObj)}
                             disabled={tvLoading || !selectedTvIp}
                           >
                             Play on TV

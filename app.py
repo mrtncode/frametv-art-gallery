@@ -334,12 +334,32 @@ def api_send_to_tv():
     filename = data.get('filename')
     brightness = data.get('brightness')
     display = data.get('display', True)
+    provider = data.get('provider')
+    provider_id = data.get('provider_id')
+    # provider_url is deprecated, but fallback if present
+    provider_url = data.get('provider_url')
     if not ip or not filename:
         return {'error': 'TV IP and filename required'}, 400
     tv = TV.query.filter_by(ip=ip).first()
     token = tv.token if tv else None
     try:
         art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+        # If the file does not exist locally, try to fetch from media provider
+        if not os.path.isfile(art_path) and (provider_id or provider_url):
+            if not hasattr(app, 'media_provider') or not app.media_provider:
+                return {'error': 'No media provider configured'}, 400
+            try:
+                # If provider is specified and is 'immich', use download_image_by_id
+                if provider == 'immich' and provider_id:
+                    app.media_provider.download_image_by_id(provider_id, art_path)
+                elif provider_url:
+                    app.media_provider.download_image(provider_url, art_path)
+                elif provider_id:
+                    # fallback for other providers
+                    app.media_provider.download_image_by_id(provider_id, art_path)
+            except Exception as e:
+                return {'error': f'Failed to fetch image from provider: {e}'}, 500
         # Check TV option for deleting other images on upload
         delete_others = False
         if tv and hasattr(tv, 'delete_other_images_on_upload'):
@@ -359,7 +379,7 @@ def api_send_to_tv():
                 uploaded = UploadedImage(image_id=image.id, tv_id=tv.id, content_id=str(content_id))
                 db.session.add(uploaded)
                 db.session.commit()
-            return jsonify({'success': True, 'content_id': content_id})
+        return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
         return jsonify({'error': str(e)}), 500
     except (ResponseError) as e:
