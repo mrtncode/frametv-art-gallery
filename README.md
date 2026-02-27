@@ -34,6 +34,10 @@ Frontend:
 - React.js
 - TailwindCSS
 - Shadcn/ui
+- Lottie Animation 
+
+https://lottiefiles.com/free-animation/image-VXYNYReCmq -> Thanks!
+
 Backend:
 - Flask (Python)
 
