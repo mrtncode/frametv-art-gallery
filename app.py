@@ -128,6 +128,7 @@ def api_list_albums():
     result = []
     for album in albums:
         result.append({
+            'id': album.id,
             'name': album.name,
             'images': [img.filename for img in album.images]
         })

@@ -4,8 +4,9 @@ import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
 import ImageCard from "../components/imageCard";
+import AlbumCard from "~/components/AlbumCard";
 
-type Album = { name: string; images: string[] };
+type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
 type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
 
@@ -233,16 +234,6 @@ export default function Gallery() {
     }
   }
 
-  async function handleDeleteAlbum(album: string) {
-    if (!window.confirm(`Delete album "${album}"?`)) return;
-    try {
-      await deleteAlbum(album);
-      await loadLocalGallery();
-    } catch (e: any) {
-      setError(e.message || "Failed to delete album");
-    }
-  }
-
   // --- Upload Button State and Handler ---
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File|null>(null);
@@ -347,28 +338,7 @@ export default function Gallery() {
           <div className="space-y-4">
             {albums.length === 0 && <div className="text-gray-500">No albums yet.</div>}
             {albums.map(album => (
-              <div key={album.name} className="border rounded p-3">
-                <div className="font-bold mb-2 flex items-center justify-between">
-                  <span>{album.name}</span>
-                  <button
-                    className="text-xs text-red-500 hover:underline ml-2"
-                    onClick={() => handleDeleteAlbum(album.name)}
-                  >Delete</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {album.images.length === 0 && <span className="text-gray-400">No images</span>}
-                  {Array.isArray(album.images) && album.images.map(img => (
-                    <img
-                      key={img}
-                      src={`/uploads/${img}`}
-                      alt={img}
-                      className="w-16 h-16 object-cover rounded border"
-                      onClick={() => setModal({ type: 'image', data: images.find(i => i.filename === img) })}
-                      style={{ cursor: 'pointer' }}
-                    />
-                  ))}
-                </div>
-              </div>
+              <AlbumCard key={album.id} album={album} loadLocalGallery={loadLocalGallery} setError={setError} />
             ))}
           </div>
 
