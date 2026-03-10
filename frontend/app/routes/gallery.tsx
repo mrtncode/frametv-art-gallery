@@ -259,6 +259,7 @@ export default function Gallery() {
                     filename={img.filename}
                     onClick={() => setModal({ type: 'image', data: img })}
                     image={img}
+                    showControls={false}
                   />
                 ))}
               </div>
@@ -300,6 +301,7 @@ export default function Gallery() {
                         filename={filename}
                         image={imgObj}
                         large
+                        showControls={true}
                       />
                     </>
                   );

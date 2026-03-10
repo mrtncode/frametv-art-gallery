@@ -16,6 +16,8 @@ interface ImageCardProps {
   onClick?: () => void;
   /** if `large` the card uses a bigger image height (useful inside modals) */
   large?: boolean;
+  /** when true, TV controls are shown regardless of size (useful for tests) */
+  showControls?: boolean;
 }
 
 const ImageCard: React.FC<ImageCardProps> = ({
@@ -25,6 +27,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   image,
   onClick,
   large,
+  showControls
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
@@ -100,8 +103,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
         style={{ cursor: onClick ? 'pointer' : undefined }}
       />
       {filename && <div className="mb-2 text-xs text-gray-500">{filename}</div>}
-      {/* TV controls (always shown when TVs are available) */}
-      {tvs.length > 0 && (
+      {/* TV controls (only shown when requested via props or in large mode) */}
+      {tvs.length > 0 && (large || showControls) && (
         <>
           <div className="mb-2 w-full">
             <label className="block text-xs mb-1">Select TV:</label>
