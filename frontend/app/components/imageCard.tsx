@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 
 interface TV {
   ip: string;
@@ -101,7 +102,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
       }
     >
       <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` +
-                     (large ? 'h-64' : 'h-48')}
+                     (large ? 'h-72' : 'h-48')}
       >
         <img
           src={src}
@@ -135,22 +136,23 @@ const ImageCard: React.FC<ImageCardProps> = ({
             </select>
           </div>
           <div className="flex flex-wrap gap-1">
+          <button
+            className="w-full bg-blue-600 text-white text-xs py-2.5 rounded-4xl disabled:opacity-50 flex items-center justify-center px-4 gap-2 mb-1.5"
+            onClick={async e => { e.stopPropagation(); await handleSendToTV(); }}
+            disabled={tvLoading || !selectedTvIp}
+          >
+            {tvLoading ? 'Uploading…' : 'Upload'}
+            <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={3} />
+          </button>
             <button
-              className="w-full bg-blue-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
-              onClick={async e => { e.stopPropagation(); await handleSendToTV(); }}
-              disabled={tvLoading || !selectedTvIp}
-            >
-              {tvLoading ? 'Uploading…' : 'Upload'}
-            </button>
-            <button
-              className="flex-1 bg-green-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
+              className="flex-1 bg-green-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50"
               onClick={async e => { e.stopPropagation(); await handlePlayUploadedImage(); }}
               disabled={tvLoading || !selectedTvIp}
             >
               Play
             </button>
             <button
-              className="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
+              className="flex-1 bg-gray-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50"
               onClick={async e => { e.stopPropagation(); await handleTvPowerOn(); }}
               disabled={tvLoading || !selectedTvIp}
             >
