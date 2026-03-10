@@ -8,17 +8,20 @@ interface ImageGridProps {
 
 export default function ImageGrid({ images, onImageClick }: ImageGridProps) {
   return (
-    <div className='flex flex-wrap gap-4 bg-red-100 w-full p-4 rounded'>
-      {images.map((img: any) => (
-        <ImageCard
-          key={img.id}
-          src={`/uploads/${img.filename}`}
-          alt={img.filename}
-          filename={img.filename}
-          image={img}
-          onClick={() => onImageClick?.(img)}
-        />
-      ))}
+    <div className="w-full p-4">
+      {/* responsive grid instead of flex-wrap */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {images.map((img: any) => (
+          <ImageCard
+            key={img.id}
+            src={`/uploads/${img.filename}`}
+            alt={img.filename}
+            filename={img.filename}
+            image={img}
+            onClick={() => onImageClick?.(img)}
+          />
+        ))}
+      </div>
     </div>
   )
 }

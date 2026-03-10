@@ -94,22 +94,34 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   return (
-    <div className="border rounded p-2 flex flex-col items-center">
-      <img
-        src={src}
-        alt={alt}
-        className={`w-full ${large ? 'h-auto max-h-96' : 'h-32'} object-contain mb-2 bg-gray-100`}
-        onClick={onClick}
-        style={{ cursor: onClick ? 'pointer' : undefined }}
-      />
-      {filename && <div className="mb-2 text-xs text-gray-500">{filename}</div>}
-      {/* TV controls (only shown when requested via props or in large mode) */}
+    <div
+      className={
+        `group relative flex flex-col overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
+        (large ? 'col-span-2' : '')
+      }
+    >
+      <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` +
+                     (large ? 'h-64' : 'h-48')}
+      >
+        <img
+          src={src}
+          alt={alt}
+          className={`max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105`
+            + (onClick ? ' cursor-pointer' : '')}
+          onClick={onClick}
+        />
+      </div>
+      {filename && (
+        <div className="px-2 py-1 text-xs text-gray-600 truncate" title={filename}>
+          {filename}
+        </div>
+      )}
+
       {tvs.length > 0 && (large || showControls) && (
-        <>
-          <div className="mb-2 w-full">
-            <label className="block text-xs mb-1">Select TV:</label>
+        <div className="w-full bg-gray-50 border-t px-3 py-2 space-y-2">
+          <div>
             <select
-              className="border px-2 py-1 rounded w-full"
+              className="border px-2 py-1 rounded w-full text-xs"
               value={selectedTvIp}
               onChange={e => setSelectedTvIp(e.target.value)}
               disabled={tvLoading}
@@ -122,31 +134,31 @@ const ImageCard: React.FC<ImageCardProps> = ({
               ))}
             </select>
           </div>
-          <div className="flex gap-2 mb-2">
+          <div className="flex flex-wrap gap-1">
             <button
-              className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-              onClick={handleSendToTV}
+              className="w-full bg-blue-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
+              onClick={async e => { e.stopPropagation(); await handleSendToTV(); }}
               disabled={tvLoading || !selectedTvIp}
             >
-              {tvLoading ? 'Uploading…' : 'Upload to TV'}
+              {tvLoading ? 'Uploading…' : 'Upload'}
             </button>
             <button
-              className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
-              onClick={handlePlayUploadedImage}
+              className="flex-1 bg-green-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
+              onClick={async e => { e.stopPropagation(); await handlePlayUploadedImage(); }}
               disabled={tvLoading || !selectedTvIp}
             >
-              Play on TV
+              Play
             </button>
             <button
-              className="bg-gray-600 text-white px-3 py-1 rounded disabled:opacity-50"
-              onClick={handleTvPowerOn}
+              className="flex-1 bg-gray-600 text-white text-xs px-2 py-1 rounded disabled:opacity-50"
+              onClick={async e => { e.stopPropagation(); await handleTvPowerOn(); }}
               disabled={tvLoading || !selectedTvIp}
             >
-              Turn On TV
+              Power
             </button>
           </div>
           {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
-        </>
+        </div>
       )}
     </div>
   );
