@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
-import { sendToTV, playUploadedImage, tvPowerOn, tvPowerOff, tvArtMode, tvStatus, getTvs, TVError } from "../utils/tvApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
+import ImageGrid from "~/components/imageGrid";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -33,91 +33,8 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [modal, setModal] = useState<{ type: 'image'|'album'; data: any }|null>(null);
-  const [tvLoading, setTvLoading] = useState(false);
-  const [tvs, setTvs] = useState<{ ip: string; name?: string; mac?: string }[]>([]);
-  const [selectedTvIp, setSelectedTvIp] = useState<string>("");
-  const [tvStatusState, setTvStatusState] = useState<any>(null);
 
-  async function handleSendToTV(image: GalleryImage) {
-    console.log("gallery image", image)
-    if (!selectedTvIp) {
-      setError("Select a TV");
-      return;
-    }
-    setTvLoading(true);
-    try {
-      let payload: any = { ip: selectedTvIp, filename: image.filename };
-      if (image.type === "provider") {
-        payload.provider_id = image.id;
-        payload.provider = image.provider;
-      }
-      console.log("payload", payload);
-      await sendToTV({ payload });
-      setError("");
-    } catch (e: any) {
-      console.log("error", e)
-      if (e instanceof TVError && e.status === 400) {
-        setError("There was a problem communicating with the TV. Please ensure the TV is reachable and has enough storage space for new images.");
-        return;
-      }
-      setError((e as Error).message || "Failed to send to TV");
-    } finally {
-      setTvLoading(false);
-    }
-  }
 
-  function getSelectedTv() {
-    return tvs.find(tv => tv.ip === selectedTvIp);
-  }
-
-  async function handleTvPowerOn() {
-    const tv = getSelectedTv();
-    if (!tv) { setError("Select a TV"); return; }
-    setTvLoading(true);
-    try {
-      await tvPowerOn(tv.ip, tv.mac || undefined);
-      setError("");
-    } catch (e: any) {
-      setError(e.message || "Failed to power on TV");
-    } finally { setTvLoading(false); }
-  }
-
-  async function handleTvPowerOff() {
-    const tv = getSelectedTv();
-    if (!tv) { setError("Select a TV"); return; }
-    setTvLoading(true);
-    try {
-      await tvPowerOff(tv.ip);
-      setError("");
-    } catch (e: any) {
-      setError(e.message || "Failed to power off TV");
-    } finally { setTvLoading(false); }
-  }
-
-  async function handleTvArtMode() {
-    const tv = getSelectedTv();
-    if (!tv) { setError("Select a TV"); return; }
-    setTvLoading(true);
-    try {
-      await tvArtMode(tv.ip);
-      setError("");
-    } catch (e: any) {
-      setError(e.message || "Failed to set art mode");
-    } finally { setTvLoading(false); }
-  }
-
-  async function handleTvStatus() {
-    const tv = getSelectedTv();
-    if (!tv) { setError("Select a TV"); return; }
-    setTvLoading(true);
-    try {
-      const status = await tvStatus(tv.ip);
-      setTvStatusState(status);
-      setError("");
-    } catch (e: any) {
-      setError(e.message || "Failed to get TV status");
-    } finally { setTvLoading(false); }
-  }
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -155,7 +72,6 @@ export default function Gallery() {
   useEffect(() => {
     loadLocalGallery();
     loadProviderGallery();
-    getTvs().then(setTvs).catch(() => setTvs([]));
   }, []);
 
   async function handleProviderAlbumSelect(albumId: string) {
@@ -261,21 +177,6 @@ export default function Gallery() {
     }
   }
 
-  async function handlePlayUploadedImage(image: GalleryImage) {
-    if (!selectedTvIp) {
-      setError("Select a TV");
-      return;
-    }
-    setTvLoading(true);
-    try {
-      await playUploadedImage({ ip: selectedTvIp, filename: image.filename });
-      setError("");
-    } catch (e: any) {
-      setError(e.message || "Failed to play uploaded image on TV");
-    } finally {
-      setTvLoading(false);
-    }
-  }
   console.log("test")
 
   return (
@@ -319,22 +220,10 @@ export default function Gallery() {
           {loading ? (
             <div>Loading...</div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-              {images.map(img => (
-                <ImageCard
-                  key={img.id}
-                  src={`/uploads/${img.filename}`}
-                  alt={img.filename}
-                  filename={img.filename}
-                  onClick={() => setModal({ type: 'image', data: img })}
-                  onSendToTV={() => handleSendToTV(img)}
-                  tvLoading={tvLoading}
-                />
-              ))}
+            <div className="mb-8">
+              <ImageGrid images={images} onImageClick={img => setModal({ type: 'image', data: img })} />
             </div>
           )}
-
-          <h3 className="text-xl font-semibold mb-2">Albums</h3>
           <div className="space-y-4">
             {albums.length === 0 && <div className="text-gray-500">No albums yet.</div>}
             {albums.map(album => (
@@ -369,8 +258,7 @@ export default function Gallery() {
                     alt={img.filename}
                     filename={img.filename}
                     onClick={() => setModal({ type: 'image', data: img })}
-                    onSendToTV={() => handleSendToTV(img)}
-                    tvLoading={tvLoading}
+                    image={img}
                   />
                 ))}
               </div>
@@ -406,51 +294,13 @@ export default function Gallery() {
                   let filename = imgObj.filename;
                   return (
                     <>
-                      <img src={imgSrc} alt={imgAlt} className="w-full max-h-64 object-contain mb-4" />
-                      <div className="mb-2 text-sm text-gray-700">{filename}</div>
-                      {/* TV controls */}
-                      <div className="mt-4">
-                        <div className="mb-2">
-                          <label className="block text-sm mb-1">Select TV:</label>
-                          <select
-                            className="border px-2 py-1 rounded w-full"
-                            value={selectedTvIp}
-                            onChange={e => setSelectedTvIp(e.target.value)}
-                            disabled={tvLoading}
-                          >
-                            <option value="">-- Select TV --</option>
-                            {tvs.map(tv => (
-                              <option key={tv.ip} value={tv.ip}>
-                                {tv.name || tv.ip}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex gap-2 mb-2">
-                          <button
-                            className="bg-blue-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                            onClick={() => handleSendToTV(imgObj)}
-                            disabled={tvLoading || !selectedTvIp}
-                          >
-                            {tvLoading ? 'Uploading…' : 'Upload to TV'}
-                          </button>
-                          <button
-                            className="bg-green-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                            onClick={() => handlePlayUploadedImage(imgObj)}
-                            disabled={tvLoading || !selectedTvIp}
-                          >
-                            Play on TV
-                          </button>
-                          <button
-                            className="bg-gray-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                            onClick={handleTvPowerOn}
-                            disabled={tvLoading || !selectedTvIp}
-                          >
-                            Turn On TV
-                          </button>
-                        </div>
-                        {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-                      </div>
+                      <ImageCard
+                        src={imgSrc}
+                        alt={imgAlt}
+                        filename={filename}
+                        image={imgObj}
+                        large
+                      />
                     </>
                   );
                 })()}
