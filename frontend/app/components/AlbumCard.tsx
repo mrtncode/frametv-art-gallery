@@ -1,5 +1,5 @@
 import React from 'react'
-import { deleteAlbum } from "../utils/galleryApi";
+import { deleteAlbum, getUploadUrl } from "../utils/galleryApi";
 type Album = { id:string, name: string; images: string[] };
 
 
@@ -33,7 +33,7 @@ export default function AlbumCard({album, loadLocalGallery, setError}: {album: A
             {Array.isArray(album.images) && album.images.map(img => (
             <img
                 key={img}
-                src={`/uploads/${img}`}
+                src={getUploadUrl(img)}
                 alt={img}
                 className="w-16 h-16 object-cover rounded border"
                 onClick={() => setModal({ type: 'image', data: images.find(i => i.filename === img) })}

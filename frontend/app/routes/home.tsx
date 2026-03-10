@@ -1,6 +1,7 @@
 import type { Route } from "./+types/settings";
 import { ChartBarIcon, TvIcon } from "@heroicons/react/24/outline";
 import React, { useEffect, useState } from "react";
+import { fetchImages, fetchAlbums, fetchImagesAddedThisMonth, getUploadUrl } from "~/utils/galleryApi";
 import { Card, CardHeader, CardDescription, CardTitle, CardAction, CardFooter } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
 
@@ -60,15 +61,14 @@ export default function Home() {
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch("/api/images").then((res) => res.json()),
-      fetch("/api/albums").then((res) => res.json()),
-      fetch("/api/images/added_this_month").then((res) => res.json()),
+      fetchImages(),
+      fetchAlbums(),
+      fetchImagesAddedThisMonth(),
     ])
-      .then(([imgData, albumData, monthData]) => {
-        setImages(imgData.images || []);
-        setAlbums(albumData.albums || []);
-        console.log("month data", monthData)
-        setImagesThisMonth(typeof monthData.count === "number" ? monthData.count : 0);
+      .then(([imgs, albms, count]) => {
+        setImages(imgs || []);
+        setAlbums(albms || []);
+        setImagesThisMonth(typeof count === "number" ? count : 0);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -136,7 +136,7 @@ export default function Home() {
             {images.map((img, idx) => (
               <img
                 key={idx}
-                src={`/uploads/${img}`}
+                src={getUploadUrl(img)}
                 alt={`Artwork ${idx + 1}`}
                 className="w-48 h-32 object-cover rounded-xl shadow-md border border-gray-200"
               />

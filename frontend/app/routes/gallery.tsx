@@ -1,7 +1,7 @@
 
 
 import React, { useEffect, useState } from "react";
-import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
+import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, getUploadUrl } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
@@ -289,7 +289,7 @@ export default function Gallery() {
                 {modal.type === 'image' && (() => {
                   const imgObj: GalleryImage = modal.data;
                   let imgSrc = imgObj.type === "local"
-                    ? `/uploads/${imgObj.filename}`
+                    ? getUploadUrl(imgObj.filename)
                     : getProviderImageStreamUrl(imgObj.id, "fullsize");
                   let imgAlt = imgObj.filename;
                   let filename = imgObj.filename;
@@ -312,7 +312,7 @@ export default function Gallery() {
                     <div className="flex flex-wrap gap-2 mb-2">
                       {Array.isArray(modal.data.images) && modal.data.images.length === 0 && <span className="text-gray-400">No images</span>}
                       {Array.isArray(modal.data.images) && modal.data.images.map((img: string) => (
-                        <img key={img} src={`/uploads/${img}`} alt={img} className="w-16 h-16 object-cover rounded border" />
+                        <img key={img} src={getUploadUrl(img)} alt={img} className="w-16 h-16 object-cover rounded border" />
                       ))}
                     </div>
                     {/* TV controls and info can go here */}

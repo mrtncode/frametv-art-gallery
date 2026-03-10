@@ -53,6 +53,14 @@ app = Flask(__name__, static_folder="frontend/build/client")
 app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+# allow cross-origin requests from the dev server or any other origin when
+# talking to the API directly.  This is useful during front-end development when the frontend runs on a different port/host.
+try:
+    from flask_cors import CORS
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+except ImportError:
+    pass
+
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 

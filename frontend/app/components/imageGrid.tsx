@@ -1,5 +1,6 @@
 import React from 'react'
 import ImageCard from './imageCard'
+import { getUploadUrl } from '~/utils/galleryApi';
 
 interface ImageGridProps {
   images: any[];
@@ -14,7 +15,7 @@ export default function ImageGrid({ images, onImageClick }: ImageGridProps) {
         {images.map((img: any) => (
           <ImageCard
             key={img.id}
-            src={`/uploads/${img.filename}`}
+            src={getUploadUrl(img.filename)}
             alt={img.filename}
             filename={img.filename}
             image={img}
