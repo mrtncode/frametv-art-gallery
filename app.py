@@ -485,4 +485,4 @@ if __name__ == '__main__':
     # Use DEBUG env variable ("1", "true", "True" = True)
     debug_env = os.environ.get('DEBUG', '').lower()
     debug = debug_env in ('1', 'true', 'yes')
-    app.run(debug=debug)
+    app.run(debug=debug, host="0.0.0.0")

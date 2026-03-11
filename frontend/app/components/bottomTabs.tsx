@@ -1,4 +1,4 @@
-import React from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router"; // Achtung: react-router-dom
 import { HomeIcon, UserIcon, PlusIcon, Cog6ToothIcon, PhotoIcon } from "@heroicons/react/24/outline";
 
@@ -11,14 +11,21 @@ const items = [
 export type TabItem = {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   href: string;
 };
 
 export default function BottomTabs() {
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    const ua = navigator.userAgent || '';
+    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
+  }, []);
+
   return (
-    <div className="fixed z-50 w-full max-w-lg -translate-x-1/2 bottom-4 left-1/2">
-      <div className="grid h-16 grid-cols-3 mx-auto bg-neutral-primary-soft border-[1px] border-gray-200 rounded-full">
+    <div className={`fixed z-50 w-full max-w-lg -translate-x-1/2 ${isIOS ? 'bottom-0' : 'bottom-4'} left-1/2`} >
+      <div className="grid h-16 grid-cols-3 mx-auto bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-full">
         <style>{`
           .bottom-tab-icon {
             transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
