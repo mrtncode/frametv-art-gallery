@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
-import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowUpTrayIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
 
 interface TV {
   ip: string;
@@ -160,6 +160,15 @@ const ImageCard: React.FC<ImageCardProps> = ({
             </button>
           </div>
           {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
+        </div>
+      )}
+
+      {tvs.length === 0 && (large || showControls) && (
+        <div className="w-full bg-gray-50 border-t px-3 py-2 text-xs text-gray-500 flex gap-1">
+          <ExclamationCircleIcon className="h-6 w-6 inline-block mr-1" strokeWidth={1.8} />
+
+          No TVs found. Make sure your TV is on and connected to the same network. <br />
+          If you have not yet connected any TVs, go to the Settings page to add one.
         </div>
       )}
     </div>
