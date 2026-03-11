@@ -22,15 +22,23 @@ class TV(db.Model):
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
     delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
 
+    uploaded_images = db.relationship(
+        'UploadedImage',
+        back_populates='tv',
+        lazy=True,
+        cascade='all, delete-orphan'
+    )
+
 class UploadedImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     image_id = db.Column(db.Integer, db.ForeignKey('image.id'), nullable=False)
-    tv_id = db.Column(db.Integer, db.ForeignKey('tv.id'), nullable=False)
+    # ensure database-level cascade as well
+    tv_id = db.Column(db.Integer, db.ForeignKey('tv.id', ondelete='CASCADE'), nullable=False)
     content_id = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
 
     image = db.relationship('Image', backref='uploaded_images')
-    tv = db.relationship('TV', backref='uploaded_images')
+    tv = db.relationship('TV', back_populates='uploaded_images')
 
 class ProviderConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
