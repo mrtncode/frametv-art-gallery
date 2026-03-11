@@ -20,7 +20,20 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-        # Login to GHCR
+
+      # build frontend
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 20
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
       - name: Log in to the Container registry
         uses: docker/login-action@v3.7.0
         with:
@@ -59,4 +72,3 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
-      
