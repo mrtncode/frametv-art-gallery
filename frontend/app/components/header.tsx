@@ -2,7 +2,7 @@ import React from 'react'
 
 import { useLocation } from "react-router";
 
-const VERSION = "v1.0.0";
+const VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 
 const pageNames: { [key: string]: string } = {
   "/": "Home",
