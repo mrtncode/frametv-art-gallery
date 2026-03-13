@@ -39,6 +39,7 @@ You can use any kind of image! Either upload your own personal photos or import 
   <img alt="Screenshot 2" src="docs/Screenshot2.png" width="300" />
   <img alt="Screenshot 3" src="docs/Screenshot3.png" width="300" />
 </p>
+Example images from https://pixabay.com/
 
 # Installation
 
