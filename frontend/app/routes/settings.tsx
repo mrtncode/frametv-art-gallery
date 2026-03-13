@@ -269,11 +269,15 @@ export default function Settings() {
               />
               <span>Enable Immich</span>
             </label>
-            <div className="flex gap-2 mt-2">
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-900" disabled={providerSaving}>
+            <div
+              className={`flex flex-wrap gap-2 mt-2 ${
+              window.innerWidth < 640 ? 'flex-col items-center' : ''
+              }`}
+            >
+              <Button type="submit" className={`bg-blue-600 hover:bg-blue-900 ${window.innerWidth < 640 ? 'w-[90%] mx-auto' : ''}`} disabled={providerSaving} >
                 {providerSaving ? 'Saving…' : 'Save Immich Config'}
               </Button>
-              <Button type="button" className="bg-gray-300 text-gray-700" onClick={handleDeleteImmich} disabled={providerSaving}>
+              <Button type="button" className={`bg-gray-300 text-gray-700 ${window.innerWidth < 640 ? 'w-[90%] mx-auto' : ''}`}  onClick={handleDeleteImmich} disabled={providerSaving}>
                 Delete Config
               </Button>
             </div>

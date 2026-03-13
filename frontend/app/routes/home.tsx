@@ -119,7 +119,7 @@ export default function Home() {
       </div>
 
       <section>
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">Featured Artworks</h2>
+        <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-800">Featured Artworks</h2>
         {loading ? (
           <div className="text-center text-gray-400">Loading images...</div>
         ) : images.length === 0 ? (
