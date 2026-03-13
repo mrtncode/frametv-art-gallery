@@ -6,11 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY requirements.txt .
+
+COPY pyproject.toml README.md ./
+
+COPY . .
 
 # Upgrade pip and install dependencies into custom prefix
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir --prefix=/install -r requirements.txt
+    && pip install --no-cache-dir --prefix=/install .
 
 
 # ---------- Runtime ----------

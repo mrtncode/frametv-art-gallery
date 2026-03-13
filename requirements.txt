@@ -1,8 +1,0 @@
-Flask
-Werkzeug
-samsungtvws
-gunicorn
-flask_sqlalchemy
-python-dotenv
-Flask-Migrate
-flask-cors

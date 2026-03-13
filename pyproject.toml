@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frametv-art-gallery"
+version = "0.1.0"
+description = "Self-hosted gallery manager for Samsung Frame TVs"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "AGPL-3.0-or-later" }
+authors = [ { name = "mrtncode" } ]
+
+dependencies = [
+    "Flask",
+    "Werkzeug",
+    "samsungtvws==3.0.4",
+    "gunicorn",
+    "flask_sqlalchemy",
+    "python-dotenv",
+    "Flask-Migrate",
+    "flask-cors",
+]
