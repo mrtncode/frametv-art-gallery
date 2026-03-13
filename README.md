@@ -23,6 +23,13 @@ frametv-art-gallery is an unofficial, fun, open-source project and is **not affi
 
 This project uses local websocket APIs provided by the TVs.
 
+> ⚠️ **Security Warning:** This application does **not** implement authentication, authorization, or other hardening controls. It is intended for **private, local network use only**.
+>
+> - Do **not** expose this service to the public internet.
+> - Do **not** run it on a publicly reachable IP/host without adding your own security layer (VPN, reverse proxy auth, firewall rules, etc.).
+> - If you want to access it remotely, put it behind a secure tunnel or VPN and ensure only trusted devices can reach it.
+
+
 ## Images
 You can use any kind of image! Either upload your own personal photos or import them from Immich. Or download copyright-free artwork from the internet and import it into Frame TV Gallery.
 
