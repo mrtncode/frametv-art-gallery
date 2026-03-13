@@ -179,7 +179,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
 
       {onDelete && image?.type === "local" && (
         <button
-          className="flex-1 bg-red-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+          className="flex-1 mb-1 mt-2 bg-red-600 text-white text-xs px-2 py-1.5 mx-2 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
           onClick={async e => { e.stopPropagation(); await handleDelete(); }}
           disabled={deleteLoading}
         >
