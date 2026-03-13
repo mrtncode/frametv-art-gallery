@@ -187,38 +187,50 @@ export default function Gallery() {
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
+          <div className="flex flex-col md:flex-row gap-8 mb-8">
+            {/* Upload Image Form */}
+            <div className="flex-1 bg-white rounded-lg shadow p-6">
+              <h4 className="text-lg font-semibold mb-4">Upload Image</h4>
+              <form onSubmit={handleUpload} className="flex flex-col gap-3">
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg"
+                  onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                  className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  disabled={uploading}
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-medium"
+                  disabled={uploading || !uploadFile}
+                >
+                  {uploading ? "Uploading…" : "Upload Image"}
+                </button>
+                {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+              </form>
+            </div>
 
-          {/* Local Upload and Albums Section */}
-          <div className="mb-4">
-            <form onSubmit={handleUpload} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/jpg"
-                onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                className="border px-2 py-1 rounded w-full sm:w-auto"
-                disabled={uploading}
-              />
-              <button
-                type="submit"
-                className="bg-blue-600 text-white px-3 py-1 rounded w-full sm:w-auto"
-                disabled={uploading || !uploadFile}
-              >{uploading ? "Uploading…" : "Upload Image"}</button>
-            </form>
-            {error && <div className="text-red-500 mt-1">{error}</div>}
-          </div>
-
-          <div className="mb-8">
-            <form onSubmit={handleCreateAlbum} className="flex gap-2 items-center">
-              <input
-                type="text"
-                value={albumName}
-                onChange={e => setAlbumName(e.target.value)}
-                placeholder="New album name"
-                className="border px-2 py-1 rounded"
-              />
-              <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded">Create Album</button>
-            </form>
-            {error && <div className="text-red-500 mt-1">{error}</div>}
+            {/* Create Album Form */}
+            <div className="flex-1 bg-white rounded-lg shadow p-6">
+              <h4 className="text-lg font-semibold mb-4">Create Album</h4>
+              <form onSubmit={handleCreateAlbum} className="flex flex-col gap-3">
+                <input
+                  type="text"
+                  value={albumName}
+                  onChange={e => setAlbumName(e.target.value)}
+                  placeholder="New album name"
+                  className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                />
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-medium"
+                  disabled={creating || !albumName.trim()}
+                >
+                  {creating ? "Creating…" : "Create Album"}
+                </button>
+                {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+              </form>
+            </div>
           </div>
 
           <h3 className="text-xl font-semibold mb-2">Uploaded Images</h3>
