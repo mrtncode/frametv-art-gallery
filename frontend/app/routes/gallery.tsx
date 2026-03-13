@@ -176,6 +176,7 @@ export default function Gallery() {
       await uploadImage(uploadFile);
       await loadLocalGallery();
       setUploadFile(null);
+      setUploading(false)
     } catch (e: any) {
       setError(e.message || "Failed to upload");
       setUploading(false);
