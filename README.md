@@ -33,6 +33,13 @@ This project uses local websocket APIs provided by the TVs.
 ## Images
 You can use any kind of image! Either upload your own personal photos or import them from Immich. Or download copyright-free artwork from the internet and import it into Frame TV Gallery.
 
+### Screenshots
+<p align="center">
+  <img alt="Screenshot 1" src="docs/Screenshot1.png" width="300" />
+  <img alt="Screenshot 2" src="docs/Screenshot2.png" width="300" />
+  <img alt="Screenshot 3" src="docs/Screenshot3.png" width="300" />
+</p>
+
 # Installation
 
 ## Docker
