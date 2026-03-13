@@ -129,6 +129,29 @@ def api_images_added_this_month():
     return {'count': count}
 
 
+@app.route('/api/images/<filename>', methods=['DELETE'])
+def api_delete_image(filename):
+    if os.path.basename(filename) != filename:
+        return {'error': 'Invalid filename'}, 400
+
+    image = Image.query.filter_by(filename=filename).first()
+    if not image:
+        return {'error': 'Image not found'}, 404
+
+    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    except Exception as e:
+        print(f"Failed to delete file {file_path}: {e}")
+
+    UploadedImage.query.filter_by(image_id=image.id).delete()
+
+    db.session.delete(image)
+    db.session.commit()
+    return {'success': True}
+
+
 # Album API
 @app.route('/api/albums', methods=['GET'])
 def api_list_albums():
@@ -183,7 +206,7 @@ def api_delete_album(album_name):
 
 
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload():
     """ Upload image to the gallery """
     if 'file' not in request.files:

@@ -1,7 +1,7 @@
 
 
 import React, { useEffect, useState } from "react";
-import { fetchImages, fetchAlbums, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, getUploadUrl } from "../utils/galleryApi";
+import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, getUploadUrl } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
@@ -150,6 +150,19 @@ export default function Gallery() {
     }
   }
 
+  async function handleDeleteImage(image: any) {
+    setLoading(true);
+    setError("");
+    try {
+      await deleteImage(image.filename);
+      await loadLocalGallery();
+    } catch (e: any) {
+      setError(e.message || "Failed to delete image");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // --- Upload Button State and Handler ---
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File|null>(null);
@@ -160,15 +173,7 @@ export default function Gallery() {
     setUploading(true);
     setError("");
     try {
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-      const res = await fetch("/upload", {
-        method: "POST",
-        body: formData,
-      });
-      if (!res.ok) {
-        throw new Error("Upload failed");
-      }
+      await uploadImage(uploadFile);
       await loadLocalGallery();
       setUploadFile(null);
     } catch (e: any) {
@@ -221,7 +226,10 @@ export default function Gallery() {
             <div>Loading...</div>
           ) : (
             <div className="mb-8">
-              <ImageGrid images={images} onImageClick={img => setModal({ type: 'image', data: img })} />
+              <ImageGrid
+                images={images}
+                onImageClick={img => setModal({ type: 'image', data: img })}
+              />
             </div>
           )}
           <div className="space-y-4">
@@ -302,6 +310,7 @@ export default function Gallery() {
                         image={imgObj}
                         large
                         showControls={true}
+                        onDelete={() => handleDeleteImage(imgObj)}
                       />
                     </>
                   );

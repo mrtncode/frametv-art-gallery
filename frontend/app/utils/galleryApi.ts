@@ -25,6 +25,14 @@ export async function fetchImages() {
   return (await res.json()).images;
 }
 
+export async function deleteImage(filename: string) {
+  const res = await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete image');
+  return await res.json();
+}
+
 export async function fetchImagesAddedThisMonth() {
   const res = await fetch(`${API_BASE}/api/images/added_this_month`);
   if (!res.ok) throw new Error('Failed to fetch monthly image count');
@@ -35,6 +43,19 @@ export async function fetchAlbums() {
   const res = await fetch(`${API_BASE}/api/albums`);
   if (!res.ok) throw new Error('Failed to fetch albums');
   return (await res.json()).albums;
+}
+
+export async function uploadImage(file: File) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_BASE}/api/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to upload image');
+
+  return await res.json();
 }
 
 export async function createAlbum(name: string) {

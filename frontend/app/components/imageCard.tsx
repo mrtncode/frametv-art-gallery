@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
-import { ArrowUpTrayIcon, ExclamationCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
 
 interface TV {
   ip: string;
@@ -15,6 +15,7 @@ interface ImageCardProps {
   filename?: string;
   image?: any;
   onClick?: () => void;
+  onDelete?: () => void;
   /** if `large` the card uses a bigger image height (useful inside modals) */
   large?: boolean;
   /** when true, TV controls are shown regardless of size (useful for tests) */
@@ -28,12 +29,14 @@ const ImageCard: React.FC<ImageCardProps> = ({
   image,
   onClick,
   large,
-  showControls
+  showControls,
+  onDelete
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
   const [tvs, setTvs] = useState<TV[]>([]);
   const [tvLoading, setTvLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // fetch TV list once when mounted
   useEffect(() => {
@@ -77,6 +80,19 @@ const ImageCard: React.FC<ImageCardProps> = ({
     }
   };
 
+  const handleDelete = async () => {
+    if (!onDelete) return;
+    setDeleteLoading(true);
+    setError("");
+    try {
+      await onDelete();
+    } catch (e: any) {
+      setError(e.message || "Failed to delete image");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const handleTvPowerOn = async () => {
     if (!selectedTvIp) {
       setError("Select a TV");
@@ -101,9 +117,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
         (large ? 'col-span-2' : '')
       }
     >
-      <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` +
-                     (large ? 'h-72' : 'h-48')}
-      >
+      <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-48')} >
         <img
           src={src}
           alt={alt}
@@ -161,6 +175,17 @@ const ImageCard: React.FC<ImageCardProps> = ({
           </div>
           {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
         </div>
+      )}
+
+      {onDelete && image?.type === "local" && (
+        <button
+          className="flex-1 bg-red-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
+          onClick={async e => { e.stopPropagation(); await handleDelete(); }}
+          disabled={deleteLoading}
+        >
+          {deleteLoading ? 'Deleting…' : 'Delete'}
+          <TrashIcon className="h-4 w-4" />
+        </button>
       )}
 
       {tvs.length === 0 && (large || showControls) && (
