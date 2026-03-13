@@ -21,3 +21,6 @@ dependencies = [
     "Flask-Migrate",
     "flask-cors",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
