@@ -118,13 +118,6 @@ export default function Home() {
         ))}
       </div>
 
-      <section className="mb-8 mt-10">
-        <h2 className="text-2xl font-semibold mb-4 text-gray-800">General Information</h2>
-        <ul className="list-disc pl-6 text-gray-700 space-y-2">
-          <li>Upload your own images to share</li>
-          <li>Connect your Frame TV for seamless display</li>
-        </ul>
-      </section>
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-gray-800">Featured Artworks</h2>
         {loading ? (
