@@ -39,6 +39,16 @@ export async function fetchImagesAddedThisMonth() {
   return (await res.json()).count;
 }
 
+export async function cropImage(filename: string, x: number, y: number, width: number, height: number) {
+  const res = await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}/crop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ x, y, width, height }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to crop image');
+  return (await res.json());
+}
+
 export async function fetchAlbums() {
   const res = await fetch(`${API_BASE}/api/albums`);
   if (!res.ok) throw new Error('Failed to fetch albums');

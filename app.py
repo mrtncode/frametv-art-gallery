@@ -13,6 +13,11 @@ import importlib
 from media_provider_routes import media_provider_routes
 from provider_config_routes import provider_config_routes
 
+try:
+    from PIL import Image as PILImage
+except ImportError:
+    PILImage = None
+
 # Load environment variables from .env if present
 try:
     from dotenv import load_dotenv
@@ -150,6 +155,55 @@ def api_delete_image(filename):
     db.session.delete(image)
     db.session.commit()
     return {'success': True}
+
+
+@app.route('/api/images/<filename>/crop', methods=['POST'])
+def api_crop_image(filename):
+    if PILImage is None:
+        return {'error': 'Pillow library not installed, install with `pip install Pillow`'}, 500
+
+    if os.path.basename(filename) != filename:
+        return {'error': 'Invalid filename'}, 400
+
+    data = request.get_json(silent=True) or {}
+    x = data.get('x')
+    y = data.get('y')
+    width = data.get('width')
+    height = data.get('height')
+
+    if x is None or y is None or width is None or height is None:
+        return {'error': 'x, y, width, height are required'}, 400
+
+    try:
+        x = int(x)
+        y = int(y)
+        width = int(width)
+        height = int(height)
+    except (TypeError, ValueError):
+        return {'error': 'x, y, width, height must be integers'}, 400
+
+    if width <= 0 or height <= 0 or x < 0 or y < 0:
+        return {'error': 'Invalid crop dimensions'}, 400
+
+    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    if not os.path.exists(image_path):
+        return {'error': 'Image not found'}, 404
+
+    try:
+        with PILImage.open(image_path) as img:
+            img_w, img_h = img.size
+            if x + width > img_w or y + height > img_h:
+                return {'error': 'Crop rectangle is outside image bounds'}, 400
+
+            cropped = img.crop((x, y, x + width, y + height))
+            if img.format == 'JPEG':
+                cropped.save(image_path, format='JPEG', quality=95)
+            else:
+                cropped.save(image_path)
+
+        return {'success': True}
+    except Exception as e:
+        return {'error': f'Failed to crop image: {e}'}, 500
 
 
 # Album API
