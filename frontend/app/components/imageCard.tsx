@@ -1,10 +1,9 @@
 
-import React, { useState, useEffect, useRef } from "react";
-import Cropper from "react-cropper";
-import "cropperjs/dist/cropper.css";
+import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
-import { deleteImage as deleteImageApi, cropImage } from "../utils/galleryApi";
-import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { deleteImage as deleteImageApi } from "../utils/galleryApi";
+import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
+import CropImageModal from "./CropImageModal";
 
 interface TV {
   ip: string;
@@ -42,22 +41,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const [tvs, setTvs] = useState<TV[]>([]);
   const [tvLoading, setTvLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
   const [showCropModal, setShowCropModal] = useState(false);
-  const [cropperInstance, setCropperInstance] = useState<any>(null);
-  const [cropPreset, setCropPreset] = useState('');
-  const [cropActionLoading, setCropActionLoading] = useState(false);
-  const [cropMessage, setCropMessage] = useState('');
   const [imageURL, setImageURL] = useState(src);
-  const cropperRef = useRef<any>(null);
 
-  const cropPresets = [
-    { label: '640x480', width: 640, height: 480 },
-    { label: '800x600', width: 800, height: 600 },
-    { label: '1024x768', width: 1024, height: 768 },
-    { label: '1280x960', width: 1280, height: 960 },
-    { label: '1920x1080', width: 1920, height: 1080 },
-  ];
+  const isLocalImage = image?.type === 'local' || !image?.type;
 
   // fetch TV list once when mounted
   useEffect(() => {
@@ -118,40 +105,6 @@ const ImageCard: React.FC<ImageCardProps> = ({
     }
   };
 
-  const handleCrop = async () => {
-    if (!image?.filename || !cropperInstance) return;
-    setCropActionLoading(true);
-    setCropMessage('');
-    try {
-      const data = cropperInstance.getData(true);
-      const x = Math.max(0, Math.round(data.x));
-      const y = Math.max(0, Math.round(data.y));
-      const width = Math.max(1, Math.round(data.width));
-      const height = Math.max(1, Math.round(data.height));
-
-      const res = await cropImage(image.filename, x, y, width, height);
-      if (!res.success) throw new Error((res as any).error || 'Crop failed');
-
-      const cacheBustedUrl = `${src}${src.includes('?') ? '&' : '?'}cb=${Date.now()}`;
-      setImageURL(cacheBustedUrl);
-      setCropMessage('Crop applied successfully.');
-      setShowCropModal(false);
-      onCrop?.();
-    } catch (e: any) {
-      setCropMessage(e.message || 'Failed to crop image');
-    } finally {
-      setCropActionLoading(false);
-    }
-  };
-
-  const applyCropPreset = (width: number, height: number) => {
-    if (!cropperInstance) return;
-    const canvasData = cropperInstance.getCanvasData();
-    const left = Math.max(0, (canvasData.naturalWidth - width) / 2);
-    const top = Math.max(0, (canvasData.naturalHeight - height) / 2);
-    cropperInstance.setCropBoxData({ left, top, width, height });
-  };
-
   const handleTvPowerOn = async () => {
     if (!selectedTvIp) {
       setError("Select a TV");
@@ -183,9 +136,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
             alt={alt}
             className={`max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105 cursor-pointer`}
             onClick={() => {
-            setShowCropModal(true);
-            onClick?.();
-          }}
+              if (isLocalImage) {
+                setShowCropModal(true);
+              }
+              onClick?.();
+            }}
           />
         </div>
       {filename && (
@@ -193,10 +148,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
           {filename}
         </div>
       )}
-      {image?.type === 'local' && (
+      {isLocalImage && (
         <button
           className="mt-2 mx-2 mb-1 text-xs text-indigo-700 hover:text-indigo-900"
-          onClick={() => { setShowCropModal(true); setCropMessage(''); }}
+          onClick={() => setShowCropModal(true)}
         >
           Crop Image
         </button>
@@ -247,7 +202,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
         </div>
       )}
 
-      {onDelete && image?.type === "local" && (
+      {onDelete && isLocalImage && (
         <button
           className="flex-1 mb-1 mt-2 bg-red-600 text-white text-xs px-2 py-1.5 mx-2 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
           onClick={async e => { e.stopPropagation(); await handleDelete(); }}
@@ -258,78 +213,18 @@ const ImageCard: React.FC<ImageCardProps> = ({
         </button>
       )}
 
-      {showCropModal && image?.type === 'local' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-4xl rounded-lg bg-white shadow-lg overflow-hidden">
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <h3 className="text-lg font-semibold">Crop Image: {filename}</h3>
-              <button onClick={() => setShowCropModal(false)} className="text-gray-700 hover:text-black">
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-4">
-              <div className="rounded overflow-hidden border" style={{ height: 350 }}>
-                <Cropper
-                  src={imageURL}
-                  style={{ height: "100%", width: "100%" }}
-                  aspectRatio={16 / 9}
-                  guides={true}
-                  viewMode={1}
-                  background={false}
-                  zoomable={true}
-                  responsive={true}
-                  autoCropArea={0.9}
-                  checkOrientation={false}
-                  onInitialized={(instance: any) => setCropperInstance(instance)}
-                  ref={cropperRef}
-                />
-              </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Presets</label>
-                  <select
-                    value={cropPreset}
-                    onChange={e => {
-                      const selected = cropPresets.find(p => p.label === e.target.value);
-                      setCropPreset(e.target.value);
-                      if (selected) {
-                        applyCropPreset(selected.width, selected.height);
-                      }
-                    }}
-                    className="w-full border rounded px-2 py-1"
-                  >
-                    <option value="">Auto</option>
-                    {cropPresets.map(opt => (
-                      <option key={opt.label} value={opt.label}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 bg-indigo-600 text-white rounded px-4 py-2 hover:bg-indigo-700"
-                    onClick={handleCrop}
-                    disabled={cropActionLoading}
-                  >
-                    {cropActionLoading ? 'Cropping…' : 'Apply Crop'}
-                  </button>
-                  <button
-                    className="flex-1 bg-gray-200 text-gray-800 rounded px-4 py-2 hover:bg-gray-300"
-                    onClick={() => {
-                      cropperInstance?.reset();
-                      setCropMessage('');
-                    }}
-                  >
-                    Reset
-                  </button>
-                </div>
-
-                {cropMessage && <div className="text-sm text-green-600">{cropMessage}</div>}
-              </div>
-            </div>
-          </div>
-        </div>
+      {showCropModal && isLocalImage && (
+        <CropImageModal
+          isOpen={showCropModal}
+          imageUrl={imageURL}
+          filename={filename || "image"}
+          onClose={() => setShowCropModal(false)}
+          onCropSuccess={(newUrl) => {
+            setImageURL(newUrl);
+            setShowCropModal(false);
+            onCrop?.();
+          }}
+        />
       )}
 
       {tvs.length === 0 && (large || showControls) && (

@@ -1,7 +1,7 @@
 // API service for gallery and albums
 
-// Configure seperate backend url via VITE_API_URL in .env. Otherwise leave it blank so that requests stay relative when served by Flask.
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// Configure separate backend URL via VITE_API_URL in .env. Otherwise use the page's origin (works when Flask serves frontend from same host).
+const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 // --- Provider (Immich/other) API ---
 export async function fetchProviderAlbums() {

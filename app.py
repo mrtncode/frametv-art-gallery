@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
+from utils.crop_image import crop_image_file, CropImageError
 from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
@@ -65,6 +66,14 @@ try:
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 except ImportError:
     pass
+
+# Fallback CORS headers for any route, so front-end dev or production can call /api and /uploads without CORS blocking.
+@app.after_request
+def add_cors_headers(response):
+    response.headers.setdefault('Access-Control-Allow-Origin', '*')
+    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.setdefault('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS,PUT,PATCH,DELETE')
+    return response
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -159,50 +168,35 @@ def api_delete_image(filename):
 
 @app.route('/api/images/<filename>/crop', methods=['POST'])
 def api_crop_image(filename):
-    if PILImage is None:
-        return {'error': 'Pillow library not installed, install with `pip install Pillow`'}, 500
-
+    """Crop an image using the crop_image utility."""
+    # Validate filename to prevent path traversal
     if os.path.basename(filename) != filename:
         return {'error': 'Invalid filename'}, 400
 
+    # Get crop parameters from request
     data = request.get_json(silent=True) or {}
     x = data.get('x')
     y = data.get('y')
     width = data.get('width')
     height = data.get('height')
 
-    if x is None or y is None or width is None or height is None:
-        return {'error': 'x, y, width, height are required'}, 400
-
-    try:
-        x = int(x)
-        y = int(y)
-        width = int(width)
-        height = int(height)
-    except (TypeError, ValueError):
-        return {'error': 'x, y, width, height must be integers'}, 400
-
-    if width <= 0 or height <= 0 or x < 0 or y < 0:
-        return {'error': 'Invalid crop dimensions'}, 400
-
+    # Build full image path
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    if not os.path.exists(image_path):
-        return {'error': 'Image not found'}, 404
 
     try:
-        with PILImage.open(image_path) as img:
-            img_w, img_h = img.size
-            if x + width > img_w or y + height > img_h:
-                return {'error': 'Crop rectangle is outside image bounds'}, 400
-
-            cropped = img.crop((x, y, x + width, y + height))
-            if img.format == 'JPEG':
-                cropped.save(image_path, format='JPEG', quality=95)
-            else:
-                cropped.save(image_path)
-
+        # Use the crop_image utility function
+        crop_image_file(image_path, x, y, width, height)
         return {'success': True}
+    except FileNotFoundError:
+        return {'error': 'Image not found'}, 404
+    except ValueError as e:
+        # This includes validation errors from the utility
+        return {'error': str(e)}, 400
+    except CropImageError as e:
+        # Custom crop errors
+        return {'error': str(e)}, 400
     except Exception as e:
+        # Unexpected errors
         return {'error': f'Failed to crop image: {e}'}, 500
 
 
