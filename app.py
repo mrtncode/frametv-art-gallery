@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
-from utils.crop_image import crop_image_file, CropImageError
+from utils.crop_image import crop_image_file, CropImageError, get_preset_crop_box, CROP_PRESETS
 from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
@@ -168,36 +168,53 @@ def api_delete_image(filename):
 
 @app.route('/api/images/<filename>/crop', methods=['POST'])
 def api_crop_image(filename):
-    """Crop an image using the crop_image utility."""
+    """Crop an image using direct coordinates or a preset.
+    
+    Accepts one of:
+    - Direct crop: {x, y, width, height}
+    - Preset crop: {preset: "640x480"}
+    """
     # Validate filename to prevent path traversal
     if os.path.basename(filename) != filename:
         return {'error': 'Invalid filename'}, 400
 
     # Get crop parameters from request
     data = request.get_json(silent=True) or {}
-    x = data.get('x')
-    y = data.get('y')
-    width = data.get('width')
-    height = data.get('height')
-
-    # Build full image path
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
 
     try:
-        # Use the crop_image utility function
+        # Check if using preset-based crop
+        if 'preset' in data:
+            preset_name = data.get('preset')
+            x, y, width, height = get_preset_crop_box(image_path, preset_name)
+        else:
+            # Use direct coordinates
+            x = data.get('x')
+            y = data.get('y')
+            width = data.get('width')
+            height = data.get('height')
+        
+        # Perform the crop
         crop_image_file(image_path, x, y, width, height)
         return {'success': True}
     except FileNotFoundError:
         return {'error': 'Image not found'}, 404
     except ValueError as e:
-        # This includes validation errors from the utility
         return {'error': str(e)}, 400
     except CropImageError as e:
-        # Custom crop errors
         return {'error': str(e)}, 400
     except Exception as e:
-        # Unexpected errors
         return {'error': f'Failed to crop image: {e}'}, 500
+
+
+@app.route('/api/crop-presets', methods=['GET'])
+def api_get_crop_presets():
+    """Get available crop presets."""
+    presets = [
+        {'id': name, 'label': info['label'], 'width': info['width'], 'height': info['height']}
+        for name, info in CROP_PRESETS.items()
+    ]
+    return {'presets': presets}
 
 
 # Album API

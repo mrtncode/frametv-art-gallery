@@ -39,11 +39,31 @@ export async function fetchImagesAddedThisMonth() {
   return (await res.json()).count;
 }
 
-export async function cropImage(filename: string, x: number, y: number, width: number, height: number) {
+export async function cropImage(
+  filename: string,
+  x?: number,
+  y?: number,
+  width?: number,
+  height?: number,
+  preset?: string
+) {
+  const body: any = {};
+  
+  if (preset) {
+    body.preset = preset;
+  } else if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+    body.x = x;
+    body.y = y;
+    body.width = width;
+    body.height = height;
+  } else {
+    throw new Error('Must provide either preset or x, y, width, height');
+  }
+  
   const res = await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}/crop`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ x, y, width, height }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to crop image');
   return (await res.json());

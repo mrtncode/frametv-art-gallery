@@ -48,31 +48,40 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
     setCropMessage('');
 
     try {
-      const cropper = cropperRef.current.cropper;
-      const imageData = cropper.getImageData();
-      const cropBox = cropper.getCropBoxData();
+      let res;
 
-      if (!imageData || !cropBox) {
-        setCropMessage('Cannot read crop area. Please try again.');
-        return;
+      // If a preset is selected, use backend preset calculation
+      if (cropPreset) {
+        console.log('Crop request (preset):', { preset: cropPreset });
+        res = await cropImage(filename, undefined, undefined, undefined, undefined, cropPreset);
+      } else {
+        // Use direct coordinates from crop box
+        const cropper = cropperRef.current.cropper;
+        const imageData = cropper.getImageData();
+        const cropBox = cropper.getCropBoxData();
+
+        if (!imageData || !cropBox) {
+          setCropMessage('Cannot read crop area. Please try again.');
+          return;
+        }
+
+        const scaleX = imageData.naturalWidth / imageData.width;
+        const scaleY = imageData.naturalHeight / imageData.height;
+
+        const x = Math.max(0, Math.round((cropBox.left - imageData.left) * scaleX));
+        const y = Math.max(0, Math.round((cropBox.top - imageData.top) * scaleY));
+        const width = Math.max(1, Math.round(cropBox.width * scaleX));
+        const height = Math.max(1, Math.round(cropBox.height * scaleY));
+
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) {
+          setCropMessage('Crop coordinates are invalid. Try adjusting the crop area.');
+          return;
+        }
+
+        console.log('Crop request (direct):', { x, y, width, height });
+        res = await cropImage(filename, x, y, width, height);
       }
 
-      const scaleX = imageData.naturalWidth / imageData.width;
-      const scaleY = imageData.naturalHeight / imageData.height;
-
-      const x = Math.max(0, Math.round((cropBox.left - imageData.left) * scaleX));
-      const y = Math.max(0, Math.round((cropBox.top - imageData.top) * scaleY));
-      const width = Math.max(1, Math.round(cropBox.width * scaleX));
-      const height = Math.max(1, Math.round(cropBox.height * scaleY));
-
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(width) || !Number.isFinite(height)) {
-        setCropMessage('Crop coordinates are invalid. Try adjusting the crop area.');
-        return;
-      }
-
-      console.log('Crop request:', { x, y, width, height });
-
-      const res = await cropImage(filename, x, y, width, height);
       if (!res.success) throw new Error((res as any).error || 'Crop failed');
 
       const cacheBustedUrl = `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}cb=${Date.now()}`;
