@@ -32,9 +32,6 @@ export default function Gallery() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
-  const [modal, setModal] = useState<{ type: 'image'|'album'; data: any }|null>(null);
-
-
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -241,14 +238,19 @@ export default function Gallery() {
             <div className="mb-8">
               <ImageGrid
                 images={images}
-                onImageClick={img => setModal({ type: 'image', data: img })}
               />
             </div>
           )}
           <div className="space-y-4">
             {albums.length === 0 && <div className="text-gray-500">No albums yet.</div>}
             {albums.map(album => (
-              <AlbumCard key={album.id} album={album} loadLocalGallery={loadLocalGallery} setError={setError} />
+              <AlbumCard
+                key={album.id}
+                album={album}
+                loadLocalGallery={loadLocalGallery}
+                setError={setError}
+                onImageClick={_img => undefined}
+              />
             ))}
           </div>
 
@@ -278,7 +280,7 @@ export default function Gallery() {
                     src={getProviderImageStreamUrl(img.id, "fullsize")}
                     alt={img.filename}
                     filename={img.filename}
-                    onClick={() => setModal({ type: 'image', data: img })}
+
                     image={img}
                     showControls={false}
                   />
@@ -297,53 +299,6 @@ export default function Gallery() {
               )}
             </>
           )}
-
-          {/* Modal Popup - always rendered */}
-          {modal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-6 min-w-[70vwpx] max-w-[90vw] relative">
-                <button
-                  className="absolute top-2 right-2 text-gray-500 hover:text-black text-xl"
-                  onClick={() => setModal(null)}
-                  aria-label="Close"
-                >×</button>
-                {modal.type === 'image' && (() => {
-                  const imgObj: GalleryImage = modal.data;
-                  let imgSrc = imgObj.type === "local"
-                    ? getUploadUrl(imgObj.filename)
-                    : getProviderImageStreamUrl(imgObj.id, "fullsize");
-                  let imgAlt = imgObj.filename;
-                  let filename = imgObj.filename;
-                  return (
-                    <>
-                      <ImageCard
-                        src={imgSrc}
-                        alt={imgAlt}
-                        filename={filename}
-                        image={imgObj}
-                        large
-                        showControls={true}
-                        onDelete={() => handleDeleteImage(imgObj)}
-                      />
-                    </>
-                  );
-                })()}
-                {modal.type === 'album' && (
-                  <>
-                    <div className="text-lg font-bold mb-2">{modal.data.name}</div>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                      {Array.isArray(modal.data.images) && modal.data.images.length === 0 && <span className="text-gray-400">No images</span>}
-                      {Array.isArray(modal.data.images) && modal.data.images.map((img: string) => (
-                        <img key={img} src={getUploadUrl(img)} alt={img} className="w-16 h-16 object-cover rounded border" />
-                      ))}
-                    </div>
-                    {/* TV controls and info can go here */}
-                    <div className="mt-4 text-center text-gray-500">TV controls coming soon…</div>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
         </div>
       );
-    }
+}

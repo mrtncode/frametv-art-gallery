@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
-import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { deleteImage as deleteImageApi } from "../utils/galleryApi";
+import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import CropImageModal from "./CropImageModal";
 
 interface TV {
   ip: string;
@@ -16,6 +18,7 @@ interface ImageCardProps {
   image?: any;
   onClick?: () => void;
   onDelete?: () => void;
+  onCrop?: () => void;
   /** if `large` the card uses a bigger image height (useful inside modals) */
   large?: boolean;
   /** when true, TV controls are shown regardless of size (useful for tests) */
@@ -28,20 +31,30 @@ const ImageCard: React.FC<ImageCardProps> = ({
   filename,
   image,
   onClick,
+  onDelete,
+  onCrop,
   large,
-  showControls,
-  onDelete
+  showControls
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
   const [tvs, setTvs] = useState<TV[]>([]);
   const [tvLoading, setTvLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [showControlsModal, setShowControlsModal] = useState(false);
+  const [imageURL, setImageURL] = useState(src);
+
+  const isLocalImage = image?.type === 'local' || !image?.type;
 
   // fetch TV list once when mounted
   useEffect(() => {
     getTvs().then(setTvs).catch(() => setTvs([]));
   }, []);
+
+  useEffect(() => {
+    setImageURL(src);
+  }, [src]);
 
   const handleSendToTV = async () => {
     if (!selectedTvIp) {
@@ -111,92 +124,156 @@ const ImageCard: React.FC<ImageCardProps> = ({
   };
 
   return (
-    <div
-      className={
-        `group relative flex flex-col overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
-        (large ? 'col-span-2' : '')
-      }
-    >
-      <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-48')} >
-        <img
-          src={src}
-          alt={alt}
-          className={`max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105`
-            + (onClick ? ' cursor-pointer' : '')}
-          onClick={onClick}
-        />
-      </div>
+    <>
+      <div
+        className={
+          `group relative flex flex-col overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
+          (large ? 'col-span-2' : '')
+        }
+      >
+        <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-52')} >
+          <img
+            src={imageURL}
+            alt={alt}
+            className={`max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105 cursor-pointer`}
+            onClick={() => {
+              setShowControlsModal(true);
+              onClick?.();
+            }}
+          />
+        </div>
       {filename && (
         <div className="px-2 py-1 text-xs text-gray-600 truncate" title={filename}>
           {filename}
         </div>
       )}
-
-      {tvs.length > 0 && (large || showControls) && (
-        <div className="w-full bg-gray-50 border-t px-3 py-2 space-y-2">
-          <div>
-            <select
-              className="border px-2 py-1 rounded w-full text-xs"
-              value={selectedTvIp}
-              onChange={e => setSelectedTvIp(e.target.value)}
-              disabled={tvLoading}
-            >
-              <option value="">-- Select TV --</option>
-              {tvs.map(tv => (
-                <option key={tv.ip} value={tv.ip}>
-                  {tv.name || tv.ip}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-wrap gap-1">
-          <button
-            className="w-full bg-blue-600 text-white text-xs py-2.5 rounded-4xl disabled:opacity-50 flex items-center justify-center px-4 gap-2 mb-1.5"
-            onClick={async e => { e.stopPropagation(); await handleSendToTV(); }}
-            disabled={tvLoading || !selectedTvIp}
-          >
-            {tvLoading ? 'Uploading…' : 'Upload'}
-            <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={3} />
-          </button>
-            <button
-              className="flex-1 bg-green-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50"
-              onClick={async e => { e.stopPropagation(); await handlePlayUploadedImage(); }}
-              disabled={tvLoading || !selectedTvIp}
-            >
-              Play
-            </button>
-            <button
-              className="flex-1 bg-gray-600 text-white text-xs px-2 py-2 rounded-xl disabled:opacity-50"
-              onClick={async e => { e.stopPropagation(); await handleTvPowerOn(); }}
-              disabled={tvLoading || !selectedTvIp}
-            >
-              Power
-            </button>
-          </div>
-          {error && <div className="text-red-500 text-xs mt-1">{error}</div>}
-        </div>
-      )}
-
-      {onDelete && image?.type === "local" && (
-        <button
-          className="flex-1 mb-1 mt-2 bg-red-600 text-white text-xs px-2 py-1.5 mx-2 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
-          onClick={async e => { e.stopPropagation(); await handleDelete(); }}
-          disabled={deleteLoading}
-        >
-          {deleteLoading ? 'Deleting…' : 'Delete'}
-          <TrashIcon className="h-4 w-4" />
-        </button>
-      )}
-
-      {tvs.length === 0 && (large || showControls) && (
-        <div className="w-full bg-gray-50 border-t px-3 py-2 text-xs text-gray-500 flex gap-1">
-          <ExclamationCircleIcon className="h-6 w-6 inline-block mr-1" strokeWidth={1.8} />
-
-          No TVs found. Make sure your TV is on and connected to the same network. <br />
-          If you have not yet connected any TVs, go to the Settings page to add one.
-        </div>
-      )}
     </div>
+
+
+      {showCropModal && isLocalImage && (
+        <CropImageModal
+          isOpen={showCropModal}
+          imageUrl={imageURL}
+          filename={filename || "image"}
+          onClose={() => setShowCropModal(false)}
+          onCropSuccess={(newUrl) => {
+            setImageURL(newUrl);
+            setShowCropModal(false);
+            onCrop?.();
+          }}
+        />
+      )}
+
+      {/* Controls Modal - opens on image click */}
+      {showControlsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
+          <div className="bg-white rounded-t-lg sm:rounded-lg w-full sm:w-96 max-h-[90vh] overflow-y-auto p-4 space-y-4">
+            {/* Close Button */}
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-sm font-semibold">Image Controls</h2>
+              <button
+                onClick={() => setShowControlsModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Image Preview */}
+            <div className="w-full bg-gray-100 rounded-lg flex items-center justify-center h-48 overflow-hidden">
+              <img
+                src={imageURL}
+                alt={alt}
+                className="max-h-full max-w-full object-contain"
+              />
+            </div>
+
+            {/* Crop Button */}
+            {isLocalImage && (
+              <button
+                className="w-full bg-indigo-600 text-white text-sm py-2 rounded-lg hover:bg-indigo-700"
+                onClick={() => {
+                  setShowCropModal(true);
+                  setShowControlsModal(false);
+                }}
+              >
+                Crop Image
+              </button>
+            )}
+
+            {/* TV Controls */}
+            {tvs.length > 0 && (
+              <div className="space-y-3">
+                <select
+                  className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm"
+                  value={selectedTvIp}
+                  onChange={e => setSelectedTvIp(e.target.value)}
+                  disabled={tvLoading}
+                >
+                  <option value="">-- Select TV --</option>
+                  {tvs.map(tv => (
+                    <option key={tv.ip} value={tv.ip}>
+                      {tv.name || tv.ip}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  className="w-full bg-blue-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2"
+                  onClick={handleSendToTV}
+                  disabled={tvLoading || !selectedTvIp}
+                >
+                  {tvLoading ? 'Uploading…' : 'Upload to TV'}
+                  <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={3} />
+                </button>
+
+                <button
+                  className="w-full bg-green-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-green-700"
+                  onClick={handlePlayUploadedImage}
+                  disabled={tvLoading || !selectedTvIp}
+                >
+                  Play
+                </button>
+
+                <button
+                  className="w-full bg-gray-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-gray-700"
+                  onClick={handleTvPowerOn}
+                  disabled={tvLoading || !selectedTvIp}
+                >
+                  Power On
+                </button>
+              </div>
+            )}
+
+            {tvs.length === 0 && (
+              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex gap-2">
+                <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" strokeWidth={1.8} />
+                <span>No TVs configured. Go to Settings to add one.</span>
+              </div>
+            )}
+
+            {/* Error Message */}
+            {error && (
+              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                {error}
+              </div>
+            )}
+
+            {/* Delete Button */}
+            {onDelete && isLocalImage && (
+              <button
+                className="w-full bg-red-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-red-700 flex items-center justify-center gap-2"
+                onClick={handleDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting…' : 'Delete Image'}
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+  </>
   );
 };
 

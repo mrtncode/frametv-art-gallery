@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
 from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
+from utils.crop_image import crop_image_file, CropImageError, get_preset_crop_box, CROP_PRESETS
 from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
 from datetime import datetime
@@ -12,6 +13,11 @@ from flask_migrate import Migrate
 import importlib
 from media_provider_routes import media_provider_routes
 from provider_config_routes import provider_config_routes
+
+try:
+    from PIL import Image as PILImage
+except ImportError:
+    PILImage = None
 
 # Load environment variables from .env if present
 try:
@@ -60,6 +66,14 @@ try:
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 except ImportError:
     pass
+
+# Fallback CORS headers for any route, so front-end dev or production can call /api and /uploads without CORS blocking.
+@app.after_request
+def add_cors_headers(response):
+    response.headers.setdefault('Access-Control-Allow-Origin', '*')
+    response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.setdefault('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS,PUT,PATCH,DELETE')
+    return response
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -150,6 +164,57 @@ def api_delete_image(filename):
     db.session.delete(image)
     db.session.commit()
     return {'success': True}
+
+
+@app.route('/api/images/<filename>/crop', methods=['POST'])
+def api_crop_image(filename):
+    """Crop an image using direct coordinates or a preset.
+    
+    Accepts one of:
+    - Direct crop: {x, y, width, height}
+    - Preset crop: {preset: "640x480"}
+    """
+    # Validate filename to prevent path traversal
+    if os.path.basename(filename) != filename:
+        return {'error': 'Invalid filename'}, 400
+
+    # Get crop parameters from request
+    data = request.get_json(silent=True) or {}
+    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    try:
+        # Check if using preset-based crop
+        if 'preset' in data:
+            preset_name = data.get('preset')
+            x, y, width, height = get_preset_crop_box(image_path, preset_name)
+        else:
+            # Use direct coordinates
+            x = data.get('x')
+            y = data.get('y')
+            width = data.get('width')
+            height = data.get('height')
+        
+        # Perform the crop
+        crop_image_file(image_path, x, y, width, height)
+        return {'success': True}
+    except FileNotFoundError:
+        return {'error': 'Image not found'}, 404
+    except ValueError as e:
+        return {'error': str(e)}, 400
+    except CropImageError as e:
+        return {'error': str(e)}, 400
+    except Exception as e:
+        return {'error': f'Failed to crop image: {e}'}, 500
+
+
+@app.route('/api/crop-presets', methods=['GET'])
+def api_get_crop_presets():
+    """Get available crop presets."""
+    presets = [
+        {'id': name, 'label': info['label'], 'width': info['width'], 'height': info['height']}
+        for name, info in CROP_PRESETS.items()
+    ]
+    return {'presets': presets}
 
 
 # Album API

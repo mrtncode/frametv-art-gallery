@@ -3,7 +3,7 @@ import { deleteAlbum, getUploadUrl } from "../utils/galleryApi";
 type Album = { id:string, name: string; images: string[] };
 
 
-export default function AlbumCard({album, loadLocalGallery, setError}: {album: Album, loadLocalGallery: () => Promise<void>, setError: (error: string) => void}) {
+export default function AlbumCard({album, loadLocalGallery, setError, onImageClick}: {album: Album, loadLocalGallery: () => Promise<void>, setError: (error: string) => void, onImageClick: (image: {id:string, filename:string, type: 'local'}) => void}) {
 
     async function handleDeleteAlbum(album: string) {
         if (!window.confirm(`Delete album "${album}"?`)) return;
@@ -36,7 +36,7 @@ export default function AlbumCard({album, loadLocalGallery, setError}: {album: A
                 src={getUploadUrl(img)}
                 alt={img}
                 className="w-16 h-16 object-cover rounded border"
-                onClick={() => setModal({ type: 'image', data: images.find(i => i.filename === img) })}
+                onClick={() => onImageClick({ id: img, filename: img, type: 'local' })}
                 style={{ cursor: 'pointer' }}
             />
             ))}
