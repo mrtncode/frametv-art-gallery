@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Dict, List, Optional
 from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
 from const import CONNECTION_NAME
@@ -25,6 +25,7 @@ def upload_artwork(
     display: bool = True,
     delete_others: bool = False,
     token: Optional[str] = None,
+    matte: Optional[str] = "none",
     **kwargs
 ) -> Optional[str]:
     """
@@ -36,13 +37,27 @@ def upload_artwork(
         display (bool): Whether to display the uploaded image immediately.
         delete_others (bool): Whether to delete other artworks (not implemented).
         token (Optional[str]): Token string to use for authentication.
+        matte (Optional[str]): Matte/frame style to use (e.g., 'shadowbox_polar', 'shadowbox_modern', 'none' (no matte)).
     Returns:
         Optional[str]: Content ID of the uploaded image, or None if failed.
     """
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME)
     tv.open()
+    upload_kwargs = {}
+    available_mattes = get_available_mattes(ip, token)
+    print("avaiblable", available_mattes)
+    if matte is not None:
+        # Validate matte against available options
+        if available_mattes and 'matte_types' in available_mattes:
+            matte_types = available_mattes['matte_types']
+            # Extract matte_type values from the list of dicts
+            available_matte_names = [m.get('matte_type') for m in matte_types if isinstance(m, dict)]
+            if matte not in available_matte_names:
+                print(f"Warning: '{matte}' not in available mattes: {available_matte_names}")
+        upload_kwargs['matte'] = matte
+        upload_kwargs['portrait_matte'] = matte
     with open(art_path, "rb") as f:
-        content_id = tv.art().upload(f.read())
+        content_id = tv.art().upload(f.read(), **upload_kwargs)
     if brightness is not None:
         tv.art().set_brightness(brightness)
     if display and content_id:
@@ -198,3 +213,38 @@ def remove_token(ip: str) -> None:
         ip (str): IP address of the TV.
     """
     pass
+
+def get_available_mattes(ip: str, token: Optional[str] = None) -> Optional[Dict]:
+    """
+    Get the list of available matte styles and colors on the Frame TV.
+    Args:
+        ip (str): IP address of the TV.
+        token (Optional[str]): Token string to use for authentication.
+    Returns:
+        Optional[Dict]: Dictionary with 'matte_types' and 'matte_colors' keys, or None if failed.
+    """
+    try:
+        tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME)
+        tv.open()
+        mattes = tv.art().get_matte_list()
+        tv.close()
+        return mattes
+    except Exception as err:  # pylint: disable=broad-except
+        print(f"Error getting matte list from TV {ip}: {err}")
+        return None
+
+def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
+    """
+    Change the matte style on the Frame TV.
+    Args:
+        ip (str): IP address of the TV.
+        matte (str): Matte style to set.
+        token (Optional[str]): Token string to use for authentication.
+    """
+    try:
+        tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME)
+        tv.open()
+        tv.art().change_matte(matte)
+        tv.close()
+    except Exception as err:  # pylint: disable=broad-except
+        print(f"Error changing matte on TV {ip}: {err}")
