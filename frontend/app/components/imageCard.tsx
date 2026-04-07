@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
-import { deleteImage as deleteImageApi } from "../utils/galleryApi";
+import { addImageToAlbum } from "../utils/galleryApi";
 import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import CropImageModal from "./CropImageModal";
 
@@ -11,14 +11,22 @@ interface TV {
   mac?: string;
 }
 
+interface AlbumOption {
+  id: string;
+  name: string;
+  images: string[];
+}
+
 interface ImageCardProps {
   src: string;
   alt: string;
   filename?: string;
   image?: any;
+  albums?: AlbumOption[];
   onClick?: () => void;
   onDelete?: () => void;
   onCrop?: () => void;
+  onAssignSuccess?: () => void;
   /** if `large` the card uses a bigger image height (useful inside modals) */
   large?: boolean;
   /** when true, TV controls are shown regardless of size (useful for tests) */
@@ -30,9 +38,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
   alt,
   filename,
   image,
+  albums,
   onClick,
   onDelete,
   onCrop,
+  onAssignSuccess,
   large,
   showControls
 }) => {
@@ -44,8 +54,12 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const [showCropModal, setShowCropModal] = useState(false);
   const [showControlsModal, setShowControlsModal] = useState(false);
   const [imageURL, setImageURL] = useState(src);
+  const [selectedAlbum, setSelectedAlbum] = useState('');
+  const [assigning, setAssigning] = useState(false);
+  const [assignMessage, setAssignMessage] = useState('');
 
   const isLocalImage = image?.type === 'local' || !image?.type;
+  const availableAlbums = (albums || []).filter(album => filename && !album.images.includes(filename));
 
   // fetch TV list once when mounted
   useEffect(() => {
@@ -120,6 +134,27 @@ const ImageCard: React.FC<ImageCardProps> = ({
       setError(e.message || "Failed to power on TV");
     } finally {
       setTvLoading(false);
+    }
+  };
+
+  const handleAssignToAlbum = async (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!selectedAlbum || !filename) {
+      setError("Select an album first.");
+      return;
+    }
+    setAssigning(true);
+    setError("");
+    setAssignMessage("");
+    try {
+      await addImageToAlbum(selectedAlbum, filename);
+      setAssignMessage("Assigned to album.");
+      setSelectedAlbum('');
+      onAssignSuccess?.();
+    } catch (e: any) {
+      setError(e.message || "Failed to assign image to album");
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -199,6 +234,32 @@ const ImageCard: React.FC<ImageCardProps> = ({
               >
                 Crop Image
               </button>
+            )}
+
+            {isLocalImage && availableAlbums.length > 0 && (
+              <div className="space-y-3">
+                <div className="text-sm font-medium">Assign to album</div>
+                <div className="flex items-center gap-2">
+                  <select
+                    className="flex-1 border border-gray-300 px-2 py-2 rounded text-sm"
+                    value={selectedAlbum}
+                    onChange={e => setSelectedAlbum(e.target.value)}
+                  >
+                    <option value="">Choose album</option>
+                    {availableAlbums.map(album => (
+                      <option key={album.id} value={album.name}>{album.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="bg-blue-600 text-white text-sm px-3 py-2 rounded disabled:opacity-50"
+                    onClick={handleAssignToAlbum}
+                    disabled={assigning || !selectedAlbum}
+                  >
+                    {assigning ? 'Assigning…' : 'Assign'}
+                  </button>
+                </div>
+                {assignMessage && <div className="text-xs text-green-600">{assignMessage}</div>}
+              </div>
             )}
 
             {/* TV Controls */}
