@@ -2,6 +2,7 @@ services:
   frametv:
     image: ghcr.io/mrtncode/frametv-art-gallery:latest
     container_name: frametv_artgallery
+    restart: always
     ports:
       - "8000:8000"
     volumes:
