@@ -20,6 +20,7 @@ dependencies = [
     "python-dotenv",
     "Flask-Migrate",
     "flask-cors",
+    "Pillow",
 ]
 
 [tool.setuptools.packages.find]

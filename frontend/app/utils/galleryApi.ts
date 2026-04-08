@@ -1,7 +1,7 @@
 // API service for gallery and albums
 
-// Configure seperate backend url via VITE_API_URL in .env. Otherwise leave it blank so that requests stay relative when served by Flask.
-const API_BASE = import.meta.env.VITE_API_URL || '';
+// Configure separate backend URL via VITE_API_URL in .env. Otherwise use the page's origin (works when Flask serves frontend from same host).
+const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
 
 // --- Provider (Immich/other) API ---
 export async function fetchProviderAlbums() {
@@ -37,6 +37,36 @@ export async function fetchImagesAddedThisMonth() {
   const res = await fetch(`${API_BASE}/api/images/added_this_month`);
   if (!res.ok) throw new Error('Failed to fetch monthly image count');
   return (await res.json()).count;
+}
+
+export async function cropImage(
+  filename: string,
+  x?: number,
+  y?: number,
+  width?: number,
+  height?: number,
+  preset?: string
+) {
+  const body: any = {};
+  
+  if (preset) {
+    body.preset = preset;
+  } else if (x !== undefined && y !== undefined && width !== undefined && height !== undefined) {
+    body.x = x;
+    body.y = y;
+    body.width = width;
+    body.height = height;
+  } else {
+    throw new Error('Must provide either preset or x, y, width, height');
+  }
+  
+  const res = await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}/crop`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to crop image');
+  return (await res.json());
 }
 
 export async function fetchAlbums() {
