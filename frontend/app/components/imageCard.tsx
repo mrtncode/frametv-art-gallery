@@ -4,6 +4,7 @@ import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
 import { addImageToAlbum } from "../utils/galleryApi";
 import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import CropImageModal from "./CropImageModal";
+import ImageModal from "./imageModal";
 
 interface TV {
   ip: string;
@@ -199,141 +200,36 @@ const ImageCard: React.FC<ImageCardProps> = ({
         />
       )}
 
-      {/* Controls Modal - opens on image click */}
-      {showControlsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
-          <div className="bg-white rounded-t-lg sm:rounded-lg w-full sm:w-96 max-h-[90vh] overflow-y-auto p-4 space-y-4">
-            {/* Close Button */}
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-sm font-semibold">Image Controls</h2>
-              <button
-                onClick={() => setShowControlsModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Image Preview */}
-            <div className="w-full bg-gray-100 rounded-lg flex items-center justify-center h-48 overflow-hidden">
-              <img
-                src={imageURL}
-                alt={alt}
-                className="max-h-full max-w-full object-contain"
-              />
-            </div>
-
-            {/* Crop Button */}
-            {isLocalImage && (
-              <button
-                className="w-full bg-indigo-600 text-white text-sm py-2 rounded-lg hover:bg-indigo-700"
-                onClick={() => {
-                  setShowCropModal(true);
-                  setShowControlsModal(false);
-                }}
-              >
-                Crop Image
-              </button>
-            )}
-
-            {isLocalImage && availableAlbums.length > 0 && (
-              <div className="space-y-3">
-                <div className="text-sm font-medium">Assign to album</div>
-                <div className="flex items-center gap-2">
-                  <select
-                    className="flex-1 border border-gray-300 px-2 py-2 rounded text-sm"
-                    value={selectedAlbum}
-                    onChange={e => setSelectedAlbum(e.target.value)}
-                  >
-                    <option value="">Choose album</option>
-                    {availableAlbums.map(album => (
-                      <option key={album.id} value={album.name}>{album.name}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="bg-blue-600 text-white text-sm px-3 py-2 rounded disabled:opacity-50"
-                    onClick={handleAssignToAlbum}
-                    disabled={assigning || !selectedAlbum}
-                  >
-                    {assigning ? 'Assigning…' : 'Assign'}
-                  </button>
-                </div>
-                {assignMessage && <div className="text-xs text-green-600">{assignMessage}</div>}
-              </div>
-            )}
-
-            {/* TV Controls */}
-            {tvs.length > 0 && (
-              <div className="space-y-3">
-                <select
-                  className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm"
-                  value={selectedTvIp}
-                  onChange={e => setSelectedTvIp(e.target.value)}
-                  disabled={tvLoading}
-                >
-                  <option value="">-- Select TV --</option>
-                  {tvs.map(tv => (
-                    <option key={tv.ip} value={tv.ip}>
-                      {tv.name || tv.ip}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  className="w-full bg-blue-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2"
-                  onClick={handleSendToTV}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  {tvLoading ? 'Uploading…' : 'Upload to TV'}
-                  <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={3} />
-                </button>
-
-                <button
-                  className="w-full bg-green-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-green-700"
-                  onClick={handlePlayUploadedImage}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  Play
-                </button>
-
-                <button
-                  className="w-full bg-gray-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-gray-700"
-                  onClick={handleTvPowerOn}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  Power On
-                </button>
-              </div>
-            )}
-
-            {tvs.length === 0 && (
-              <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex gap-2">
-                <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" strokeWidth={1.8} />
-                <span>No TVs configured. Go to Settings to add one.</span>
-              </div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-                {error}
-              </div>
-            )}
-
-            {/* Delete Button */}
-            {onDelete && isLocalImage && (
-              <button
-                className="w-full bg-red-600 text-white text-sm py-2 rounded-lg disabled:opacity-50 hover:bg-red-700 flex items-center justify-center gap-2"
-                onClick={handleDelete}
-                disabled={deleteLoading}
-              >
-                {deleteLoading ? 'Deleting…' : 'Delete Image'}
-                <TrashIcon className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Controls Modal - now in ImageModal component */}
+      <ImageModal
+        isOpen={showControlsModal}
+        onClose={() => setShowControlsModal(false)}
+        imageURL={imageURL}
+        alt={alt}
+        filename={filename}
+        image={image}
+        albums={albums}
+        tvs={tvs}
+        selectedTvIp={selectedTvIp}
+        setSelectedTvIp={setSelectedTvIp}
+        tvLoading={tvLoading}
+        handleSendToTV={handleSendToTV}
+        handlePlayUploadedImage={handlePlayUploadedImage}
+        handleTvPowerOn={handleTvPowerOn}
+        error={error}
+        isLocalImage={isLocalImage}
+        onDelete={onDelete ? handleDelete : undefined}
+        deleteLoading={deleteLoading}
+        showCropModal={showCropModal}
+        setShowCropModal={setShowCropModal}
+        onCrop={onCrop}
+        availableAlbums={availableAlbums}
+        selectedAlbum={selectedAlbum}
+        setSelectedAlbum={setSelectedAlbum}
+        handleAssignToAlbum={handleAssignToAlbum}
+        assigning={assigning}
+        assignMessage={assignMessage}
+      />
   </>
   );
 };
