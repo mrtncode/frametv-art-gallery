@@ -138,32 +138,6 @@ export default function AlbumPage() {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-4 mb-8 max-w-xl">
-            <h3 className="text-base font-semibold mb-3">Add image</h3>
-            <form onSubmit={handleAddToAlbum} className="grid gap-3 md:grid-cols-[1.5fr_auto] items-end">
-              <label className="sr-only" htmlFor="album-image-select">Image</label>
-              <select
-                id="album-image-select"
-                value={selectedImage}
-                onChange={e => setSelectedImage(e.target.value)}
-                className="border border-gray-300 px-3 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-              >
-                <option value="">Select uploaded image</option>
-                {images.map(filename => (
-                  <option key={filename} value={filename}>{filename}</option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded"
-                disabled={busy || !selectedImage}
-              >
-                {busy ? 'Saving…' : 'Add'}
-              </button>
-            </form>
-            {successMessage && <div className="text-green-600 text-sm mt-3">{successMessage}</div>}
-            {error && <div className="text-red-500 text-sm mt-3">{error}</div>}
-          </div>
 
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-xl font-semibold mb-4">Album Images</h3>
