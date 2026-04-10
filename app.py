@@ -247,18 +247,55 @@ def api_create_album():
 @app.route('/api/albums/<album_name>/add', methods=['POST'])
 def api_add_image_to_album(album_name):
     data = request.get_json()
-    image = data.get('image')
-    if not image:
+    image_filename = data.get('image')
+    if not image_filename:
         return {'error': 'Image required'}, 400
     album = Album.query.filter_by(name=album_name).first()
     if not album:
         return {'error': 'Album not found'}, 404
-    # Only add if not already present
-    if not any(img.filename == image for img in album.images):
-        img = Image(filename=image, album=album)
-        db.session.add(img)
-        db.session.commit()
+
+    existing_image = Image.query.filter_by(filename=image_filename).first()
+    if existing_image and existing_image.album_id == album.id:
+        return api_list_albums()
+
+    if existing_image:
+        existing_image.album = album
+    else:
+        existing_image = Image(filename=image_filename, album=album)
+        db.session.add(existing_image)
+
+    db.session.commit()
     return api_list_albums()
+
+@app.route('/api/albums/<int:album_id>', methods=['GET'])
+def api_get_album(album_id):
+    album = Album.query.get(album_id)
+    if not album:
+        return {'error': 'Album not found'}, 404
+    return {
+        'album': {
+            'id': album.id,
+            'name': album.name,
+            'images': [
+                {
+                    'id': img.id,
+                    'filename': img.filename
+                } for img in album.images
+            ]
+        }
+    }
+
+@app.route('/api/albums/<int:album_id>/images/<int:image_id>', methods=['DELETE'])
+def api_remove_image_from_album(album_id, image_id):
+    album = Album.query.get(album_id)
+    if not album:
+        return {'error': 'Album not found'}, 404
+    image = Image.query.get(image_id)
+    if not image or image.album_id != album.id:
+        return {'error': 'Image not found in album'}, 404
+    image.album_id = None
+    db.session.commit()
+    return api_get_album(album_id)
 
 @app.route('/api/albums/<album_name>', methods=['DELETE'])
 def api_delete_album(album_name):

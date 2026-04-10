@@ -1,10 +1,11 @@
 
 
 import React, { useEffect, useState } from "react";
-import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, addImageToAlbum, deleteAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, getUploadUrl } from "../utils/galleryApi";
+import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
+import { Button } from "~/components/ui/button";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -32,6 +33,7 @@ export default function Gallery() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -138,14 +140,6 @@ export default function Gallery() {
     }
   }
 
-  async function handleAddToAlbum(album: string, image: string) {
-    try {
-      await addImageToAlbum(album, image);
-      await loadLocalGallery();
-    } catch (e: any) {
-      setError(e.message || "Failed to add image");
-    }
-  }
 
   async function handleDeleteImage(image: any) {
     setLoading(true);
@@ -180,56 +174,33 @@ export default function Gallery() {
     }
   }
 
-  console.log("test")
-
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
-          <div className="flex flex-col md:flex-row gap-8 mb-8">
+          <div className="flex flex-col md:flex-row gap-6 mb-8">
             {/* Upload Image Form */}
-            <div className="flex-1 bg-white rounded-lg shadow p-6">
-              <h4 className="text-lg font-semibold mb-4">Upload Image</h4>
-              <form onSubmit={handleUpload} className="flex flex-col gap-3">
+            <div className="flex-1 bg-white rounded-lg shadow p-4">
+              <h4 className="text-base font-semibold mb-3">Upload image</h4>
+              <form onSubmit={handleUpload} className="flex flex-col gap-2">
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg"
                   onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                  className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                   disabled={uploading}
                 />
-                <button
+                <Button
                   type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-medium"
+                  className=" px-4 py-2 rounded text-sm"
                   disabled={uploading || !uploadFile}
                 >
-                  {uploading ? "Uploading…" : "Upload Image"}
-                </button>
-                {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-              </form>
-            </div>
-
-            {/* Create Album Form */}
-            <div className="flex-1 bg-white rounded-lg shadow p-6">
-              <h4 className="text-lg font-semibold mb-4">Create Album</h4>
-              <form onSubmit={handleCreateAlbum} className="flex flex-col gap-3">
-                <input
-                  type="text"
-                  value={albumName}
-                  onChange={e => setAlbumName(e.target.value)}
-                  placeholder="New album name"
-                  className="border px-3 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-200"
-                />
-                <button
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-medium"
-                  disabled={creating || !albumName.trim()}
-                >
-                  {creating ? "Creating…" : "Create Album"}
-                </button>
+                  {uploading ? "Uploading…" : "Upload"}
+                </Button>
                 {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
               </form>
             </div>
           </div>
+
 
           <h3 className="text-xl font-semibold mb-2">Uploaded Images</h3>
           {loading ? (
@@ -238,9 +209,57 @@ export default function Gallery() {
             <div className="mb-8">
               <ImageGrid
                 images={images}
+                albums={albums}
+                onDeleteImage={handleDeleteImage}
+                onAssignSuccess={loadLocalGallery}
               />
             </div>
           )}
+
+          <div className="flex-row flex justify-between items-center py-2 mb-3">
+            <h3 className="text-xl font-semibold align-middle">Albums</h3>
+            <Button onClick={() => setShowCreateAlbumModal(true)}>Create album</Button>
+          </div>
+
+          {/* Modal for Create Album */}
+          {showCreateAlbumModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl font-bold"
+                  onClick={() => setShowCreateAlbumModal(false)}
+                  aria-label="Close"
+                >
+                  ×
+                </button>
+                <h4 className="text-base font-semibold mb-3">Create album</h4>
+                <form
+                  onSubmit={async (e) => {
+                    await handleCreateAlbum(e);
+                    if (!error) setShowCreateAlbumModal(false);
+                  }}
+                  className="flex flex-col gap-2"
+                >
+                  <input
+                    type="text"
+                    value={albumName}
+                    onChange={e => setAlbumName(e.target.value)}
+                    placeholder="Album name"
+                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                  <Button
+                    type="submit"
+                    className="transition px-4 py-2 text-sm"
+                    disabled={creating || !albumName.trim()}
+                  >
+                    {creating ? "Creating…" : "Create"}
+                  </Button>
+                  {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+                </form>
+              </div>
+            </div>
+          )}
+          
           <div className="space-y-4">
             {albums.length === 0 && <div className="text-gray-500">No albums yet.</div>}
             {albums.map(album => (

@@ -108,6 +108,20 @@ export async function addImageToAlbum(album: string, image: string) {
   return (await res.json()).albums;
 }
 
+export async function fetchAlbum(albumId: string | number) {
+  const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(String(albumId))}`);
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to fetch album');
+  return (await res.json()).album;
+}
+
+export async function removeImageFromAlbum(albumId: string | number, imageId: string | number) {
+  const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(String(albumId))}/images/${encodeURIComponent(String(imageId))}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to remove image from album');
+  return (await res.json()).album;
+}
+
 export async function deleteAlbum(album: string) {
   const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(album)}`, {
     method: 'DELETE',
