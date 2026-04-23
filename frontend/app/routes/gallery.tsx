@@ -7,6 +7,7 @@ import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
 import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
+import { toast } from "sonner";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -169,6 +170,7 @@ export default function Gallery() {
       await loadLocalGallery();
       setUploadFile(null);
       setUploading(false)
+      toast.success("Uploaded successfully", {position: "top-center"})
     } catch (e: any) {
       setError(e.message || "Failed to upload");
       setUploading(false);
@@ -186,6 +188,7 @@ export default function Gallery() {
         try {
           await uploadImage(file);
           uploadedCount++;
+          toast.success("Uploaded successfully", {position: "top-center"})
         } catch (err) {
           failedCount++;
           console.error(`Failed to upload ${file.name}:`, err);
@@ -196,7 +199,6 @@ export default function Gallery() {
       if (uploadedCount > 0) {
         await loadLocalGallery();
         if (failedCount === 0) {
-          setError(`Successfully uploaded ${uploadedCount} image${uploadedCount > 1 ? "s" : ""}`);
           setTimeout(() => setError(""), 3000);
         } else {
           setError(`Uploaded ${uploadedCount}, but ${failedCount} failed`);
