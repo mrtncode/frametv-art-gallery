@@ -5,6 +5,7 @@ import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, fetchP
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
+import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
 
 type Album = { id:string, name: string; images: string[] };
@@ -157,9 +158,6 @@ export default function Gallery() {
   // --- Upload Button State and Handler ---
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File|null>(null);
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
-  const [dragCounter, setDragCounter] = useState(0);
-  const [hasImageFiles, setHasImageFiles] = useState(false);
 
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
@@ -177,72 +175,20 @@ export default function Gallery() {
     }
   }
 
-  // --- Drag and Drop Handlers ---
-  function handleDragEnter(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragCounter(prev => prev + 1);
-    
-    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
-      // Check if any items are image files
-      let hasImages = false;
-      for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        const item = e.dataTransfer.items[i];
-        if (item.kind === "file" && item.type.startsWith("image/")) {
-          hasImages = true;
-          break;
-        }
-      }
-      setIsDraggingOver(true);
-      setHasImageFiles(hasImages);
-    }
-  }
-
-  function handleDragLeave(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragCounter(prev => prev - 1);
-    if (dragCounter - 1 === 0) {
-      setIsDraggingOver(false);
-      setHasImageFiles(false);
-    }
-  }
-
-  function handleDragOver(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-  }
-
-  async function handleDrop(e: React.DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-    setDragCounter(0);
-    setHasImageFiles(false);
-
-    const items = e.dataTransfer.items;
-    if (!items) return;
-
+  async function handleFilesDropped(files: File[]) {
     setUploading(true);
     setError("");
     let uploadedCount = 0;
     let failedCount = 0;
 
     try {
-      // Process each dropped file
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        if (item.kind === "file") {
-          const file = item.getAsFile();
-          if (file && file.type.startsWith("image/")) {
-            try {
-              await uploadImage(file);
-              uploadedCount++;
-            } catch (err) {
-              failedCount++;
-              console.error(`Failed to upload ${file.name}:`, err);
-            }
-          }
+      for (const file of files) {
+        try {
+          await uploadImage(file);
+          uploadedCount++;
+        } catch (err) {
+          failedCount++;
+          console.error(`Failed to upload ${file.name}:`, err);
         }
       }
 
@@ -266,28 +212,11 @@ export default function Gallery() {
   }
 
   return (
-    <div 
+    <ImageDropZone
       className="max-w-6xl mx-auto py-8 px-4"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      disabled={uploading}
+      onFilesDropped={handleFilesDropped}
     >
-      {/* Drag and Drop Overlay */}
-      {isDraggingOver && (
-        <div className={`fixed inset-0 z-40 flex items-center justify-center pointer-events-none ${hasImageFiles ? 'bg-green-500 bg-opacity-20 border-4 border-dashed border-green-500' : 'bg-red-500 bg-opacity-20 border-4 border-dashed border-red-500'}`}>
-          <div className="text-center">
-            <div className="text-5xl mb-4">{hasImageFiles ? '✓' : '✗'}</div>
-            <p className={`text-2xl font-bold ${hasImageFiles ? 'text-green-600' : 'text-red-600'}`}>
-              {hasImageFiles ? 'Image Detected!' : 'No Images Detected'}
-            </p>
-            <p className={`text-sm mt-2 ${hasImageFiles ? 'text-green-600' : 'text-red-600'}`}>
-              {hasImageFiles ? 'Drop to upload' : 'Please drag image files'}
-            </p>
-          </div>
-        </div>
-      )}
-
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             {/* Upload Image Form */}
@@ -431,6 +360,6 @@ export default function Gallery() {
               )}
             </>
           )}
-        </div>
+        </ImageDropZone>
       );
 }
