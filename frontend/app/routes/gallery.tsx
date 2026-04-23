@@ -5,7 +5,9 @@ import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, fetchP
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
+import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
+import { toast } from "sonner";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -168,19 +170,61 @@ export default function Gallery() {
       await loadLocalGallery();
       setUploadFile(null);
       setUploading(false)
+      toast.success("Uploaded successfully", {position: "top-center"})
     } catch (e: any) {
       setError(e.message || "Failed to upload");
       setUploading(false);
     }
   }
 
+  async function handleFilesDropped(files: File[]) {
+    setUploading(true);
+    setError("");
+    let uploadedCount = 0;
+    let failedCount = 0;
+
+    try {
+      for (const file of files) {
+        try {
+          await uploadImage(file);
+          uploadedCount++;
+          toast.success("Uploaded successfully", {position: "top-center"})
+        } catch (err) {
+          failedCount++;
+          console.error(`Failed to upload ${file.name}:`, err);
+        }
+      }
+
+      // Reload gallery after uploads
+      if (uploadedCount > 0) {
+        await loadLocalGallery();
+        if (failedCount === 0) {
+          setTimeout(() => setError(""), 3000);
+        } else {
+          setError(`Uploaded ${uploadedCount}, but ${failedCount} failed`);
+        }
+      } else if (failedCount > 0) {
+        setError("No valid image files were uploaded");
+      }
+    } catch (err: any) {
+      setError(err.message || "Failed to upload images");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4">
+    <ImageDropZone
+      className="max-w-6xl mx-auto py-8 px-4"
+      disabled={uploading}
+      onFilesDropped={handleFilesDropped}
+    >
       <h2 className="text-2xl font-bold mb-4">Gallery</h2>
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             {/* Upload Image Form */}
             <div className="flex-1 bg-white rounded-lg shadow p-4">
               <h4 className="text-base font-semibold mb-3">Upload image</h4>
+              <p className="text-sm text-gray-600 mb-3">Drag and drop images anywhere or use the file input below</p>
               <form onSubmit={handleUpload} className="flex flex-col gap-2">
                 <input
                   type="file"
@@ -318,6 +362,6 @@ export default function Gallery() {
               )}
             </>
           )}
-        </div>
+        </ImageDropZone>
       );
 }
