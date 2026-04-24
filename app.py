@@ -78,7 +78,6 @@ def add_cors_headers(response):
     response.headers.setdefault('X-Content-Type-Options', 'nosniff')
     response.headers.setdefault('X-Frame-Options', 'DENY')
     response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
-    response.headers.setdefault('Content-Security-Policy', "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
     return response
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
