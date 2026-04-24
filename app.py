@@ -58,6 +58,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app = Flask(__name__, static_folder="frontend/build/client")
 app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_SIZE_BYTES', str(20 * 1024 * 1024)))
 
 # allow cross-origin requests from the dev server or any other origin when
 # talking to the API directly.  This is useful during front-end development when the frontend runs on a different port/host.
@@ -73,6 +74,11 @@ def add_cors_headers(response):
     response.headers.setdefault('Access-Control-Allow-Origin', '*')
     response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.setdefault('Access-Control-Allow-Methods', 'GET,HEAD,POST,OPTIONS,PUT,PATCH,DELETE')
+    # Basic browser hardening headers to reduce XSS and related client-side risks.
+    response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    response.headers.setdefault('X-Frame-Options', 'DENY')
+    response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+    response.headers.setdefault('Content-Security-Policy', "default-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
     return response
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
@@ -103,6 +109,44 @@ migrate = Migrate(app, db)
 # --- Helpers ---
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+UPLOAD_ROOT = Path(app.config['UPLOAD_FOLDER']).resolve()
+STATIC_ROOT = Path(app.static_folder).resolve() if app.static_folder else None
+
+
+def _log_exception(context: str, exc: Exception):
+    app.logger.error("%s: %s", context, exc, exc_info=True)
+
+
+def _error_response(public_message: str, status_code: int = 500):
+    return {'error': public_message}, status_code
+
+
+def _normalized_upload_path(filename: str, must_exist: bool = False):
+    if not filename or not isinstance(filename, str):
+        raise ValueError('Invalid filename')
+    normalized_name = secure_filename(filename)
+    if not normalized_name or normalized_name != os.path.basename(normalized_name):
+        raise ValueError('Invalid filename')
+    if not allowed_file(normalized_name):
+        raise ValueError('Invalid file type')
+
+    candidate = (UPLOAD_ROOT / normalized_name).resolve()
+    if candidate.parent != UPLOAD_ROOT:
+        raise ValueError('Invalid filename')
+    if must_exist and not candidate.is_file():
+        raise FileNotFoundError('Image not found')
+    return normalized_name, str(candidate)
+
+
+def _normalized_static_path(path: str):
+    if STATIC_ROOT is None:
+        raise ValueError('Static path not configured')
+    normalized = (STATIC_ROOT / path).resolve()
+    if normalized != STATIC_ROOT and STATIC_ROOT not in normalized.parents:
+        raise ValueError('Invalid path')
+    return normalized
 
 # --- Media Provider Integration ---
 media_provider = None
@@ -145,19 +189,20 @@ def api_images_added_this_month():
 
 @app.route('/api/images/<filename>', methods=['DELETE'])
 def api_delete_image(filename):
-    if os.path.basename(filename) != filename:
+    try:
+        filename, file_path = _normalized_upload_path(filename)
+    except ValueError:
         return {'error': 'Invalid filename'}, 400
 
     image = Image.query.filter_by(filename=filename).first()
     if not image:
         return {'error': 'Image not found'}, 404
 
-    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
     except Exception as e:
-        print(f"Failed to delete file {file_path}: {e}")
+        _log_exception(f"Failed to delete file {file_path}", e)
 
     UploadedImage.query.filter_by(image_id=image.id).delete()
 
@@ -174,13 +219,14 @@ def api_crop_image(filename):
     - Direct crop: {x, y, width, height}
     - Preset crop: {preset: "640x480"}
     """
-    # Validate filename to prevent path traversal
-    if os.path.basename(filename) != filename:
-        return {'error': 'Invalid filename'}, 400
-
     # Get crop parameters from request
     data = request.get_json(silent=True) or {}
-    image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        _, image_path = _normalized_upload_path(filename, must_exist=True)
+    except ValueError:
+        return {'error': 'Invalid filename'}, 400
+    except FileNotFoundError:
+        return {'error': 'Image not found'}, 404
 
     try:
         # Check if using preset-based crop
@@ -204,7 +250,8 @@ def api_crop_image(filename):
     except CropImageError as e:
         return {'error': str(e)}, 400
     except Exception as e:
-        return {'error': f'Failed to crop image: {e}'}, 500
+        _log_exception('Failed to crop image', e)
+        return _error_response('Failed to crop image', 500)
 
 
 @app.route('/api/crop-presets', methods=['GET'])
@@ -317,8 +364,11 @@ def upload():
     if file.filename == '':
         return {'error': 'No selected file'}, 400
     if file and allowed_file(file.filename):
-        filename = secure_filename(file.filename)
-        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        try:
+            filename, file_path = _normalized_upload_path(file.filename)
+        except ValueError as e:
+            return {'error': str(e)}, 400
+        file.save(file_path)
         # Track image in DB
         img = Image(filename=filename, album_id=None)
         db.session.add(img)
@@ -354,12 +404,19 @@ def api_play_uploaded_image():
         play_uploaded_content(ip, content_id, token=token)
         return {'success': True}
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to play uploaded content', e)
+        return _error_response('Failed to play uploaded content', 500)
 
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+    try:
+        safe_name, _ = _normalized_upload_path(filename, must_exist=True)
+    except ValueError:
+        return {'error': 'Invalid filename'}, 400
+    except FileNotFoundError:
+        return {'error': 'Image not found'}, 404
+    return send_from_directory(app.config['UPLOAD_FOLDER'], safe_name)
 
 
 
@@ -417,9 +474,11 @@ def api_add_tv():
         if not token or not isinstance(token, str) or not token.isdigit():
             return {'error': 'Token not obtained or invalid. Please accept pairing on your TV.'}, 403
     except FrameTVError as e:
-        return {'error': f'Failed to connect to TV: {e}'}, 500
+        _log_exception('Failed to connect to TV', e)
+        return _error_response('Failed to connect to TV', 500)
     except Exception as e:
-        return {'error': f'Unexpected error: {e}'}, 500
+        _log_exception('Unexpected error while adding TV', e)
+        return _error_response('Unexpected error while adding TV', 500)
     tv = TV(ip=ip, name=name, mac=mac, token=token)
     db.session.add(tv)
     db.session.commit()
@@ -455,7 +514,7 @@ def api_send_to_tv():
     tv = TV.query.filter_by(ip=ip).first()
     token = tv.token if tv else None
     try:
-        art_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        filename, art_path = _normalized_upload_path(filename)
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
         # If the file does not exist locally, try to fetch from media provider
         if not os.path.isfile(art_path) and (provider_id or provider_url):
@@ -471,7 +530,8 @@ def api_send_to_tv():
                     # fallback for other providers
                     app.media_provider.download_image_by_id_sync(provider_id, art_path)
             except Exception as e:
-                return {'error': f'Failed to fetch image from provider: {e}'}, 500
+                _log_exception('Failed to fetch image from provider', e)
+                return _error_response('Failed to fetch image from provider', 500)
         # Check TV option for deleting other images on upload
         delete_others = False
         if tv and hasattr(tv, 'delete_other_images_on_upload'):
@@ -493,12 +553,14 @@ def api_send_to_tv():
                 db.session.commit()
         return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
-        return jsonify({'error': str(e)}), 500
+        _log_exception('Failed to send artwork to TV', e)
+        return jsonify({'error': 'Failed to send artwork to TV'}), 500
     except (ResponseError) as e:
-        return jsonify({'error': str(e)}), 400
+        _log_exception('TV rejected request while sending artwork', e)
+        return jsonify({'error': 'TV rejected the request'}), 400
     except Exception as e:
-        print("Unexpected error:", e)
-        return jsonify({'error': 'Unexpected error', 'details': str(e)}), 500
+        _log_exception('Unexpected error while sending artwork to TV', e)
+        return jsonify({'error': 'Unexpected error'}), 500
     
 @app.route("/api/tv/<ip>/images", methods=['DELETE'])
 def api_remove_all_tv_images(ip):
@@ -510,7 +572,8 @@ def api_remove_all_tv_images(ip):
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
-        return jsonify({'error': 'Failed to remove all images from TV', 'details': str(e)}), 500
+        _log_exception('Failed to remove all images from TV', e)
+        return jsonify({'error': 'Failed to remove all images from TV'}), 500
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])
 def api_tv_power_on(ip):
@@ -522,7 +585,8 @@ def api_tv_power_on(ip):
         power_on(ip, mac, token=token)
         return {'success': True}
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to power on TV', e)
+        return _error_response('Failed to power on TV', 500)
 
 @app.route('/api/tv/<ip>/off', methods=['POST'])
 def api_tv_power_off(ip):
@@ -532,7 +596,8 @@ def api_tv_power_off(ip):
         power_off(ip, token=token)
         return {'success': True}
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to power off TV', e)
+        return _error_response('Failed to power off TV', 500)
 
 @app.route('/api/tv/<ip>/artmode', methods=['POST'])
 def api_tv_art_mode(ip):
@@ -542,7 +607,8 @@ def api_tv_art_mode(ip):
         enable_art_mode(ip, token=token)
         return {'success': True}
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to enable art mode', e)
+        return _error_response('Failed to enable art mode', 500)
 
 @app.route('/api/tv/<ip>/status', methods=['GET'])
 def api_tv_status(ip):
@@ -553,7 +619,8 @@ def api_tv_status(ip):
         screen_on = is_tv_reachable(ip, token=token)
         return {'art_mode': art_mode, 'screen_on': screen_on}
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to get TV status', e)
+        return _error_response('Failed to get TV status', 500)
 
 @app.route('/tv/<ip>/on', methods=['POST'])
 def tv_power_on(ip):
@@ -593,13 +660,18 @@ def tv_status(ip):
             'screen_on': screen_on
         }
     except FrameTVError as e:
-        return {'error': str(e)}, 500
+        _log_exception('Failed to get TV status', e)
+        return _error_response('Failed to get TV status', 500)
     
 # Place at the bottom for lowest priority 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve(path):
-    static_file_path = os.path.join(app.static_folder, path)
+    try:
+        static_file_path = _normalized_static_path(path)
+    except ValueError:
+        return _error_response('Invalid path', 400)
+
     if os.path.isfile(static_file_path):
         return send_from_directory(app.static_folder, path)
     # Always serve index.html for any unknown route (client-side routing)
