@@ -66,7 +66,6 @@ def upload_artwork(
     tv.open()
     upload_kwargs = {}
     available_mattes = get_available_mattes(ip, token)
-    print("avaiblable", available_mattes)
     if matte is not None:
         # Validate matte against available options
         if available_mattes and 'matte_types' in available_mattes:
@@ -290,7 +289,6 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
                 images.append({
                     "content_id": item.get("content_id"),
                     "filename": item.get("file_name", "Unknown"),
-                    "size": item.get("file_size", 0),
                     "date_added": item.get("date_added", item.get("created_at", "Unknown"))
                 })
         return images
@@ -336,17 +334,37 @@ def get_tv_gallery_thumbnail(ip: str, content_id: str, token: Optional[str] = No
         Optional[bytes]: Thumbnail image bytes, or None if unavailable.
     """
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
-    #try:
-    tv.open()
-    thumbnail = tv.art().get_thumbnail(content_id)
-    print(f"Fetched thumbnail for content_id {content_id} from TV {ip}, size: {len(thumbnail) if thumbnail else 'None'} bytes")
-#    if isinstance(thumbnail, (bytes, bytearray)):
-    #        return bytes(thumbnail)
-    #    return None
-    #except Exception as err:  # pylint: disable=broad-except
-    #    _raise_tv_connection_error(ip, f"fetching thumbnail {content_id} from", err)
-    #finally:
-    #    try:
-    #        tv.close()
-    #    except Exception:
-    #        pass
+    try:
+        tv.open()
+        art = tv.art()
+
+        thumbnail_bytes = None
+
+        # Newer firmware tends to be more reliable when we request thumbnails
+        # through the D2D list endpoint, which returns the response over the
+        # response socket.
+        try:
+            thumbnail_map = art.get_thumbnail_list([content_id])
+            if isinstance(thumbnail_map, dict):
+                thumbnail_bytes = next(
+                    (bytes(data) for data in thumbnail_map.values() if isinstance(data, (bytes, bytearray))),
+                    None,
+                )
+        except Exception:
+            thumbnail_bytes = None
+
+        if thumbnail_bytes is None:
+            thumbnail = art.get_thumbnail(content_id)
+            if isinstance(thumbnail, (bytes, bytearray)):
+                thumbnail_bytes = bytes(thumbnail)
+
+        if thumbnail_bytes is not None:
+            return thumbnail_bytes
+        return None
+    except Exception as err:  # pylint: disable=broad-except
+        _raise_tv_connection_error(ip, f"fetching thumbnail {content_id} from", err)
+    finally:
+        try:
+            tv.close()
+        except Exception:
+            pass

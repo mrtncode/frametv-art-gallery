@@ -5,7 +5,6 @@ const API_BASE = import.meta.env.VITE_API_URL || '';
 export interface TVGalleryImage {
   content_id: string;
   filename: string;
-  size: number;
   date_added: string;
 }
 

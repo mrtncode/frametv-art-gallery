@@ -81,14 +81,6 @@ export default function TVGallery() {
     }
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return "0 B";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
   const formatDate = (dateString: string): string => {
     if (!dateString || dateString === "Unknown") return "Unknown";
     try {
@@ -166,7 +158,6 @@ export default function TVGallery() {
                   <div className="flex-1 min-w-0 self-center">
                     <p className="font-medium truncate">{image.filename}</p>
                     <div className="text-xs text-gray-500 mt-1 space-y-1">
-                      <p>Size: {formatFileSize(image.size)}</p>
                       <p>Added: {formatDate(image.date_added)}</p>
                       <p className="text-gray-400 truncate">ID: {image.content_id}</p>
                     </div>

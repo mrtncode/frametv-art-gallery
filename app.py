@@ -644,7 +644,6 @@ def api_tv_gallery_thumbnail(ip, content_id):
         return jsonify({'error': 'TV not found'}), 404
     try:
         thumbnail = get_tv_gallery_thumbnail(ip, content_id, token=tv.token)
-        print(f"Thumbnail bytes length: {len(thumbnail) if thumbnail else 'None'}")
         if not thumbnail:
             return jsonify({'error': 'Thumbnail not found'}), 404
         return Response(thumbnail, mimetype=_guess_image_mimetype(thumbnail))
