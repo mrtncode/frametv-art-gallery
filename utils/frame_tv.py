@@ -284,13 +284,16 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
         available = tv.art().available() or []
 
         images = []
+        seen_content_ids = set()
         for item in available:
-            if item.get("content_id"):
+            content_id = item.get("content_id")
+            if content_id and content_id not in seen_content_ids:
                 images.append({
-                    "content_id": item.get("content_id"),
+                    "content_id": content_id,
                     "filename": item.get("file_name", "Unknown"),
                     "date_added": item.get("date_added", item.get("created_at", "Unknown"))
                 })
+                seen_content_ids.add(content_id)
         return images
     except Exception as err:  # pylint: disable=broad-except
         _raise_tv_connection_error(ip, "fetching gallery images from", err)
@@ -313,7 +316,7 @@ def delete_tv_image(ip: str, content_id: str, token: Optional[str] = None) -> bo
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:
         tv.open()
-        tv.art().delete_list([content_id])
+        tv.art().delete(content_id)
         return True
     except Exception as err:  # pylint: disable=broad-except
         _raise_tv_connection_error(ip, f"deleting image {content_id} from", err)
