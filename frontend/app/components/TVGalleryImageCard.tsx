@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { TrashIcon, PlayIcon, ArrowPathIcon, PhotoIcon } from "@heroicons/react/24/outline";
+import { useState } from "react";
+import { TrashIcon, PlayIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { Skeleton } from "~/components/ui/skeleton"
-import { toast } from "sonner";
 import {
   getTvGalleryThumbnailUrl,
   type TVGalleryImage,

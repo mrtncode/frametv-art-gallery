@@ -88,7 +88,6 @@ export async function getTvGalleryImages(ip: string): Promise<TVGalleryImage[]> 
 }
 
 export function getTvGalleryThumbnailUrl(ip: string, contentId: string) {
-  console.log(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/thumbnail`);
   return `${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/thumbnail`;
 }
 
