@@ -1,5 +1,6 @@
 import React from 'react'
-import { getTvs, addTv, removeTv, removeAllTvImages } from '~/utils/tvApi';
+import { Link } from 'react-router'
+import { getTvs, addTv, removeTv, removeAllTvImages, updateTv } from '~/utils/tvApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 import { getProviders, setProvider, getProvider, deleteProvider } from '~/utils/providerApi';
@@ -110,11 +111,7 @@ export default function Settings() {
 
   const handleToggleDeleteOthers = async (tvIp: string, value: boolean) => {
     try {
-      await fetch(`/api/tvs/${encodeURIComponent(tvIp)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ delete_other_images_on_upload: value }),
-      });
+      await updateTv(tvIp, { delete_other_images_on_upload: value });
       await fetchTvs();
     } catch (e: any) {
       setError(e.message || 'Failed to update TV setting');
@@ -217,6 +214,9 @@ export default function Settings() {
                   </label>
 
                   <div className="flex flex-col gap-2">
+                    <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg text-center">
+                      View Gallery
+                    </Link>
                     <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-red-500 hover:text-red-700 text-sm font-medium">
                       Delete all Images from TV
                     </button>

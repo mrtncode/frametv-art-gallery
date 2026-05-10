@@ -2,6 +2,19 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+export interface TVGalleryImage {
+  content_id: string;
+  filename: string;
+  date_added: string;
+}
+
+export interface TVInfo {
+  ip: string;
+  name?: string;
+  mac?: string;
+  delete_other_images_on_upload?: boolean;
+}
+
 export class TVError extends Error {
   status: number;
   constructor(message: string, status: number) {
@@ -30,6 +43,16 @@ export async function getTvs() {
   return (await res.json()).tvs;
 }
 
+export async function updateTv(ip: string, updates: { delete_other_images_on_upload?: boolean }) {
+  const res = await fetch(`${API_BASE}/api/tvs/${encodeURIComponent(ip)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to update TV');
+  return await res.json();
+}
+
 export async function addTv(tv: { ip: string; name?: string; mac?: string }) {
   const res = await fetch(`${API_BASE}/api/tvs`, {
     method: 'POST',
@@ -56,6 +79,32 @@ export async function removeAllTvImages(ip: string) {
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to remove all images from TV');
   return (await res.json()).tvs;
+}
+
+export async function getTvGalleryImages(ip: string): Promise<TVGalleryImage[]> {
+  const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery`);
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to load TV gallery');
+  return (await res.json()).images || [];
+}
+
+export function getTvGalleryThumbnailUrl(ip: string, contentId: string) {
+  return `${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/thumbnail`;
+}
+
+export async function playTvGalleryImage(ip: string, contentId: string) {
+  const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/play`, {
+    method: 'POST',
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to play image');
+  return await res.json();
+}
+
+export async function deleteTvGalleryImage(ip: string, contentId: string) {
+  const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to delete image');
+  return await res.json();
 }
 
 export async function sendToTV({payload, brightness, display }: { payload: any, brightness?: number, display?: boolean }) {

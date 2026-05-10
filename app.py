@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, Response
 import os
 from werkzeug.utils import secure_filename
 from pathlib import Path
@@ -39,7 +39,13 @@ from utils.frame_tv import (
     power_off,
     enable_art_mode,
     FrameTVError,
-    delete_all_images_from_tv
+    FrameTVConnectionError,
+    FrameTVTimeoutError,
+    delete_all_images_from_tv,
+    get_tv_gallery_images,
+    delete_tv_image,
+    play_uploaded_content,
+    get_tv_gallery_thumbnail
 )
 
 DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
@@ -146,6 +152,18 @@ def _normalized_static_path(path: str):
     if normalized != STATIC_ROOT and STATIC_ROOT not in normalized.parents:
         raise ValueError('Invalid path')
     return normalized
+
+
+def _guess_image_mimetype(image_bytes: bytes) -> str:
+    if image_bytes.startswith(b'\xff\xd8\xff'):
+        return 'image/jpeg'
+    if image_bytes.startswith(b'\x89PNG\r\n\x1a\n'):
+        return 'image/png'
+    if image_bytes.startswith(b'GIF87a') or image_bytes.startswith(b'GIF89a'):
+        return 'image/gif'
+    if image_bytes.startswith(b'RIFF') and image_bytes[8:12] == b'WEBP':
+        return 'image/webp'
+    return 'application/octet-stream'
 
 # --- Media Provider Integration ---
 media_provider = None
@@ -573,6 +591,91 @@ def api_remove_all_tv_images(ip):
         db.session.rollback()
         _log_exception('Failed to remove all images from TV', e)
         return jsonify({'error': 'Failed to remove all images from TV'}), 500
+
+@app.route("/api/tv/<ip>/gallery", methods=['GET'])
+def api_get_tv_gallery(ip):
+    """Get list of images currently on the TV."""
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+    try:
+        images = get_tv_gallery_images(ip, token=tv.token)
+        return jsonify({'images': images, 'tv_ip': ip})
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while fetching TV gallery', e)
+        return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV gallery connection failed', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
+    except Exception as e:
+        _log_exception('Failed to fetch TV gallery', e)
+        return jsonify({'error': 'Failed to fetch TV gallery'}), 500
+
+@app.route("/api/tv/<ip>/gallery/<content_id>/play", methods=['POST'])
+def api_play_tv_image(ip, content_id):
+    """Play a specific image from the TV gallery."""
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+    try:
+        # Enable art mode first
+        enable_art_mode(ip, token=tv.token)
+        # Play the image
+        play_uploaded_content(ip, content_id, token=tv.token)
+        return jsonify({'success': True})
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while playing TV image', e)
+        return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while playing image', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
+    except FrameTVError as e:
+        _log_exception('Failed to play TV image', e)
+        return jsonify({'error': 'Failed to play image'}), 500
+    except Exception as e:
+        _log_exception('Unexpected error playing TV image', e)
+        return jsonify({'error': 'Unexpected error'}), 500
+
+@app.route("/api/tv/<ip>/gallery/<content_id>/thumbnail", methods=['GET'])
+def api_tv_gallery_thumbnail(ip, content_id):
+    """Return a thumbnail image for a TV gallery item."""
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+    try:
+        thumbnail = get_tv_gallery_thumbnail(ip, content_id, token=tv.token)
+        if not thumbnail:
+            return jsonify({'error': 'Thumbnail not found'}), 404
+        return Response(thumbnail, mimetype=_guess_image_mimetype(thumbnail))
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while fetching TV thumbnail', e)
+        return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while fetching thumbnail', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
+    except Exception as e:
+        _log_exception('Failed to fetch TV thumbnail', e)
+        return jsonify({'error': 'Failed to fetch thumbnail'}), 500
+
+@app.route("/api/tv/<ip>/gallery/<content_id>", methods=['DELETE'])
+def api_delete_tv_image(ip, content_id):
+    """Delete a specific image from the TV gallery."""
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+    try:
+        delete_tv_image(ip, content_id, token=tv.token)
+        return jsonify({'success': True})
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while deleting TV image', e)
+        return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while deleting TV image', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
+    except Exception as e:
+        _log_exception('Failed to delete TV image', e)
+        return jsonify({'error': 'Failed to delete image'}), 500
+
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])
 def api_tv_power_on(ip):

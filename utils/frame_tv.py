@@ -1,3 +1,4 @@
+import socket
 from typing import Dict, List, Optional
 from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
@@ -14,9 +15,29 @@ class FrameTVConnectionError(FrameTVError):
     """Exception for connection errors to the Frame TV."""
     pass
 
+
+class FrameTVTimeoutError(FrameTVConnectionError):
+    """Exception for timeouts while talking to the Frame TV."""
+    pass
+
 class FrameTVUploadError(FrameTVError):
     """Exception for upload errors to the Frame TV."""
     pass
+
+
+def _is_timeout_error(err: Exception) -> bool:
+    return (
+        isinstance(err, (TimeoutError, socket.timeout))
+        or getattr(err, "winerror", None) == 10060
+        or "10060" in str(err)
+        or "timed out" in str(err).lower()
+    )
+
+
+def _raise_tv_connection_error(ip: str, operation: str, err: Exception) -> None:
+    if _is_timeout_error(err):
+        raise FrameTVTimeoutError(f"Timeout while {operation} TV {ip}") from err
+    raise FrameTVConnectionError(f"Error while {operation} TV {ip}") from err
 
 def upload_artwork(
     ip: str,
@@ -45,7 +66,6 @@ def upload_artwork(
     tv.open()
     upload_kwargs = {}
     available_mattes = get_available_mattes(ip, token)
-    print("avaiblable", available_mattes)
     if matte is not None:
         # Validate matte against available options
         if available_mattes and 'matte_types' in available_mattes:
@@ -248,3 +268,108 @@ def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
         tv.close()
     except Exception as err:  # pylint: disable=broad-except
         print(f"Error changing matte on TV {ip}: {err}")
+
+def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
+    """
+    Fetch the list of images currently on the Frame TV.
+    Args:
+        ip (str): IP address of the TV.
+        token (Optional[str]): Token string to use for authentication.
+    Returns:
+        List[Dict]: List of image dictionaries with metadata (content_id, filename, date_added).
+    """
+    tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
+    try:
+        tv.open()
+        available = tv.art().available() or []
+
+        images = []
+        seen_content_ids = set()
+        for item in available:
+            content_id = item.get("content_id")
+            if content_id and content_id not in seen_content_ids:
+                images.append({
+                    "content_id": content_id,
+                    "filename": item.get("file_name", "Unknown"),
+                    "date_added": item.get("date_added", item.get("created_at", "Unknown"))
+                })
+                seen_content_ids.add(content_id)
+        return images
+    except Exception as err:  # pylint: disable=broad-except
+        _raise_tv_connection_error(ip, "fetching gallery images from", err)
+    finally:
+        try:
+            tv.close()
+        except Exception:
+            pass
+
+def delete_tv_image(ip: str, content_id: str, token: Optional[str] = None) -> bool:
+    """
+    Delete a specific image from the Frame TV by content_id.
+    Args:
+        ip (str): IP address of the TV.
+        content_id (str): Content ID of the image to delete.
+        token (Optional[str]): Token string to use for authentication.
+    Returns:
+        bool: True if deletion was successful.
+    Raises:
+        RuntimeError: If the TV connection or deletion fails.
+    """
+    tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
+    try:
+        tv.open()
+        tv.art().delete(content_id)
+        return True
+    except Exception as err:  # pylint: disable=broad-except
+        _raise_tv_connection_error(ip, f"deleting image {content_id} from", err)
+    finally:
+        try:
+            tv.close()
+        except Exception:
+            pass
+
+def get_tv_gallery_thumbnail(ip: str, content_id: str, token: Optional[str] = None) -> Optional[bytes]:
+    """
+    Fetch the thumbnail bytes for a TV gallery image.
+    Args:
+        ip (str): IP address of the TV.
+        content_id (str): Content ID of the image.
+        token (Optional[str]): Token string to use for authentication.
+    Returns:
+        Optional[bytes]: Thumbnail image bytes, or None if unavailable.
+    """
+    tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
+    try:
+        tv.open()
+        art = tv.art()
+
+        thumbnail_bytes = None
+
+        # Newer firmware tends to be more reliable when we request thumbnails
+        # through the D2D list endpoint, which returns the response over the
+        # response socket.
+        try:
+            thumbnail_map = art.get_thumbnail_list([content_id])
+            if isinstance(thumbnail_map, dict):
+                thumbnail_bytes = next(
+                    (bytes(data) for data in thumbnail_map.values() if isinstance(data, (bytes, bytearray))),
+                    None,
+                )
+        except Exception:
+            thumbnail_bytes = None
+
+        if thumbnail_bytes is None:
+            thumbnail = art.get_thumbnail(content_id)
+            if isinstance(thumbnail, (bytes, bytearray)):
+                thumbnail_bytes = bytes(thumbnail)
+
+        if thumbnail_bytes is not None:
+            return thumbnail_bytes
+        return None
+    except Exception as err:  # pylint: disable=broad-except
+        _raise_tv_connection_error(ip, f"fetching thumbnail {content_id} from", err)
+    finally:
+        try:
+            tv.close()
+        except Exception:
+            pass

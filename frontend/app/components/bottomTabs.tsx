@@ -1,10 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { NavLink } from "react-router"; // Achtung: react-router-dom
-import { HomeIcon, UserIcon, PlusIcon, Cog6ToothIcon, PhotoIcon } from "@heroicons/react/24/outline";
+import { HomeIcon, UserIcon, PlusIcon, Cog6ToothIcon, PhotoIcon, TvIcon } from "@heroicons/react/24/outline";
 
 const items = [
   { id: "home", label: "Home", icon: <HomeIcon className="w-6 h-6" />, href: "/" },
   { id: "gallery", label: "Gallery", icon: <PhotoIcon className="w-6 h-6" />, href: "/gallery" },
+  { id: "tv-gallery", label: "TV Gallery", icon: <TvIcon className="w-6 h-6" />, href: "/tv-gallery" },
   { id: "settings", label: "Settings", icon: <Cog6ToothIcon className="w-6 h-6" />, href: "/settings" },
 ];
 
@@ -25,7 +26,7 @@ export default function BottomTabs() {
 
   return (
     <div className={`fixed z-50 w-full max-w-lg -translate-x-1/2 ${isIOS ? 'bottom-0' : 'bottom-4'} left-1/2`} >
-      <div className="grid h-16 grid-cols-3 mx-auto bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-full">
+      <div className="grid h-16 grid-cols-4 mx-auto bg-white dark:bg-gray-950 border border-gray-200 dark:border-gray-700 rounded-full">
         <style>{`
           .bottom-tab-icon {
             transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
