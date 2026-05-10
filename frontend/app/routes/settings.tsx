@@ -214,7 +214,7 @@ export default function Settings() {
                   </label>
 
                   <div className="flex flex-col gap-2">
-                    <Link to={`/tv-gallery?ip=${tv.ip}`} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg text-center">
+                    <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg text-center">
                       View Gallery
                     </Link>
                     <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-red-500 hover:text-red-700 text-sm font-medium">

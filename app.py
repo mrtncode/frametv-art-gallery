@@ -601,12 +601,12 @@ def api_get_tv_gallery(ip):
     try:
         images = get_tv_gallery_images(ip, token=tv.token)
         return jsonify({'images': images, 'tv_ip': ip})
-    except FrameTVConnectionError as e:
-        _log_exception('TV gallery connection failed', e)
-        return jsonify({'error': 'TV is unavailable'}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while fetching TV gallery', e)
         return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV gallery connection failed', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
     except Exception as e:
         _log_exception('Failed to fetch TV gallery', e)
         return jsonify({'error': 'Failed to fetch TV gallery'}), 500
@@ -623,12 +623,12 @@ def api_play_tv_image(ip, content_id):
         # Play the image
         play_uploaded_content(ip, content_id, token=tv.token)
         return jsonify({'success': True})
-    except FrameTVConnectionError as e:
-        _log_exception('TV connection failed while playing image', e)
-        return jsonify({'error': 'TV is unavailable'}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while playing TV image', e)
         return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while playing image', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
     except FrameTVError as e:
         _log_exception('Failed to play TV image', e)
         return jsonify({'error': 'Failed to play image'}), 500
@@ -647,12 +647,12 @@ def api_tv_gallery_thumbnail(ip, content_id):
         if not thumbnail:
             return jsonify({'error': 'Thumbnail not found'}), 404
         return Response(thumbnail, mimetype=_guess_image_mimetype(thumbnail))
-    except FrameTVConnectionError as e:
-        _log_exception('TV connection failed while fetching thumbnail', e)
-        return jsonify({'error': 'TV is unavailable'}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while fetching TV thumbnail', e)
         return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while fetching thumbnail', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
     except Exception as e:
         _log_exception('Failed to fetch TV thumbnail', e)
         return jsonify({'error': 'Failed to fetch thumbnail'}), 500
@@ -669,12 +669,12 @@ def api_delete_tv_image(ip, content_id):
             return jsonify({'success': True})
         else:
             return jsonify({'error': 'Failed to delete image'}), 500
-    except FrameTVConnectionError as e:
-        _log_exception('TV connection failed while deleting TV image', e)
-        return jsonify({'error': 'TV is unavailable'}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while deleting TV image', e)
         return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while deleting TV image', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
     except Exception as e:
         _log_exception('Failed to delete TV image', e)
         return jsonify({'error': 'Failed to delete image'}), 500
