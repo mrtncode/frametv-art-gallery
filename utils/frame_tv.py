@@ -276,7 +276,7 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
         ip (str): IP address of the TV.
         token (Optional[str]): Token string to use for authentication.
     Returns:
-        List[Dict]: List of image dictionaries with metadata (content_id, filename, size, date_added).
+        List[Dict]: List of image dictionaries with metadata (content_id, filename, date_added).
     """
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:
@@ -311,7 +311,9 @@ def delete_tv_image(ip: str, content_id: str, token: Optional[str] = None) -> bo
         content_id (str): Content ID of the image to delete.
         token (Optional[str]): Token string to use for authentication.
     Returns:
-        bool: True if deletion was successful, False otherwise.
+        bool: True if deletion was successful.
+    Raises:
+        RuntimeError: If the TV connection or deletion fails.
     """
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:

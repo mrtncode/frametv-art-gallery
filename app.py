@@ -664,11 +664,8 @@ def api_delete_tv_image(ip, content_id):
     if not tv:
         return jsonify({'error': 'TV not found'}), 404
     try:
-        success = delete_tv_image(ip, content_id, token=tv.token)
-        if success:
-            return jsonify({'success': True})
-        else:
-            return jsonify({'error': 'Failed to delete image'}), 500
+        delete_tv_image(ip, content_id, token=tv.token)
+        return jsonify({'success': True})
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while deleting TV image', e)
         return jsonify({'error': 'TV request timed out'}), 504
