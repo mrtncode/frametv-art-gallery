@@ -219,7 +219,7 @@ export default function Gallery() {
       disabled={uploading}
       onFilesDropped={handleFilesDropped}
     >
-      <h2 className="text-2xl font-bold mb-4">Gallery</h2>
+      <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">Gallery</h1>
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             {/* Upload Image Form */}
             <div className="flex-1 bg-white rounded-lg shadow p-4">

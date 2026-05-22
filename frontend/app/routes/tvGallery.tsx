@@ -94,8 +94,7 @@ export default function TVGallery() {
   return (
     <div className="container mx-auto px-4 py-6 max-w-2xl">
       <div className="flex items-center gap-2 mb-6">
-        <SparklesIcon className="w-6 h-6" />
-        <h1 className="text-3xl font-bold">TV Gallery</h1>
+        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">TV Settings</h1>
       </div>
 
       {tvs.length === 0 ? (
