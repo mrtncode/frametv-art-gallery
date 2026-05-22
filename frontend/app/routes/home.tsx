@@ -106,7 +106,6 @@ export default function Home() {
     <div className="max-w-7xl mx-auto mt-12 p-8 bg-white rounded-2xl shadow-lg">
       <header className="text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-900">FrameTV Art Gallery</h1>
-        <p className="text-lg text-gray-500 mt-2">Upload, and enjoy beautiful images on your Frame TV.</p>
       </header>
 
       {/* Responsive cards container */}
