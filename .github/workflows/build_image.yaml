@@ -1,8 +1,9 @@
 name: Build and publish Docker image
 
 on:
-  release:
-    types: [published]
+#  release:
+#    types: [published]
+  workflow_call:
 
 env:
   REGISTRY: ghcr.io
