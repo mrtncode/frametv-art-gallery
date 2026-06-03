@@ -23,4 +23,4 @@ jobs:
   trigger-build:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created == 'true' }}
-    uses: ./.github/workflows/build_Image.yaml
+    uses: ./.github/workflows/build_image.yaml
