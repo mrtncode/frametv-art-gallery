@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import Cropper from "react-cropper";
-import "cropperjs/dist/cropper.css";
+import 'cropperjs';
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { cropImage } from "../utils/galleryApi";
 
