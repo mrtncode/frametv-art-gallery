@@ -3,6 +3,9 @@ from typing import Dict, List, Optional
 from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
 from const import CONNECTION_NAME
+import logging
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8002
 DEFAULT_TIMEOUT = 8
@@ -73,7 +76,7 @@ def upload_artwork(
             # Extract matte_type values from the list of dicts
             available_matte_names = [m.get('matte_type') for m in matte_types if isinstance(m, dict)]
             if matte not in available_matte_names:
-                print(f"Warning: '{matte}' not in available mattes: {available_matte_names}")
+                logger.warning("Requested matte '%s' not in available mattes: %s", matte, available_matte_names)
         upload_kwargs['matte'] = matte
         upload_kwargs['portrait_matte'] = matte
     with open(art_path, "rb") as f:
@@ -94,22 +97,21 @@ def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
         # art.available() returns a content list
         available = art.available() or []
     except Exception as err:  # pylint: disable=broad-except
-        print(f"Could not enumerate TV gallery: {err}")
+        logger.exception("Could not enumerate TV gallery")
 
     deletions = [item.get("content_id") for item in available if item.get("content_id") and item.get("content_id") != keep_content_id]
     
     kept = [item.get("content_id") for item in available if item.get("content_id") == keep_content_id]
     if len(kept) > 1:
-        print(f"Warning: Found {len(kept)} copies of active image {keep_content_id}. Keeping all to avoid accidental deletion.")
+        logger.warning("Found %d copies of active image %s; keeping all to avoid accidental deletion.", len(kept), keep_content_id)
     
     if not deletions:
-        print("No other images to delete")
+        logger.debug("No other images to delete")
         return
-
-    print(f"Deleting {len(deletions)} old images: {deletions}")
+    logger.info("Deleting %d old images: %s", len(deletions), deletions)
     art.delete_list(deletions)
     if debug:
-        print("Deleted %s old images", len(deletions))
+        logger.debug("Deleted %d old images", len(deletions))
 
 def delete_all_images_from_tv(ip: str, token: Optional[str] = None) -> None:
     """
@@ -125,11 +127,11 @@ def delete_all_images_from_tv(ip: str, token: Optional[str] = None) -> None:
         content_ids = [item.get("content_id") for item in available if item.get("content_id")]
         if content_ids:
             tv.art().delete_list(content_ids)
-            print(f"Deleted {len(content_ids)} images from TV {ip}")
+            logger.info("Deleted %d images from TV %s", len(content_ids), ip)
         else:
-            print(f"No images found on TV {ip} to delete")
+            logger.info("No images found on TV %s to delete", ip)
     except Exception as err:  # pylint: disable=broad-except
-        print(f"Error while deleting images from TV {ip}: {err}")
+        logger.exception("Error while deleting images from TV %s", ip)
     finally:
         tv.close()
 
@@ -199,7 +201,7 @@ def power_on(ip: str, mac: str, token: Optional[str] = None) -> None:
         mac (str): MAC address of the TV.
         token (Optional[str]): Token string to use for authentication.
     """
-    print("wake on lan is currently not implemented")
+    logger.info("wake on lan is currently not implemented")
     pass
 
 def power_off(ip: str, token: Optional[str] = None) -> None:
@@ -250,7 +252,7 @@ def get_available_mattes(ip: str, token: Optional[str] = None) -> Optional[Dict]
         tv.close()
         return mattes
     except Exception as err:  # pylint: disable=broad-except
-        print(f"Error getting matte list from TV {ip}: {err}")
+        logger.exception("Error getting matte list from TV %s", ip)
         return None
 
 def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
@@ -267,7 +269,7 @@ def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
         tv.art().change_matte(matte)
         tv.close()
     except Exception as err:  # pylint: disable=broad-except
-        print(f"Error changing matte on TV {ip}: {err}")
+        logger.exception("Error changing matte on TV %s", ip)
 
 def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
     """

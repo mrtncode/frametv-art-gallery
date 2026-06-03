@@ -4,6 +4,9 @@ import aiofiles
 from typing import List, Dict, Optional
 from aioimmich import Immich
 from .media_provider import MediaProvider
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ImmichProvider(MediaProvider):
     def __init__(self, api_key: str, host: str, port: int = 443):
@@ -43,7 +46,7 @@ class ImmichProvider(MediaProvider):
         await session.close()
         async with aiofiles.open(dest_path, "wb") as f:
             await f.write(asset_bytes)
-            print("download complete")
+            logger.info("download complete")
 
     def download_image_by_id_sync(self, image_id: str, dest_path: str, size: str = "fullsize"):
         """Sync wrapper for download_image_by_id for use in sync code."""

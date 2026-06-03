@@ -4,10 +4,10 @@ from werkzeug.utils import secure_filename
 from pathlib import Path
 import sys
 from flask_sqlalchemy import SQLAlchemy
-from utils.frame_tv import SamsungTVWS, FrameTVError, DEFAULT_PORT
 from utils.crop_image import crop_image_file, CropImageError, get_preset_crop_box, CROP_PRESETS
 from samsungtvws.exceptions import HttpApiError, ResponseError
 from const import CONNECTION_NAME
+from typing import Tuple, Optional
 from datetime import datetime
 from flask_migrate import Migrate
 import importlib
@@ -32,6 +32,8 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from utils.frame_tv import (
+    SamsungTVWS,
+    DEFAULT_PORT,
     upload_artwork,
     is_art_mode_on,
     is_tv_reachable,
@@ -45,7 +47,7 @@ from utils.frame_tv import (
     get_tv_gallery_images,
     delete_tv_image,
     play_uploaded_content,
-    get_tv_gallery_thumbnail
+    get_tv_gallery_thumbnail,
 )
 
 DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
@@ -102,9 +104,9 @@ app.register_blueprint(provider_config_routes)
 def init_db():
     """Ensure database and all tables exist."""
     with app.app_context():
-        print("Initializing database...")
+        app.logger.info("Initializing database")
         db.create_all()
-        print("Database initialized.")
+        app.logger.info("Database initialized")
 
 # Initialize database on startup
 init_db()
@@ -112,8 +114,8 @@ migrate = Migrate(app, db)
 
 
 # --- Helpers ---
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+def allowed_file(filename: str) -> bool:
+    return isinstance(filename, str) and '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 UPLOAD_ROOT = Path(app.config['UPLOAD_FOLDER']).resolve()
@@ -128,7 +130,7 @@ def _error_response(public_message: str, status_code: int = 500):
     return {'error': public_message}, status_code
 
 
-def _normalized_upload_path(filename: str, must_exist: bool = False):
+def _normalized_upload_path(filename: str, must_exist: bool = False) -> Tuple[str, str]:
     if not filename or not isinstance(filename, str):
         raise ValueError('Invalid filename')
     normalized_name = secure_filename(filename)
@@ -145,11 +147,12 @@ def _normalized_upload_path(filename: str, must_exist: bool = False):
     return normalized_name, str(candidate)
 
 
-def _normalized_static_path(path: str):
+def _normalized_static_path(path: str) -> Path:
     if STATIC_ROOT is None:
         raise ValueError('Static path not configured')
     normalized = (STATIC_ROOT / path).resolve()
-    if normalized != STATIC_ROOT and STATIC_ROOT not in normalized.parents:
+    # Ensure the resulting path is the static root or contained within it
+    if not (normalized == STATIC_ROOT or STATIC_ROOT in normalized.parents):
         raise ValueError('Invalid path')
     return normalized
 
@@ -176,9 +179,9 @@ def load_media_provider():
                 ImmichProvider = importlib.import_module("utils.immich_provider").ImmichProvider
                 port = config.port or 443
                 media_provider = ImmichProvider(config.api_key, config.host, port)
-                print("Loaded Immich provider from DB config")
+                app.logger.info("Loaded Immich provider from DB config")
             except Exception as e:
-                print(f"Failed to initialize Immich provider: {e}")
+                app.logger.exception("Failed to initialize Immich provider")
         else:
             media_provider = None
 
