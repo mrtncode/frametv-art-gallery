@@ -1,5 +1,6 @@
 import socket
 from typing import Dict, List, Optional
+import base64
 from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
 from const import CONNECTION_NAME
@@ -283,19 +284,36 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:
         tv.open()
-        available = tv.art().available() or []
+        art = tv.art()
+        available = art.available() or []
 
         images = []
-        seen_content_ids = set()
+        seen_content_ids = []
         for item in available:
             content_id = item.get("content_id")
             if content_id and content_id not in seen_content_ids:
                 images.append({
                     "content_id": content_id,
                     "filename": item.get("file_name", "Unknown"),
-                    "date_added": item.get("date_added", item.get("created_at", "Unknown"))
+                    "date_added": item.get("date_added", item.get("created_at", "Unknown")),
+                    "thumbnail": None,
                 })
-                seen_content_ids.add(content_id)
+                seen_content_ids.append(content_id)
+
+        # Try to fetch thumbnails in a single batch call to avoid many serial connections
+        try:
+            if seen_content_ids:
+                thumb_map = art.get_thumbnail_list(seen_content_ids)
+                if isinstance(thumb_map, dict):
+                    for img in images:
+                        cid = img["content_id"]
+                        data = thumb_map.get(cid)
+                        if isinstance(data, (bytes, bytearray)):
+                            img["thumbnail"] = base64.b64encode(bytes(data)).decode("ascii")
+        except Exception:
+            # Fall back silently if batch thumbnail retrieval fails
+            pass
+
         return images
     except Exception as err:  # pylint: disable=broad-except
         _raise_tv_connection_error(ip, "fetching gallery images from", err)

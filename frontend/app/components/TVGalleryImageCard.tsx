@@ -33,7 +33,11 @@ export default function TVGalleryImageCard({ image, selectedTvIp, onPlay, onDele
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
         {!imgLoaded && !imgError && <Loader />}
         <img
-          src={getTvGalleryThumbnailUrl(selectedTvIp, image.content_id)}
+          src={
+            image.thumbnail
+              ? `data:image/jpeg;base64,${image.thumbnail}`
+              : getTvGalleryThumbnailUrl(selectedTvIp, image.content_id)
+          }
           alt={image.filename}
           className="h-full w-full object-cover"
           style={{ display: imgLoaded && !imgError ? "block" : "none" }}

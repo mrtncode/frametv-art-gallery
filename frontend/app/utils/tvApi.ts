@@ -6,6 +6,7 @@ export interface TVGalleryImage {
   content_id: string;
   filename: string;
   date_added: string;
+  thumbnail?: string | null; // base64 string when provided by backend
 }
 
 export interface TVInfo {
@@ -84,7 +85,13 @@ export async function removeAllTvImages(ip: string) {
 export async function getTvGalleryImages(ip: string): Promise<TVGalleryImage[]> {
   const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery`);
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to load TV gallery');
-  return (await res.json()).images || [];
+  const data = await res.json();
+  return (data.images || []).map((img: any) => ({
+    content_id: img.content_id,
+    filename: img.filename,
+    date_added: img.date_added,
+    thumbnail: img.thumbnail || null,
+  }));
 }
 
 export function getTvGalleryThumbnailUrl(ip: string, contentId: string) {
