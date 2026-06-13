@@ -32,6 +32,7 @@ interface ImageCardProps {
   large?: boolean;
   /** when true, TV controls are shown regardless of size (useful for tests) */
   showControls?: boolean;
+  tvs?: TV[];
 }
 
 const ImageCard: React.FC<ImageCardProps> = ({
@@ -46,10 +47,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
   onAssignSuccess,
   large,
   showControls
+  , tvs: tvsProp
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
-  const [tvs, setTvs] = useState<TV[]>([]);
+  const [tvs, setTvs] = useState<TV[]>(tvsProp || []);
   const [tvLoading, setTvLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -62,10 +64,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const isLocalImage = image?.type === 'local' || !image?.type;
   const availableAlbums = (albums || []).filter(album => filename && !album.images.includes(filename));
 
-  // fetch TV list once when mounted
+  // fetch TV list once when mounted if not provided by parent
   useEffect(() => {
-    getTvs().then(setTvs).catch(() => setTvs([]));
-  }, []);
+    if (tvsProp && tvsProp.length > 0) {
+      setTvs(tvsProp);
+      return;
+    }
+    if (tvs.length === 0) {
+      getTvs().then(setTvs).catch(() => setTvs([]));
+    }
+  }, [tvsProp]);
 
   useEffect(() => {
     setImageURL(src);

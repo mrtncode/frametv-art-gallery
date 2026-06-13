@@ -8,9 +8,10 @@ interface ImageGridProps {
   onImageClick?: (img: any) => void;
   onDeleteImage?: (img: any) => void;
   onAssignSuccess?: () => void;
+  tvs?: any[];
 }
 
-export default function ImageGrid({ images, albums = [], onImageClick, onDeleteImage, onAssignSuccess }: ImageGridProps) {
+export default function ImageGrid({ images, albums = [], onImageClick, onDeleteImage, onAssignSuccess, tvs = [] }: ImageGridProps) {
   return (
     <div className="w-full p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -22,6 +23,7 @@ export default function ImageGrid({ images, albums = [], onImageClick, onDeleteI
             filename={img.filename}
             image={img}
             albums={albums}
+            tvs={tvs}
             onAssignSuccess={onAssignSuccess}
             onClick={() => onImageClick?.(img)}
             onDelete={onDeleteImage ? () => onDeleteImage(img) : undefined}

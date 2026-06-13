@@ -5,6 +5,7 @@ import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, fetchP
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
+import { getTvs } from "~/utils/tvApi";
 import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
 import { toast } from "sonner";
@@ -34,6 +35,7 @@ export default function Gallery() {
   const [albumName, setAlbumName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [tvs, setTvs] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
   const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
 
@@ -73,6 +75,15 @@ export default function Gallery() {
   useEffect(() => {
     loadLocalGallery();
     loadProviderGallery();
+    // Load TVs once and share with image cards to avoid per-card requests
+    (async () => {
+      try {
+        const list = await getTvs();
+        setTvs(list || []);
+      } catch (_e) {
+        // ignore
+      }
+    })();
   }, []);
 
   async function handleProviderAlbumSelect(albumId: string) {
@@ -254,6 +265,7 @@ export default function Gallery() {
               <ImageGrid
                 images={images}
                 albums={albums}
+                tvs={tvs}
                 onDeleteImage={handleDeleteImage}
                 onAssignSuccess={loadLocalGallery}
               />
