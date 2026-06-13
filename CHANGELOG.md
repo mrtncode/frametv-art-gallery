@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/mrtncode/frametv-art-gallery/compare/v1.1.5...v1.2.0) (2026-06-13)
+
+
+### Features
+
+* Add caching for TV images (speedup loading) ([22206e8](https://github.com/mrtncode/frametv-art-gallery/commit/22206e80b40e564b2a23bdb866c70fe5b886a03e))
+
+
+### Bug Fixes
+
+* fetch TV images with one batch request from the TV ([2d1a59b](https://github.com/mrtncode/frametv-art-gallery/commit/2d1a59bbf28c8532e4bfc58f1056fd099c885080))
+* reduce backend requests ([5897fc7](https://github.com/mrtncode/frametv-art-gallery/commit/5897fc7b34eed5a30185f173cdfba0d5bc3bfc67))
+
 ## [1.1.5](https://github.com/mrtncode/frametv-art-gallery/compare/v1.1.4...v1.1.5) (2026-06-03)
 
 
