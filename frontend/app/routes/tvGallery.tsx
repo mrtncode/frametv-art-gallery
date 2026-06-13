@@ -52,10 +52,24 @@ export default function TVGallery() {
     try {
       const tvImages = await getTvGalleryImages(selectedTvIp);
       setImages(tvImages || []);
+      // Set loading to false now so the gallery list appears immediately
+      setLoading(false);
+
+      // Fetch missing thumbnails in background and update state when ready
+      const missing = (tvImages || []).filter((i) => !i.thumbnail).map((i) => i.content_id);
+      if (missing.length > 0) {
+        (async () => {
+          try {
+            const thumbs = await (await import("~/utils/tvApi")).fetchTvGalleryThumbnails(selectedTvIp, missing);
+            setImages((prev) => prev.map((img) => ({ ...img, thumbnail: img.thumbnail || thumbs[img.content_id] || null })));
+          } catch (err) {
+            console.warn("Failed to batch-fetch thumbnails", err);
+          }
+        })();
+      }
     } catch (error) {
       console.error("Failed to fetch gallery:", error);
       toast.error("Failed to load TV gallery");
-    } finally {
       setLoading(false);
     }
   };

@@ -98,6 +98,41 @@ export function getTvGalleryThumbnailUrl(ip: string, contentId: string) {
   return `${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/thumbnail`;
 }
 
+// Fetch thumbnails in batches with limited concurrency. Returns map contentId -> base64 string
+export async function fetchTvGalleryThumbnails(ip: string, contentIds: string[], concurrency = 6): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  let idx = 0;
+
+  async function worker() {
+    while (idx < contentIds.length) {
+      const i = idx++;
+      const cid = contentIds[i];
+      try {
+        const res = await fetch(getTvGalleryThumbnailUrl(ip, cid));
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        // convert to base64
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+          const slice = bytes.subarray(offset, Math.min(offset + chunkSize, bytes.length));
+          binary += String.fromCharCode.apply(null, Array.from(slice));
+        }
+        out[cid] = btoa(binary);
+      } catch (e) {
+        // ignore failures per-thumbnail
+      }
+    }
+  }
+
+  const workers = [];
+  for (let i = 0; i < Math.min(concurrency, contentIds.length); i++) workers.push(worker());
+  await Promise.all(workers);
+  return out;
+}
+
 export async function playTvGalleryImage(ip: string, contentId: string) {
   const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/${encodeURIComponent(contentId)}/play`, {
     method: 'POST',

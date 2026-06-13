@@ -5,11 +5,66 @@ from samsungtvws import SamsungTVWS
 from samsungtvws.helper import get_ssl_context
 from const import CONNECTION_NAME
 import logging
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8002
 DEFAULT_TIMEOUT = 8
+# Simple in-memory cache to reduce repeated TV requests
+# Structure: { (ip, 'gallery'): (timestamp, value), (ip, content_id): (timestamp, bytes) }
+_CACHE: dict = {}
+_CACHE_TTL = 60  # seconds
+
+def _cache_get(key):
+    import time
+    entry = _CACHE.get(key)
+    if not entry:
+        return None
+    ts, value = entry
+    if time.time() - ts > _CACHE_TTL:
+        try:
+            del _CACHE[key]
+        except KeyError:
+            pass
+        return None
+    return value
+
+def _cache_set(key, value):
+    import time
+    _CACHE[key] = (time.time(), value)
+
+
+# Disk-backed thumbnail cache — store under the project's data directory
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+# Match app.py's DATA_DIR behavior: use FRAME_TV_DATA env or default to 'data'
+_DATA_DIR = Path(os.environ.get('FRAME_TV_DATA', 'data'))
+if not _DATA_DIR.is_absolute():
+    _DATA_DIR = PROJECT_ROOT.joinpath(_DATA_DIR)
+TV_THUMB_DIR = _DATA_DIR.joinpath('instance', 'tv_thumbnails')
+TV_THUMB_DIR.mkdir(parents=True, exist_ok=True)
+
+def _thumb_disk_path(ip: str, content_id: str) -> Path:
+    safe_ip = ip.replace(':', '_')
+    return TV_THUMB_DIR.joinpath(safe_ip, content_id)
+
+def _thumb_disk_get(ip: str, content_id: str) -> Optional[bytes]:
+    p = _thumb_disk_path(ip, content_id)
+    if p.is_file():
+        try:
+            return p.read_bytes()
+        except Exception:
+            return None
+    return None
+
+def _thumb_disk_set(ip: str, content_id: str, data: bytes) -> None:
+    p = _thumb_disk_path(ip, content_id)
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(data)
+    except Exception:
+        logger.exception("Failed to write thumbnail to disk for %s %s", ip, content_id)
 
 class FrameTVError(Exception):
     """Base exception for Frame TV operations."""
@@ -281,6 +336,8 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
     Returns:
         List[Dict]: List of image dictionaries with metadata (content_id, filename, date_added).
     """
+    # Do not cache the gallery listing to ensure deletions/changes are observed live
+
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:
         tv.open()
@@ -307,9 +364,20 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
                 if isinstance(thumb_map, dict):
                     for img in images:
                         cid = img["content_id"]
+                        # Prefer disk cache first
+                        disk = _thumb_disk_get(ip, cid)
+                        if disk:
+                            img["thumbnail"] = base64.b64encode(disk).decode("ascii")
+                            continue
                         data = thumb_map.get(cid)
                         if isinstance(data, (bytes, bytearray)):
-                            img["thumbnail"] = base64.b64encode(bytes(data)).decode("ascii")
+                            b = bytes(data)
+                            img["thumbnail"] = base64.b64encode(b).decode("ascii")
+                            # persist to disk
+                            try:
+                                _thumb_disk_set(ip, cid, b)
+                            except Exception:
+                                pass
         except Exception:
             # Fall back silently if batch thumbnail retrieval fails
             pass
@@ -358,6 +426,18 @@ def get_tv_gallery_thumbnail(ip: str, content_id: str, token: Optional[str] = No
     Returns:
         Optional[bytes]: Thumbnail image bytes, or None if unavailable.
     """
+    # Check in-memory cache first
+    cached = _cache_get((ip, content_id))
+    if cached is not None:
+        return cached
+
+    # Check disk-backed cache
+    disk = _thumb_disk_get(ip, content_id)
+    if disk is not None:
+        # also populate in-memory cache
+        _cache_set((ip, content_id), disk)
+        return disk
+
     tv = SamsungTVWS(host=ip, port=DEFAULT_PORT, token=token, name=CONNECTION_NAME, timeout=DEFAULT_TIMEOUT)
     try:
         tv.open()
@@ -384,6 +464,11 @@ def get_tv_gallery_thumbnail(ip: str, content_id: str, token: Optional[str] = No
                 thumbnail_bytes = bytes(thumbnail)
 
         if thumbnail_bytes is not None:
+            try:
+                _thumb_disk_set(ip, content_id, thumbnail_bytes)
+            except Exception:
+                pass
+            _cache_set((ip, content_id), thumbnail_bytes)
             return thumbnail_bytes
         return None
     except Exception as err:  # pylint: disable=broad-except
