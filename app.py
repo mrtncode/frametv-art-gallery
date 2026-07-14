@@ -168,6 +168,33 @@ def _guess_image_mimetype(image_bytes: bytes) -> str:
         return 'image/webp'
     return 'application/octet-stream'
 
+
+def _resolve_original_gallery_image(ip: str, image: dict) -> tuple[str, bool]:
+    content_id = str(image.get('content_id') or '').strip()
+    if not content_id:
+        raise ValueError('Missing content id')
+
+    tv = TV.query.filter_by(ip=ip).first()
+    if tv is not None:
+        uploaded = UploadedImage.query.filter_by(tv_id=tv.id, content_id=content_id).first()
+        if uploaded and uploaded.image and uploaded.image.filename:
+            filename = uploaded.image.filename
+            try:
+                _, _ = _normalized_upload_path(filename, must_exist=True)
+                return filename, False
+            except (ValueError, FileNotFoundError):
+                pass
+
+    filename_hint = str(image.get('filename') or '').strip()
+    if filename_hint:
+        try:
+            filename, _ = _normalized_upload_path(filename_hint, must_exist=True)
+            return filename, False
+        except (ValueError, FileNotFoundError):
+            pass
+
+    raise ValueError('Original file not available locally; the TV API only exposes thumbnails for this item')
+
 # --- Media Provider Integration ---
 media_provider = None
 def load_media_provider():
@@ -678,6 +705,72 @@ def api_delete_tv_image(ip, content_id):
     except Exception as e:
         _log_exception('Failed to delete TV image', e)
         return jsonify({'error': 'Failed to delete image'}), 500
+
+
+@app.route("/api/tv/<ip>/gallery/import", methods=['POST'])
+def api_import_tv_gallery(ip):
+    """Import the current TV gallery into the local software gallery."""
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+
+    try:
+        images = get_tv_gallery_images(ip, token=tv.token)
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while fetching TV gallery for import', e)
+        return jsonify({'error': 'TV request timed out'}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV gallery connection failed during import', e)
+        return jsonify({'error': 'TV is unavailable'}), 503
+    except Exception as e:
+        _log_exception('Failed to fetch TV gallery for import', e)
+        return jsonify({'error': 'Failed to fetch TV gallery'}), 500
+
+    imported = []
+    skipped = []
+    failed = []
+
+    for image in images:
+        content_id = str(image.get('content_id') or '').strip()
+        if not content_id:
+            skipped.append({'content_id': '', 'reason': 'Missing content id'})
+            continue
+
+        try:
+            filename, created_file = _resolve_original_gallery_image(ip, image)
+            existing = Image.query.filter_by(filename=filename).first()
+            if existing and not created_file:
+                skipped.append({
+                    'content_id': content_id,
+                    'filename': filename,
+                    'reason': 'Already imported',
+                })
+                continue
+            if not existing:
+                db.session.add(Image(filename=filename, album_id=None))
+                db.session.commit()
+            imported.append({
+                'content_id': content_id,
+                'filename': filename,
+                'source': 'original',
+            })
+        except Exception as e:
+            _log_exception(f'Failed to import TV image {content_id}', e)
+            failed.append({
+                'content_id': content_id,
+                'error': str(e),
+            })
+
+    return jsonify({
+        'success': True,
+        'imported_count': len(imported),
+        'skipped_count': len(skipped),
+        'failed_count': len(failed),
+        'imported': imported,
+        'skipped': skipped,
+        'failed': failed,
+        'tv_ip': ip,
+    })
 
 
 @app.route('/api/tv/<ip>/on', methods=['POST'])

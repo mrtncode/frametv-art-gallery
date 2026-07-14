@@ -1,9 +1,10 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { getTvs, addTv, removeTv, removeAllTvImages, updateTv } from '~/utils/tvApi';
+import { getTvs, addTv, removeTv, removeAllTvImages, updateTv, importTvGalleryImages } from '~/utils/tvApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
 import { getProviders, setProvider, getProvider, deleteProvider } from '~/utils/providerApi';
+import { toast } from "sonner";
 
 import type { ProviderConfig } from '~/utils/providerApi';
 
@@ -24,6 +25,7 @@ export default function Settings() {
   const [adding, setAdding] = React.useState(false);
   const [showPairModal, setShowPairModal] = React.useState(false);
   const [pairingIp, setPairingIp] = React.useState("");
+  const [importingTvIp, setImportingTvIp] = React.useState("");
 
   // Provider state
   const [immichHost, setImmichHost] = React.useState("");
@@ -106,6 +108,36 @@ export default function Settings() {
       await fetchTvs();
     } catch (e: any) {
       setError(e.message || "Failed to remove all images from TV");
+    }
+  };
+
+  const handleImportTvGallery = async (tvIp: string) => {
+    if (!window.confirm("Import all images from this TV into the local gallery?")) {
+      return;
+    }
+
+    setImportingTvIp(tvIp);
+    setError("");
+    try {
+      const result = await importTvGalleryImages(tvIp);
+      if (result.imported_count > 0) {
+        toast.success(
+          `Imported ${result.imported_count} image${result.imported_count === 1 ? "" : "s"} from TV gallery`
+        );
+      } else {
+        toast.info("No new images were imported");
+      }
+      if (result.skipped_count > 0) {
+        toast.warning(`Skipped ${result.skipped_count} image${result.skipped_count === 1 ? "" : "s"} that were already imported`);
+      }
+      if (result.failed_count > 0) {
+        toast.error(`Could not import ${result.failed_count} image${result.failed_count === 1 ? "" : "s"} from the TV gallery`);
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to import TV gallery");
+      toast.error(e.message || "Failed to import TV gallery");
+    } finally {
+      setImportingTvIp("");
     }
   };
 
@@ -217,6 +249,14 @@ export default function Settings() {
                     <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg text-center">
                       View Gallery
                     </Link>
+                    <Button
+                      type="button"
+                      onClick={() => handleImportTvGallery(tv.ip)}
+                      disabled={importingTvIp === tv.ip}
+                      className="bg-emerald-600 hover:bg-emerald-700 w-full"
+                    >
+                      {importingTvIp === tv.ip ? "Importing..." : "Import Original Gallery Files"}
+                    </Button>
                     <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-red-500 hover:text-red-700 text-sm font-medium">
                       Delete all Images from TV
                     </button>

@@ -149,6 +149,24 @@ export async function deleteTvGalleryImage(ip: string, contentId: string) {
   return await res.json();
 }
 
+export async function importTvGalleryImages(ip: string) {
+  const res = await fetch(`${API_BASE}/api/tv/${encodeURIComponent(ip)}/gallery/import`, {
+    method: 'POST',
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to import TV gallery');
+  return data as {
+    success: boolean;
+    imported_count: number;
+    skipped_count: number;
+    failed_count: number;
+    imported: Array<{ content_id: string; filename: string }>;
+    skipped: Array<{ content_id: string; filename?: string; reason: string }>;
+    failed: Array<{ content_id: string; error: string }>;
+    tv_ip: string;
+  };
+}
+
 export async function sendToTV({payload, brightness, display }: { payload: any, brightness?: number, display?: boolean }) {
   console.log("received payload", payload)
   const res = await fetch(`${API_BASE}/api/tv/send`, {
