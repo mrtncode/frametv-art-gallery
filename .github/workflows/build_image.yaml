@@ -9,6 +9,13 @@ on:
         description: 'Version or tag to use for build'
         required: false
         type: string
+  # Lets a maintainer publish an image without waiting for a release.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Extra tag to publish next to latest (optional)'
+        required: false
+        type: string
 
 env:
   REGISTRY: ghcr.io
@@ -64,9 +71,12 @@ jobs:
         uses: docker/metadata-action@v5.10.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # github.ref_name is not usable as a fallback: a branch like feat/foo would
+          # produce an invalid tag. type=sha covers the manual runs instead.
           tags: |
             type=raw,value=latest
-            type=raw,value=${{ inputs.version || github.ref_name }}
+            type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
+            type=sha,format=short
       - name: Build and push Docker image
         id: push
         uses: docker/build-push-action@v6.19.2
