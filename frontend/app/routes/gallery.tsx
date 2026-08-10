@@ -48,6 +48,10 @@ export default function Gallery() {
   const lastClickedIndex = useRef<number | null>(null);
   const [bulkAlbum, setBulkAlbum] = useState("");
   const [bulkBusy, setBulkBusy] = useState(false);
+  // Files waiting on an album choice after a drop.
+  const [pendingFiles, setPendingFiles] = useState<File[] | null>(null);
+  const [dropAlbumId, setDropAlbumId] = useState("");
+  const [dropNewAlbumName, setDropNewAlbumName] = useState("");
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -181,11 +185,11 @@ export default function Gallery() {
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File|null>(null);
 
-  /** Resolve the album uploads should land in, creating it first when asked. */
-  async function resolveUploadAlbumId(): Promise<string | undefined> {
-    if (uploadAlbumId !== NEW_ALBUM) return uploadAlbumId || undefined;
+  /** Resolve a destination album id, creating the album first when asked for a new one. */
+  async function resolveAlbumId(albumId: string, newAlbumName: string): Promise<string | undefined> {
+    if (albumId !== NEW_ALBUM) return albumId || undefined;
 
-    const name = uploadNewAlbumName.trim();
+    const name = newAlbumName.trim();
     if (!name) throw new Error("Enter a name for the new album");
 
     const existing = albums.find(album => album.name === name);
@@ -194,9 +198,45 @@ export default function Gallery() {
 
     const target = updatedAlbums.find(album => album.name === name);
     if (!target) throw new Error("Failed to create album");
-    setUploadAlbumId(String(target.id));
-    setUploadNewAlbumName("");
     return String(target.id);
+  }
+
+  async function resolveUploadAlbumId(): Promise<string | undefined> {
+    const resolved = await resolveAlbumId(uploadAlbumId, uploadNewAlbumName);
+    if (uploadAlbumId === NEW_ALBUM && resolved) {
+      setUploadAlbumId(resolved);
+      setUploadNewAlbumName("");
+    }
+    return resolved;
+  }
+
+  /** Upload a batch of files into one album, reporting how it went. */
+  async function uploadFiles(files: File[], albumId: string | undefined) {
+    setUploading(true);
+    setError("");
+    let uploaded = 0;
+    let failed = 0;
+
+    for (const file of files) {
+      try {
+        await uploadImage(file, albumId);
+        uploaded++;
+      } catch (err) {
+        failed++;
+        console.error(`Failed to upload ${file.name}:`, err);
+      }
+    }
+
+    if (uploaded > 0) await loadLocalGallery();
+    setUploading(false);
+
+    if (failed === 0) {
+      toast.success(`Uploaded ${uploaded} image${uploaded === 1 ? "" : "s"}`, { position: "top-center" });
+    } else if (uploaded > 0) {
+      setError(`Uploaded ${uploaded}, but ${failed} failed`);
+    } else {
+      setError("No valid image files were uploaded");
+    }
   }
 
   async function handleUpload(e: React.FormEvent) {
@@ -216,48 +256,27 @@ export default function Gallery() {
     }
   }
 
+  /** Dropped files wait in a modal so the album can be chosen for this batch. */
   async function handleFilesDropped(files: File[]) {
-    setUploading(true);
     setError("");
-    let uploadedCount = 0;
-    let failedCount = 0;
+    setDropAlbumId(uploadAlbumId === NEW_ALBUM ? "" : uploadAlbumId);
+    setDropNewAlbumName("");
+    setPendingFiles(files);
+  }
 
+  async function confirmDropUpload(e: React.FormEvent) {
+    e.preventDefault();
+    if (!pendingFiles) return;
+    let albumId: string | undefined;
     try {
-      let albumId: string | undefined;
-      try {
-        albumId = await resolveUploadAlbumId();
-      } catch (e: any) {
-        setError(e.message || "Failed to prepare album");
-        return;
-      }
-
-      for (const file of files) {
-        try {
-          await uploadImage(file, albumId);
-          uploadedCount++;
-          toast.success("Uploaded successfully", {position: "top-center"})
-        } catch (err) {
-          failedCount++;
-          console.error(`Failed to upload ${file.name}:`, err);
-        }
-      }
-
-      // Reload gallery after uploads
-      if (uploadedCount > 0) {
-        await loadLocalGallery();
-        if (failedCount === 0) {
-          setTimeout(() => setError(""), 3000);
-        } else {
-          setError(`Uploaded ${uploadedCount}, but ${failedCount} failed`);
-        }
-      } else if (failedCount > 0) {
-        setError("No valid image files were uploaded");
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to upload images");
-    } finally {
-      setUploading(false);
+      albumId = await resolveAlbumId(dropAlbumId, dropNewAlbumName);
+    } catch (e: any) {
+      setError(e.message || "Failed to prepare album");
+      return;
     }
+    const files = pendingFiles;
+    setPendingFiles(null);
+    await uploadFiles(files, albumId);
   }
 
   function toggleSelect(filename: string, index: number, shiftKey: boolean) {
@@ -294,6 +313,37 @@ export default function Gallery() {
     }
   }
 
+  async function handleBulkDelete() {
+    if (selected.length === 0) return;
+    const count = selected.length;
+    if (!window.confirm(`Delete ${count} image${count === 1 ? "" : "s"}? This cannot be undone.`)) return;
+
+    setBulkBusy(true);
+    setError("");
+    let deleted = 0;
+    const failures: string[] = [];
+    for (const filename of selected) {
+      try {
+        await deleteImage(filename);
+        deleted++;
+      } catch (e: any) {
+        failures.push(filename);
+        console.error(`Failed to delete ${filename}:`, e);
+      }
+    }
+
+    setSelected([]);
+    lastClickedIndex.current = null;
+    await loadLocalGallery();
+    setBulkBusy(false);
+
+    if (failures.length === 0) {
+      toast.success(`Deleted ${deleted} image${deleted === 1 ? "" : "s"}`, { position: "top-center" });
+    } else {
+      setError(`Deleted ${deleted}, but ${failures.length} failed: ${failures.join(", ")}`);
+    }
+  }
+
   return (
     <ImageDropZone
       className="max-w-6xl mx-auto py-8 px-4"
@@ -305,7 +355,7 @@ export default function Gallery() {
             {/* Upload Image Form */}
             <div className="flex-1 bg-white rounded-lg shadow p-4">
               <h4 className="text-base font-semibold mb-3">Upload image</h4>
-              <p className="text-sm text-gray-600 mb-3">Drag and drop images anywhere or use the file input below</p>
+              <p className="text-sm text-gray-600 mb-3">Drag and drop images anywhere — you pick the album on drop — or use the file input below</p>
               <form onSubmit={handleUpload} className="flex flex-col gap-2">
                 <input
                   type="file"
@@ -365,7 +415,7 @@ export default function Gallery() {
               </button>
             )}
           </div>
-          <p className="text-sm text-gray-500 mb-2">Tick the boxes, or shift-click, to move several images at once.</p>
+          <p className="text-sm text-gray-500 mb-2">Tick the boxes, or shift-click, to move or delete several images at once.</p>
           {loading ? (
             <div>Loading...</div>
           ) : (
@@ -399,7 +449,14 @@ export default function Gallery() {
                 ))}
               </select>
               <Button onClick={handleBulkAssign} disabled={bulkBusy || !bulkAlbum}>
-                {bulkBusy ? "Moving…" : "Move"}
+                {bulkBusy ? "Working…" : "Move"}
+              </Button>
+              <Button
+                onClick={handleBulkDelete}
+                disabled={bulkBusy}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Delete
               </Button>
               <button
                 type="button"
@@ -415,6 +472,56 @@ export default function Gallery() {
             <h3 className="text-xl font-semibold align-middle">Albums</h3>
             <Button onClick={() => setShowCreateAlbumModal(true)}>Create album</Button>
           </div>
+
+          {/* Dropped files: pick where they land before anything is uploaded */}
+          {pendingFiles && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+                <button
+                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl font-bold"
+                  onClick={() => setPendingFiles(null)}
+                  aria-label="Cancel"
+                >
+                  ×
+                </button>
+                <h4 className="text-base font-semibold mb-1">
+                  Upload {pendingFiles.length} image{pendingFiles.length === 1 ? "" : "s"}
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">Choose where they should go.</p>
+                <form onSubmit={confirmDropUpload} className="flex flex-col gap-2">
+                  <select
+                    value={dropAlbumId}
+                    onChange={e => setDropAlbumId(e.target.value)}
+                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    autoFocus
+                  >
+                    <option value="">No album</option>
+                    {albums.map(album => (
+                      <option key={album.id} value={album.id}>{album.name}</option>
+                    ))}
+                    <option value={NEW_ALBUM}>+ New album…</option>
+                  </select>
+                  {dropAlbumId === NEW_ALBUM && (
+                    <input
+                      type="text"
+                      value={dropNewAlbumName}
+                      onChange={e => setDropNewAlbumName(e.target.value)}
+                      placeholder="New album name"
+                      className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    />
+                  )}
+                  <Button
+                    type="submit"
+                    className="px-4 py-2 text-sm"
+                    disabled={dropAlbumId === NEW_ALBUM && !dropNewAlbumName.trim()}
+                  >
+                    Upload
+                  </Button>
+                  {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+                </form>
+              </div>
+            </div>
+          )}
 
           {/* Modal for Create Album */}
           {showCreateAlbumModal && (
