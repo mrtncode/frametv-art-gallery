@@ -1,0 +1,4 @@
+# Shell scripts run inside the Linux image. Checked out with CRLF (the default on
+# Windows) the shebang becomes `#!/bin/sh\r` and the container fails to start with
+# "exec /entrypoint.sh: no such file or directory".
+*.sh text eol=lf

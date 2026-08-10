@@ -23,5 +23,8 @@ dependencies = [
     "Pillow",
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [tool.setuptools.packages.find]
 include = ["app*"]
