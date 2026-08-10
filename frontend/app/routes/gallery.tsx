@@ -1,7 +1,7 @@
 
 
-import React, { useEffect, useState } from "react";
-import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
+import React, { useEffect, useRef, useState } from "react";
+import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, addImagesToAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
@@ -23,6 +23,8 @@ type GalleryImage = {
   metadata?: any;
 };
 
+const NEW_ALBUM = "__new__";
+
 export default function Gallery() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -38,6 +40,14 @@ export default function Gallery() {
   const [tvs, setTvs] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
   const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
+  // Destination album for uploads: "" = none, NEW_ALBUM = create uploadNewAlbumName first.
+  const [uploadAlbumId, setUploadAlbumId] = useState("");
+  const [uploadNewAlbumName, setUploadNewAlbumName] = useState("");
+  // Multi-select: filenames, plus the last clicked row so shift-click can span a range.
+  const [selected, setSelected] = useState<string[]>([]);
+  const lastClickedIndex = useRef<number | null>(null);
+  const [bulkAlbum, setBulkAlbum] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -171,13 +181,31 @@ export default function Gallery() {
   const [uploading, setUploading] = useState(false);
   const [uploadFile, setUploadFile] = useState<File|null>(null);
 
+  /** Resolve the album uploads should land in, creating it first when asked. */
+  async function resolveUploadAlbumId(): Promise<string | undefined> {
+    if (uploadAlbumId !== NEW_ALBUM) return uploadAlbumId || undefined;
+
+    const name = uploadNewAlbumName.trim();
+    if (!name) throw new Error("Enter a name for the new album");
+
+    const existing = albums.find(album => album.name === name);
+    const updatedAlbums: Album[] = existing ? albums : await createAlbum(name);
+    setAlbums(updatedAlbums);
+
+    const target = updatedAlbums.find(album => album.name === name);
+    if (!target) throw new Error("Failed to create album");
+    setUploadAlbumId(String(target.id));
+    setUploadNewAlbumName("");
+    return String(target.id);
+  }
+
   async function handleUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!uploadFile) return;
     setUploading(true);
     setError("");
     try {
-      await uploadImage(uploadFile);
+      await uploadImage(uploadFile, await resolveUploadAlbumId());
       await loadLocalGallery();
       setUploadFile(null);
       setUploading(false)
@@ -195,9 +223,17 @@ export default function Gallery() {
     let failedCount = 0;
 
     try {
+      let albumId: string | undefined;
+      try {
+        albumId = await resolveUploadAlbumId();
+      } catch (e: any) {
+        setError(e.message || "Failed to prepare album");
+        return;
+      }
+
       for (const file of files) {
         try {
-          await uploadImage(file);
+          await uploadImage(file, albumId);
           uploadedCount++;
           toast.success("Uploaded successfully", {position: "top-center"})
         } catch (err) {
@@ -224,6 +260,40 @@ export default function Gallery() {
     }
   }
 
+  function toggleSelect(filename: string, index: number, shiftKey: boolean) {
+    setSelected(prev => {
+      const anchor = lastClickedIndex.current;
+      if (shiftKey && anchor !== null) {
+        const [from, to] = anchor <= index ? [anchor, index] : [index, anchor];
+        const range = images.slice(from, to + 1).map(img => img.filename);
+        const next = new Set(prev);
+        const selecting = !prev.includes(filename);
+        range.forEach(name => (selecting ? next.add(name) : next.delete(name)));
+        return Array.from(next);
+      }
+      return prev.includes(filename) ? prev.filter(name => name !== filename) : [...prev, filename];
+    });
+    lastClickedIndex.current = index;
+  }
+
+  async function handleBulkAssign() {
+    if (!bulkAlbum || selected.length === 0) return;
+    setBulkBusy(true);
+    setError("");
+    try {
+      await addImagesToAlbum(bulkAlbum, selected);
+      toast.success(`${selected.length} image${selected.length === 1 ? "" : "s"} moved to ${bulkAlbum}`, { position: "top-center" });
+      setSelected([]);
+      setBulkAlbum("");
+      lastClickedIndex.current = null;
+      await loadLocalGallery();
+    } catch (e: any) {
+      setError(e.message || "Failed to assign images to album");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
   return (
     <ImageDropZone
       className="max-w-6xl mx-auto py-8 px-4"
@@ -244,6 +314,29 @@ export default function Gallery() {
                   className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                   disabled={uploading}
                 />
+                <label className="text-sm text-gray-600">Add to album</label>
+                <select
+                  value={uploadAlbumId}
+                  onChange={e => setUploadAlbumId(e.target.value)}
+                  className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  disabled={uploading}
+                >
+                  <option value="">No album</option>
+                  {albums.map(album => (
+                    <option key={album.id} value={album.id}>{album.name}</option>
+                  ))}
+                  <option value={NEW_ALBUM}>+ New album…</option>
+                </select>
+                {uploadAlbumId === NEW_ALBUM && (
+                  <input
+                    type="text"
+                    value={uploadNewAlbumName}
+                    onChange={e => setUploadNewAlbumName(e.target.value)}
+                    placeholder="New album name"
+                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    disabled={uploading}
+                  />
+                )}
                 <Button
                   type="submit"
                   className=" px-4 py-2 rounded text-sm"
@@ -257,7 +350,22 @@ export default function Gallery() {
           </div>
 
 
-          <h3 className="text-xl font-semibold mb-2">Uploaded Images</h3>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <h3 className="text-xl font-semibold">Uploaded Images</h3>
+            {images.length > 0 && (
+              <button
+                type="button"
+                className="text-sm text-blue-600 hover:underline"
+                onClick={() => {
+                  setSelected(selected.length === images.length ? [] : images.map(img => img.filename));
+                  lastClickedIndex.current = null;
+                }}
+              >
+                {selected.length === images.length ? "Clear selection" : "Select all"}
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mb-2">Tick the boxes, or shift-click, to move several images at once.</p>
           {loading ? (
             <div>Loading...</div>
           ) : (
@@ -268,7 +376,38 @@ export default function Gallery() {
                 tvs={tvs}
                 onDeleteImage={handleDeleteImage}
                 onAssignSuccess={loadLocalGallery}
+                selectedFilenames={selected}
+                onToggleSelect={toggleSelect}
               />
+            </div>
+          )}
+
+          {selected.length > 0 && (
+            <div className="sticky bottom-4 z-30 mb-8 flex flex-wrap items-center gap-3 rounded-lg border bg-white p-3 shadow-lg">
+              <span className="text-sm font-medium">
+                {selected.length} image{selected.length === 1 ? "" : "s"} selected
+              </span>
+              <select
+                value={bulkAlbum}
+                onChange={e => setBulkAlbum(e.target.value)}
+                className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                disabled={bulkBusy}
+              >
+                <option value="">Move to album…</option>
+                {albums.map(album => (
+                  <option key={album.id} value={album.name}>{album.name}</option>
+                ))}
+              </select>
+              <Button onClick={handleBulkAssign} disabled={bulkBusy || !bulkAlbum}>
+                {bulkBusy ? "Moving…" : "Move"}
+              </Button>
+              <button
+                type="button"
+                className="text-sm text-gray-500 hover:underline"
+                onClick={() => { setSelected([]); lastClickedIndex.current = null; }}
+              >
+                Clear
+              </button>
             </div>
           )}
 

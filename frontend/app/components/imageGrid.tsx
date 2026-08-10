@@ -9,13 +9,26 @@ interface ImageGridProps {
   onDeleteImage?: (img: any) => void;
   onAssignSuccess?: () => void;
   tvs?: any[];
+  /** filenames currently selected; passing this turns the checkboxes on */
+  selectedFilenames?: string[];
+  onToggleSelect?: (filename: string, index: number, shiftKey: boolean) => void;
 }
 
-export default function ImageGrid({ images, albums = [], onImageClick, onDeleteImage, onAssignSuccess, tvs = [] }: ImageGridProps) {
+export default function ImageGrid({
+  images,
+  albums = [],
+  onImageClick,
+  onDeleteImage,
+  onAssignSuccess,
+  tvs = [],
+  selectedFilenames,
+  onToggleSelect,
+}: ImageGridProps) {
+  const selected = new Set(selectedFilenames || []);
   return (
     <div className="w-full p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {images.map((img: any) => (
+        {images.map((img: any, index: number) => (
           <ImageCard
             key={img.id}
             src={getUploadUrl(img.filename)}
@@ -27,6 +40,10 @@ export default function ImageGrid({ images, albums = [], onImageClick, onDeleteI
             onAssignSuccess={onAssignSuccess}
             onClick={() => onImageClick?.(img)}
             onDelete={onDeleteImage ? () => onDeleteImage(img) : undefined}
+            selected={selected.has(img.filename)}
+            onToggleSelect={
+              onToggleSelect ? (shiftKey) => onToggleSelect(img.filename, index, shiftKey) : undefined
+            }
           />
         ))}
       </div>

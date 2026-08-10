@@ -75,9 +75,12 @@ export async function fetchAlbums() {
   return (await res.json()).albums;
 }
 
-export async function uploadImage(file: File) {
+export async function uploadImage(file: File, albumId?: string | number) {
   const formData = new FormData();
   formData.append('file', file);
+  if (albumId !== undefined && albumId !== null && albumId !== '') {
+    formData.append('album_id', String(albumId));
+  }
 
   const res = await fetch(`${API_BASE}/api/upload`, {
     method: 'POST',
@@ -105,6 +108,16 @@ export async function addImageToAlbum(album: string, image: string) {
     body: JSON.stringify({ image }),
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to add image');
+  return (await res.json()).albums;
+}
+
+export async function addImagesToAlbum(album: string, images: string[]) {
+  const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(album)}/add`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ images }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to add images');
   return (await res.json()).albums;
 }
 

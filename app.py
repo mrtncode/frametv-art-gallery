@@ -324,23 +324,27 @@ def api_create_album():
 
 @app.route('/api/albums/<album_name>/add', methods=['POST'])
 def api_add_image_to_album(album_name):
-    data = request.get_json()
-    image_filename = data.get('image')
-    if not image_filename:
+    """Assign one image ({"image": name}) or several ({"images": [...]}) to an album."""
+    data = request.get_json(silent=True) or {}
+    filenames = data.get('images')
+    if filenames is None:
+        single = data.get('image')
+        filenames = [single] if single else []
+    if not isinstance(filenames, list) or not all(isinstance(name, str) and name for name in filenames):
+        return {'error': 'Invalid image list'}, 400
+    if not filenames:
         return {'error': 'Image required'}, 400
+
     album = Album.query.filter_by(name=album_name).first()
     if not album:
         return {'error': 'Album not found'}, 404
 
-    existing_image = Image.query.filter_by(filename=image_filename).first()
-    if existing_image and existing_image.album_id == album.id:
-        return api_list_albums()
-
-    if existing_image:
-        existing_image.album = album
-    else:
-        existing_image = Image(filename=image_filename, album=album)
-        db.session.add(existing_image)
+    for image_filename in filenames:
+        existing_image = Image.query.filter_by(filename=image_filename).first()
+        if existing_image:
+            existing_image.album = album
+        else:
+            db.session.add(Image(filename=image_filename, album=album))
 
     db.session.commit()
     return api_list_albums()
@@ -388,25 +392,41 @@ def api_delete_album(album_name):
 
 @app.route('/api/upload', methods=['POST'])
 def upload():
-    """ Upload image to the gallery """
+    """Upload an image to the gallery, optionally straight into an album."""
     if 'file' not in request.files:
         return {'error': 'No file part'}, 400
     file = request.files['file']
     if file.filename == '':
         return {'error': 'No selected file'}, 400
-    if file and allowed_file(file.filename):
-        try:
-            filename, file_path = _normalized_upload_path(file.filename)
-        except ValueError as e:
-            return {'error': str(e)}, 400
-        file.save(file_path)
-        # Track image in DB
-        img = Image(filename=filename, album_id=None)
-        db.session.add(img)
-        db.session.commit()
-        return {'success': True, 'filename': filename}
-    else:
+    if not file or not allowed_file(file.filename):
         return {'error': 'Invalid file type'}, 400
+
+    album_id = request.form.get('album_id')
+    album = None
+    if album_id:
+        try:
+            album = Album.query.get(int(album_id))
+        except (TypeError, ValueError):
+            return {'error': 'Invalid album'}, 400
+        if not album:
+            return {'error': 'Album not found'}, 404
+
+    try:
+        filename, file_path = _normalized_upload_path(file.filename)
+    except ValueError as e:
+        return {'error': str(e)}, 400
+    file.save(file_path)
+
+    # Re-uploading the same filename overwrites the file, so reuse its row instead of
+    # leaving a second one behind pointing at the same image.
+    img = Image.query.filter_by(filename=filename).first()
+    if not img:
+        img = Image(filename=filename)
+        db.session.add(img)
+    if album:
+        img.album = album
+    db.session.commit()
+    return {'success': True, 'filename': filename, 'album_id': album.id if album else None}
     
 # --- Play Uploaded Image on TV ---
 @app.route('/api/tv/play_uploaded', methods=['POST'])
