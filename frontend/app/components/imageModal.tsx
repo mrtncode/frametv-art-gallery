@@ -78,20 +78,20 @@ const ImageModal: React.FC<ImageModalProps> = ({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-white rounded-t-lg sm:rounded-lg w-full sm:w-96 max-h-[90vh] overflow-y-auto p-4 space-y-4">
+      <div className="bg-card rounded-t-lg sm:rounded-lg w-full sm:w-96 max-h-[90vh] overflow-y-auto p-4 space-y-4">
         {/* Close Button */}
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-sm font-semibold">Image Controls</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-muted-foreground hover:text-foreground"
           >
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
 
         {/* Image Preview */}
-        <div className="w-full bg-gray-100 rounded-lg flex items-center justify-center h-48 overflow-hidden">
+        <div className="w-full bg-muted rounded-lg flex items-center justify-center h-48 overflow-hidden">
           <img
             src={imageURL}
             alt={alt}
@@ -126,7 +126,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {isLocalImage && availableAlbums.length > 0 && showAlbumAssign && (
           <div className="space-y-2 pt-2 border-t">
             <select
-              className="w-full border border-gray-300 px-2 py-2 rounded text-sm"
+              className="w-full border border-border px-2 py-2 rounded text-sm"
               value={selectedAlbum}
               onChange={e => setSelectedAlbum(e.target.value)}
             >
@@ -150,7 +150,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {tvs.length > 0 && (
           <div className="space-y-3">
             <select
-              className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm"
+              className="w-full border border-border px-3 py-2 rounded-lg text-sm"
               value={selectedTvIp}
               onChange={e => setSelectedTvIp(e.target.value)}
               disabled={tvLoading}
@@ -193,7 +193,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         )}
 
         {tvs.length === 0 && (
-          <div className="text-sm text-gray-600 bg-gray-50 p-3 rounded-lg flex gap-2">
+          <div className="text-sm text-muted-foreground bg-background p-3 rounded-lg flex gap-2">
             <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0" strokeWidth={1.8} />
             <span>No TVs configured. Go to Settings to add one.</span>
           </div>

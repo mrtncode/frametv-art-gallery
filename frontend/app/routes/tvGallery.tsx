@@ -114,12 +114,12 @@ export default function TVGallery() {
   return (
     <div className="container mx-auto px-4 py-6 max-w-2xl">
       <div className="flex items-center gap-2 mb-6">
-        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">TV Settings</h1>
+        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">TV Settings</h1>
       </div>
 
       {tvs.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500">No TVs configured</p>
+          <p className="text-muted-foreground">No TVs configured</p>
         </div>
       ) : (
         <>
@@ -128,7 +128,7 @@ export default function TVGallery() {
             <select
               value={selectedTvIp}
               onChange={(e) => setSelectedTvIp(e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-950"
+              className="w-full p-2 border border-border rounded-lg bg-card"
             >
               {tvs.map((tv) => (
                 <option key={tv.ip} value={tv.ip}>
@@ -144,11 +144,11 @@ export default function TVGallery() {
             </div>
           ) : images.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-gray-500">No images on TV</p>
+              <p className="text-muted-foreground">No images on TV</p>
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 {images.length} image{images.length !== 1 ? "s" : ""} on TV
               </p>
               {images.map((image) => (

@@ -157,14 +157,14 @@ export default function Settings() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center bg-gray-50 w-full">
+    <div className="min-h-screen flex flex-col items-center bg-background w-full">
       {/* Pairing Modal */}
       {showPairModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-white rounded-xl shadow-lg p-6 max-w-md w-full sm:w-auto flex flex-col items-center">
+          <div className="bg-card rounded-xl shadow-lg p-6 max-w-md w-full sm:w-auto flex flex-col items-center">
             <h3 className="text-lg font-semibold mb-2">Pairing TV</h3>
-            <p className="mb-4 text-gray-700 text-center">Please accept the pairing request on your TV ({pairingIp}) to complete the process.</p>
-            <Button onClick={() => { setShowPairModal(false); setPairingIp(""); setAdding(false); }} className="bg-gray-300 text-gray-700">
+            <p className="mb-4 text-foreground text-center">Please accept the pairing request on your TV ({pairingIp}) to complete the process.</p>
+            <Button onClick={() => { setShowPairModal(false); setPairingIp(""); setAdding(false); }} className="bg-gray-300 text-foreground">
               Cancel
             </Button>
           </div>
@@ -172,11 +172,11 @@ export default function Settings() {
       )}
 
       <div className="w-full px-4 mx-auto sm:max-w-2xl lg:max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">TV Settings</h1>
+        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">TV Settings</h1>
 
         {/* Add TV Section */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">Add a New TV</h2>
+        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-foreground">Add a New TV</h2>
           <form onSubmit={handleAddTv} className="flex flex-col sm:flex-row gap-3 mb-3">
             <Input type="text" value={ip} onChange={e => setIp(e.target.value)} placeholder="IP address" required />
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" />
@@ -189,18 +189,18 @@ export default function Settings() {
         </div>
 
         {/* TVs List */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">Your TVs</h2>
+        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-foreground">Your TVs</h2>
           {tvs.length === 0 ? (
-            <div className="text-gray-400 text-center">No TVs added yet.</div>
+            <div className="text-muted-foreground text-center">No TVs added yet.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {tvs.map((tv) => (
-                <div key={tv.ip} className="bg-white shadow-md rounded-xl p-5 border border-gray-200">
+                <div key={tv.ip} className="bg-card shadow-md rounded-xl p-5 border border-border">
                   <div className="mb-4">
-                    {tv.name && <div className="font-semibold text-gray-700">{tv.name}</div>}
+                    {tv.name && <div className="font-semibold text-foreground">{tv.name}</div>}
                     <div className="font-mono text-blue-700">{tv.ip}</div>
-                    {tv.mac && <div className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded inline-block mt-2">{tv.mac}</div>}
+                    {tv.mac && <div className="text-xs bg-muted text-foreground px-2 py-1 rounded inline-block mt-2">{tv.mac}</div>}
                   </div>
 
                   <label className="flex items-center gap-2 text-sm mb-4">
@@ -231,10 +231,10 @@ export default function Settings() {
         </div>
 
         {/* Provider Settings */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5">
-          <h2 className="text-lg font-semibold mb-4 text-gray-700">External Providers</h2>
+        <div className="bg-card rounded-2xl border border-border p-5">
+          <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
           <form onSubmit={handleSaveImmich} className="flex flex-col gap-3 max-w-lg">
-            <div className="font-semibold text-gray-700">Immich</div>
+            <div className="font-semibold text-foreground">Immich</div>
             <Input
               type="text"
               value={immichHost}
@@ -268,7 +268,7 @@ export default function Settings() {
               <Button type="submit" className="bg-blue-600 hover:bg-blue-900" disabled={providerSaving}>
                 {providerSaving ? 'Saving…' : 'Save Immich Config'}
               </Button>
-              <Button type="button" className="bg-gray-300 text-gray-700" onClick={handleDeleteImmich} disabled={providerSaving}>
+              <Button type="button" className="bg-gray-300 text-foreground" onClick={handleDeleteImmich} disabled={providerSaving}>
                 Delete Config
               </Button>
             </div>

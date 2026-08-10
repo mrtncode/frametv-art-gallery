@@ -27,12 +27,12 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
   return (
     <div
       key={image.content_id}
-      className="flex gap-4 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow"
+      className="flex gap-4 p-4 bg-card border border-border rounded-lg hover:shadow-md transition-shadow"
     >
       {/* The thumbnail always comes from the parent's single batched request. Letting the
           <img> fall back to the per-image endpoint fired one TV websocket per card, which
           is what used to pile up and starve the server when a TV stopped answering. */}
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted border border-border">
         {image.thumbnail ? (
           <>
             {!imgLoaded && !imgError && <Loader />}
@@ -45,7 +45,7 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
               onError={() => setImgError(true)}
             />
             {imgError && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
                 <PhotoIcon className="h-8 w-8" />
               </div>
             )}
@@ -53,7 +53,7 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
         ) : thumbnailsLoading ? (
           <Loader />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400" title="No preview available">
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground" title="No preview available">
             <PhotoIcon className="h-8 w-8" />
           </div>
         )}
@@ -61,9 +61,9 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
 
       <div className="flex-1 min-w-0 self-center">
         <p className="font-medium truncate">{image.filename}</p>
-        <div className="text-xs text-gray-500 mt-1 space-y-1">
+        <div className="text-xs text-muted-foreground mt-1 space-y-1">
           <p>Added: {formatDate(image.date_added)}</p>
-          <p className="text-gray-400 truncate">ID: {image.content_id}</p>
+          <p className="text-muted-foreground truncate">ID: {image.content_id}</p>
         </div>
       </div>
       <div className="flex gap-2 self-center ml-4">

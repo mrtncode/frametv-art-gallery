@@ -131,10 +131,10 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-4xl rounded-lg bg-white shadow-lg overflow-hidden">
+      <div className="w-full max-w-4xl rounded-lg bg-card shadow-lg overflow-hidden">
         <div className="flex items-center justify-between border-b px-4 py-3">
           <h3 className="text-lg font-semibold">Crop Image: {filename}</h3>
-          <button onClick={handleClose} className="text-gray-700 hover:text-black">
+          <button onClick={handleClose} className="text-foreground hover:text-black">
             <XMarkIcon className="h-5 w-5" />
           </button>
         </div>
@@ -193,7 +193,7 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
                 {cropActionLoading ? 'Cropping…' : cropperReady ? 'Apply Crop' : 'Loading...'}
               </button>
               <button
-                className="flex-1 bg-gray-200 text-gray-800 rounded px-4 py-2 hover:bg-gray-300"
+                className="flex-1 bg-gray-200 text-foreground rounded px-4 py-2 hover:bg-gray-300"
                 onClick={() => {
                   if (cropperRef.current?.cropper) {
                     cropperRef.current.cropper.reset();

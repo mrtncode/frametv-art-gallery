@@ -183,14 +183,14 @@ export default function AlbumPage() {
       {loading ? (
         <div>Loading album…</div>
       ) : !album ? (
-        <div className={error ? 'text-red-600' : 'text-gray-500'}>{error || 'Album not found.'}</div>
+        <div className={error ? 'text-red-600' : 'text-muted-foreground'}>{error || 'Album not found.'}</div>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <div className="bg-card rounded-lg shadow p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-bold">{album.name}</h2>
-                <p className="text-sm text-gray-500">{album.images.length} image{album.images.length === 1 ? '' : 's'} in this album</p>
+                <p className="text-sm text-muted-foreground">{album.images.length} image{album.images.length === 1 ? '' : 's'} in this album</p>
               </div>
 
               <div className="flex flex-col gap-2 md:items-end">
@@ -226,10 +226,10 @@ export default function AlbumPage() {
           </div>
 
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-card rounded-lg shadow p-6">
             <h3 className="text-xl font-semibold mb-4">Album Images</h3>
             {album.images.length === 0 ? (
-              <div className="text-gray-500">No images in this album yet.</div>
+              <div className="text-muted-foreground">No images in this album yet.</div>
             ) : (
               <ImageGrid
                 images={album.images.map(img => ({ id: img.id, filename: img.filename, type: 'local' }))}

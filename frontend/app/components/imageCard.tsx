@@ -176,14 +176,14 @@ const ImageCard: React.FC<ImageCardProps> = ({
     <>
       <div
         className={
-          `group relative flex flex-col overflow-hidden rounded-lg bg-white shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
+          `group relative flex flex-col overflow-hidden rounded-lg bg-card shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
           (large ? 'col-span-2 ' : '') +
           (selected ? 'ring-2 ring-blue-500' : '')
         }
       >
         {onToggleSelect && (
           <label
-            className="absolute top-2 left-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-white/90 shadow"
+            className="absolute top-2 left-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-card/90 shadow"
             title="Select image"
             onClick={(event) => event.stopPropagation()}
           >
@@ -196,7 +196,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
             />
           </label>
         )}
-        <div className={`w-full bg-gray-100 flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-52')} >
+        <div className={`w-full bg-muted flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-52')} >
           <img
             src={imageURL}
             alt={alt}
@@ -215,7 +215,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
           />
         </div>
       {filename && (
-        <div className="px-2 py-1 text-xs text-gray-600 truncate" title={filename}>
+        <div className="px-2 py-1 text-xs text-muted-foreground truncate" title={filename}>
           {filename}
         </div>
       )}

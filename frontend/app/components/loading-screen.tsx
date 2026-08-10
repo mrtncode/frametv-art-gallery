@@ -18,7 +18,7 @@ export default function LoadingScreen() {
         aria-label="Animated loading indicator"
       />
       <span className="sr-only">Loading content, please wait.</span>
-      <p className="text-center text-2xl md:text-4xl text-gray-500">Loading...</p>
+      <p className="text-center text-2xl md:text-4xl text-muted-foreground">Loading...</p>
     </div>
   )
 }

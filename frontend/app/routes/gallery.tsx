@@ -350,12 +350,12 @@ export default function Gallery() {
       disabled={uploading}
       onFilesDropped={handleFilesDropped}
     >
-      <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-gray-800">Gallery</h1>
+      <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">Gallery</h1>
           <div className="flex flex-col md:flex-row gap-6 mb-8">
             {/* Upload Image Form */}
-            <div className="flex-1 bg-white rounded-lg shadow p-4">
+            <div className="flex-1 bg-card rounded-lg shadow p-4">
               <h4 className="text-base font-semibold mb-3">Upload image</h4>
-              <p className="text-sm text-gray-600 mb-3">Drag and drop images anywhere — you pick the album on drop — or use the file input below</p>
+              <p className="text-sm text-muted-foreground mb-3">Drag and drop images anywhere — you pick the album on drop — or use the file input below</p>
               <form onSubmit={handleUpload} className="flex flex-col gap-2">
                 <input
                   type="file"
@@ -364,7 +364,7 @@ export default function Gallery() {
                   className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
                   disabled={uploading}
                 />
-                <label className="text-sm text-gray-600">Add to album</label>
+                <label className="text-sm text-muted-foreground">Add to album</label>
                 <select
                   value={uploadAlbumId}
                   onChange={e => setUploadAlbumId(e.target.value)}
@@ -415,7 +415,7 @@ export default function Gallery() {
               </button>
             )}
           </div>
-          <p className="text-sm text-gray-500 mb-2">Tick the boxes, or shift-click, to move or delete several images at once.</p>
+          <p className="text-sm text-muted-foreground mb-2">Tick the boxes, or shift-click, to move or delete several images at once.</p>
           {loading ? (
             <div>Loading...</div>
           ) : (
@@ -433,7 +433,7 @@ export default function Gallery() {
           )}
 
           {selected.length > 0 && (
-            <div className="sticky bottom-4 z-30 mb-8 flex flex-wrap items-center gap-3 rounded-lg border bg-white p-3 shadow-lg">
+            <div className="sticky bottom-4 z-30 mb-8 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
               <span className="text-sm font-medium">
                 {selected.length} image{selected.length === 1 ? "" : "s"} selected
               </span>
@@ -460,7 +460,7 @@ export default function Gallery() {
               </Button>
               <button
                 type="button"
-                className="text-sm text-gray-500 hover:underline"
+                className="text-sm text-muted-foreground hover:underline"
                 onClick={() => { setSelected([]); lastClickedIndex.current = null; }}
               >
                 Clear
@@ -476,9 +476,9 @@ export default function Gallery() {
           {/* Dropped files: pick where they land before anything is uploaded */}
           {pendingFiles && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+              <div className="bg-card rounded-lg shadow-lg p-6 w-full max-w-sm relative">
                 <button
-                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl font-bold"
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-muted-foreground text-xl font-bold"
                   onClick={() => setPendingFiles(null)}
                   aria-label="Cancel"
                 >
@@ -487,7 +487,7 @@ export default function Gallery() {
                 <h4 className="text-base font-semibold mb-1">
                   Upload {pendingFiles.length} image{pendingFiles.length === 1 ? "" : "s"}
                 </h4>
-                <p className="text-sm text-gray-600 mb-3">Choose where they should go.</p>
+                <p className="text-sm text-muted-foreground mb-3">Choose where they should go.</p>
                 <form onSubmit={confirmDropUpload} className="flex flex-col gap-2">
                   <select
                     value={dropAlbumId}
@@ -526,9 +526,9 @@ export default function Gallery() {
           {/* Modal for Create Album */}
           {showCreateAlbumModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm relative">
+              <div className="bg-card rounded-lg shadow-lg p-6 w-full max-w-sm relative">
                 <button
-                  className="absolute top-2 right-2 text-gray-400 hover:text-gray-600 text-xl font-bold"
+                  className="absolute top-2 right-2 text-muted-foreground hover:text-muted-foreground text-xl font-bold"
                   onClick={() => setShowCreateAlbumModal(false)}
                   aria-label="Close"
                 >
@@ -563,7 +563,7 @@ export default function Gallery() {
           )}
           
           <div className="space-y-4">
-            {albums.length === 0 && <div className="text-gray-500">No albums yet.</div>}
+            {albums.length === 0 && <div className="text-muted-foreground">No albums yet.</div>}
             {albums.map(album => (
               <AlbumCard
                 key={album.id}
@@ -580,7 +580,7 @@ export default function Gallery() {
             <>
               <hr className="my-8" />
               <h3 className="text-xl font-semibold mb-2">External Albums</h3>
-              {providerAlbums.length === 0 && <div className="text-gray-500">No external albums found.</div>}
+              {providerAlbums.length === 0 && <div className="text-muted-foreground">No external albums found.</div>}
               {providerAlbums.map(album => (
                 <div key={album.id} className="border rounded p-3 mb-2">
                   <div className="font-bold mb-2 flex items-center justify-between">
@@ -594,7 +594,7 @@ export default function Gallery() {
               ))}
               <h3 className="text-xl font-semibold mb-2" id="provider_images">External Images</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-                {providerImages.length === 0 && <span className="text-gray-400">No images selected</span>}
+                {providerImages.length === 0 && <span className="text-muted-foreground">No images selected</span>}
                 {providerImages.map(img => (
                   <ImageCard
                     key={img.id}

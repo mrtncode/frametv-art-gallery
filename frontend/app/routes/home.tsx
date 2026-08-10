@@ -103,7 +103,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto mt-12 p-8 bg-white rounded-2xl shadow-lg">
+    <div className="max-w-7xl mx-auto mt-12 p-8 bg-card rounded-2xl shadow-lg">
       <header className="text-center mb-8">
         <h1 className="text-4xl font-bold text-gray-900">FrameTV Art Gallery</h1>
       </header>
@@ -118,11 +118,11 @@ export default function Home() {
       </div>
 
       <section>
-        <h2 className="text-2xl font-semibold mt-8 mb-4 text-gray-800">Featured Artworks</h2>
+        <h2 className="text-2xl font-semibold mt-8 mb-4 text-foreground">Featured Artworks</h2>
         {loading ? (
-          <div className="text-center text-gray-400">Loading images...</div>
+          <div className="text-center text-muted-foreground">Loading images...</div>
         ) : images.length === 0 ? (
-          <div className="text-center text-gray-400">No images found. Upload some art!</div>
+          <div className="text-center text-muted-foreground">No images found. Upload some art!</div>
         ) : (
           <div className="flex gap-6 overflow-x-auto pb-2">
             {images.map((img, idx) => (
@@ -130,7 +130,7 @@ export default function Home() {
                 key={idx}
                 src={getUploadUrl(img)}
                 alt={`Artwork ${idx + 1}`}
-                className="w-48 h-32 object-cover rounded-xl shadow-md border border-gray-200"
+                className="w-48 h-32 object-cover rounded-xl shadow-md border border-border"
               />
             ))}
           </div>

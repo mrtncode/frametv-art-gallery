@@ -35,12 +35,12 @@ export default function AlbumCard({
   }
 
   return (
-    <div className="border rounded-xl p-3 cursor-pointer hover:border-gray-300 transition flex justify-between items-center" onClick={() => handleOpenAlbum(album)}>
+    <div className="border rounded-xl p-3 cursor-pointer hover:border-border transition flex justify-between items-center" onClick={() => handleOpenAlbum(album)}>
       <div className="font-bold mb-2 flex flex-col">
         <span>{album.name}</span>
 
         <div className="flex flex-wrap gap-2 mt-3">
-          {album.images.length === 0 && <span className="text-gray-400">No images</span>}
+          {album.images.length === 0 && <span className="text-muted-foreground">No images</span>}
           {Array.isArray(album.images) && album.images.map(img => (
             <img
               key={img}
