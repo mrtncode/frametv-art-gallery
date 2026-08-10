@@ -105,7 +105,7 @@ export default function Home() {
   return (
     <div className="max-w-7xl mx-auto mt-12 p-8 bg-card rounded-2xl shadow-lg">
       <header className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-900">FrameTV Art Gallery</h1>
+        <h1 className="text-4xl font-bold text-foreground">FrameTV Art Gallery</h1>
       </header>
 
       {/* Responsive cards container */}

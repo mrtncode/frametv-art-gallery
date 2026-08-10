@@ -140,7 +140,7 @@ export default function TVGallery() {
 
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-600" />
+              <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
             </div>
           ) : images.length === 0 ? (
             <div className="text-center py-12">

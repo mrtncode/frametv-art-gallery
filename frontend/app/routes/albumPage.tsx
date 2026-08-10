@@ -165,7 +165,7 @@ export default function AlbumPage() {
       <div className="flex items-center justify-between mb-6">
         <button
           type="button"
-          className="text-sm text-blue-600 hover:underline"
+          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
           onClick={() => navigate('/gallery')}
         >
           ← Back to Gallery

@@ -36,7 +36,11 @@ export default function BottomTabs() {
           }
           .bottom-tab-active {
             transform: scale(1.3);
-            color: #2563eb; /* Tailwind blue-600 */;
+            color: #2563eb; /* blue-600 */
+          }
+          /* blue-600 only reaches 3.5:1 on the dark surface, so lift it to blue-400. */
+          :where(.dark) .bottom-tab-active {
+            color: #60a5fa;
           }
         `}</style>
 

@@ -405,7 +405,7 @@ export default function Gallery() {
             {images.length > 0 && (
               <button
                 type="button"
-                className="text-sm text-blue-600 hover:underline"
+                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
                 onClick={() => {
                   setSelected(selected.length === images.length ? [] : images.map(img => img.filename));
                   lastClickedIndex.current = null;
@@ -454,7 +454,7 @@ export default function Gallery() {
               <Button
                 onClick={handleBulkDelete}
                 disabled={bulkBusy}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-red-600 text-white hover:bg-red-700"
               >
                 Delete
               </Button>
@@ -586,7 +586,7 @@ export default function Gallery() {
                   <div className="font-bold mb-2 flex items-center justify-between">
                     <span>{album.name}</span>
                     <button
-                      className="text-xs text-blue-600 hover:underline ml-2"
+                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-2"
                       onClick={() => handleProviderAlbumSelect(album.id)}
                     >Load Images</button>
                   </div>

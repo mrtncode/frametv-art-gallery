@@ -164,7 +164,7 @@ export default function Settings() {
           <div className="bg-card rounded-xl shadow-lg p-6 max-w-md w-full sm:w-auto flex flex-col items-center">
             <h3 className="text-lg font-semibold mb-2">Pairing TV</h3>
             <p className="mb-4 text-foreground text-center">Please accept the pairing request on your TV ({pairingIp}) to complete the process.</p>
-            <Button onClick={() => { setShowPairModal(false); setPairingIp(""); setAdding(false); }} className="bg-gray-300 text-foreground">
+            <Button onClick={() => { setShowPairModal(false); setPairingIp(""); setAdding(false); }} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
               Cancel
             </Button>
           </div>
@@ -181,7 +181,7 @@ export default function Settings() {
             <Input type="text" value={ip} onChange={e => setIp(e.target.value)} placeholder="IP address" required />
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" />
             <Input type="text" value={mac} onChange={e => setMac(e.target.value)} placeholder="MAC (optional)" />
-            <Button className="bg-blue-600 hover:bg-blue-900 disabled:opacity-50 sm:w-auto" disabled={adding}>
+            <Button className="bg-blue-600 text-white hover:bg-blue-900 disabled:opacity-50 sm:w-auto" disabled={adding}>
               {adding ? 'Adding…' : 'Add TV'}
             </Button>
           </form>
@@ -199,7 +199,7 @@ export default function Settings() {
                 <div key={tv.ip} className="bg-card shadow-md rounded-xl p-5 border border-border">
                   <div className="mb-4">
                     {tv.name && <div className="font-semibold text-foreground">{tv.name}</div>}
-                    <div className="font-mono text-blue-700">{tv.ip}</div>
+                    <div className="font-mono text-blue-700 dark:text-blue-400">{tv.ip}</div>
                     {tv.mac && <div className="text-xs bg-muted text-foreground px-2 py-1 rounded inline-block mt-2">{tv.mac}</div>}
                   </div>
 
@@ -220,7 +220,7 @@ export default function Settings() {
                     <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-red-500 hover:text-red-700 text-sm font-medium">
                       Delete all Images from TV
                     </button>
-                    <Button onClick={() => handleRemoveTv(tv.ip)} className="bg-red-500 hover:bg-red-600 w-full">
+                    <Button onClick={() => handleRemoveTv(tv.ip)} className="bg-red-500 text-white hover:bg-red-600 w-full">
                       Remove TV
                     </Button>
                   </div>
@@ -265,10 +265,10 @@ export default function Settings() {
               <span>Enable Immich</span>
             </label>
             <div className="flex flex-col sm:flex-row gap-2 mt-2">
-              <Button type="submit" className="bg-blue-600 hover:bg-blue-900" disabled={providerSaving}>
+              <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-900" disabled={providerSaving}>
                 {providerSaving ? 'Saving…' : 'Save Immich Config'}
               </Button>
-              <Button type="button" className="bg-gray-300 text-foreground" onClick={handleDeleteImmich} disabled={providerSaving}>
+              <Button type="button" className="bg-secondary text-secondary-foreground hover:bg-secondary/80" onClick={handleDeleteImmich} disabled={providerSaving}>
                 Delete Config
               </Button>
             </div>

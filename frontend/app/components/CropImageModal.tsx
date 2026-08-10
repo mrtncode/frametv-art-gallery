@@ -193,7 +193,7 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
                 {cropActionLoading ? 'Cropping…' : cropperReady ? 'Apply Crop' : 'Loading...'}
               </button>
               <button
-                className="flex-1 bg-gray-200 text-foreground rounded px-4 py-2 hover:bg-gray-300"
+                className="flex-1 bg-secondary text-secondary-foreground rounded px-4 py-2 hover:bg-secondary/80"
                 onClick={() => {
                   if (cropperRef.current?.cropper) {
                     cropperRef.current.cropper.reset();
