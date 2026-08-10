@@ -6,6 +6,7 @@ import TVGalleryImageCard from "~/components/TVGalleryImageCard";
 import { toast } from "sonner";
 import {
   deleteTvGalleryImage,
+  fetchTvGalleryThumbnails,
   getTvGalleryImages,
   getTvs,
   playTvGalleryImage,
@@ -18,6 +19,7 @@ export default function TVGallery() {
 
   const [images, setImages] = useState<TVGalleryImage[]>([]);
   const [loading, setLoading] = useState(false);
+  const [thumbnailsLoading, setThumbnailsLoading] = useState(false);
   const [selectedTvIp, setSelectedTvIp] = useState<string>(tvIp || "");
   const [tvs, setTvs] = useState<any[]>([]);
 
@@ -58,12 +60,15 @@ export default function TVGallery() {
       // Fetch missing thumbnails in background and update state when ready
       const missing = (tvImages || []).filter((i) => !i.thumbnail).map((i) => i.content_id);
       if (missing.length > 0) {
+        setThumbnailsLoading(true);
         (async () => {
           try {
-            const thumbs = await (await import("~/utils/tvApi")).fetchTvGalleryThumbnails(selectedTvIp, missing);
+            const thumbs = await fetchTvGalleryThumbnails(selectedTvIp, missing);
             setImages((prev) => prev.map((img) => ({ ...img, thumbnail: img.thumbnail || thumbs[img.content_id] || null })));
           } catch (err) {
             console.warn("Failed to batch-fetch thumbnails", err);
+          } finally {
+            setThumbnailsLoading(false);
           }
         })();
       }
@@ -71,6 +76,7 @@ export default function TVGallery() {
       console.error("Failed to fetch gallery:", error);
       toast.error("Failed to load TV gallery");
       setLoading(false);
+      setThumbnailsLoading(false);
     }
   };
 
@@ -150,6 +156,7 @@ export default function TVGallery() {
                   key={image.content_id}
                   image={image}
                   selectedTvIp={selectedTvIp}
+                  thumbnailsLoading={thumbnailsLoading}
                   onPlay={handlePlayImage}
                   onDelete={handleDeleteImage}
                   formatDate={formatDate}

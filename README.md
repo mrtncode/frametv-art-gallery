@@ -68,6 +68,28 @@ Docker Compose (recommended):
 1. `docker compose pull`
 2. `docker compose up -d`
 
+# Configuration
+
+All optional, with sensible defaults. Set them as environment variables on the container.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `GUNICORN_WORKERS` | `4` | Worker processes. More than one keeps a slow TV from blocking the whole app. |
+| `GUNICORN_TIMEOUT` | `180` | Seconds before gunicorn kills a worker. Keep it above `FRAME_TV_UPLOAD_DEADLINE`. |
+| `FRAME_TV_SOCKET_TIMEOUT` | `8` | Socket timeout for a single read from the TV. |
+| `FRAME_TV_CALL_DEADLINE` | `20` | Seconds a normal TV request may take before it is given up on. |
+| `FRAME_TV_UPLOAD_DEADLINE` | `120` | Same, for image uploads, which push the whole file to the TV. |
+| `FRAME_TV_PAIRING_TIMEOUT` | `45` | How long adding a TV waits for the pairing prompt to be accepted. |
+| `FRAME_TV_DOWN_COOLDOWN` | `30` | Seconds a TV is skipped after it failed to answer. |
+| `FRAME_TV_MAX_PARALLEL_CALLS` | `8` | Concurrent TV requests per worker. |
+
+# Tests
+
+```
+pip install -e ".[test]"
+pytest
+```
+
 # Troubleshooting
 ## Errors when uploading images to the TV:
 

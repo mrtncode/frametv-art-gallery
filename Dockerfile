@@ -36,4 +36,6 @@ RUN chmod +x /entrypoint.sh
 # Run entrypoint.sh for db migrations, ..
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["gunicorn", "app:app", "--bind", "0.0.0.0:8000"]
+# Several workers so one TV that stops answering cannot freeze the whole app, and a
+# timeout above FRAME_TV_UPLOAD_DEADLINE so a legitimately slow upload is not killed.
+CMD ["sh", "-c", "exec gunicorn app:app --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-4} --timeout ${GUNICORN_TIMEOUT:-180}"]
