@@ -43,6 +43,7 @@ from utils.frame_tv import (
     FrameTVError,
     FrameTVConnectionError,
     FrameTVTimeoutError,
+    FrameTVUnavailableError,
     delete_all_images_from_tv,
     get_tv_gallery_images,
     delete_tv_image,
@@ -604,6 +605,9 @@ def api_get_tv_gallery(ip):
     try:
         images = get_tv_gallery_images(ip, token=tv.token)
         return jsonify({'images': images, 'tv_ip': ip})
+    except FrameTVUnavailableError as e:
+        app.logger.info('Skipping TV gallery: %s', e)
+        return jsonify({'error': 'TV is unavailable', 'tv_unavailable': True}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while fetching TV gallery', e)
         return jsonify({'error': 'TV request timed out'}), 504
@@ -650,12 +654,17 @@ def api_tv_gallery_thumbnail(ip, content_id):
         if not thumbnail:
             return jsonify({'error': 'Thumbnail not found'}), 404
         return Response(thumbnail, mimetype=_guess_image_mimetype(thumbnail))
+    except FrameTVUnavailableError as e:
+        # The circuit breaker refusing a call is the design working, and a gallery page
+        # trips it once per thumbnail. One line, no stack trace.
+        app.logger.info('Skipping TV thumbnail: %s', e)
+        return jsonify({'error': 'TV is unavailable', 'tv_unavailable': True}), 503
     except FrameTVTimeoutError as e:
         _log_exception('Timeout while fetching TV thumbnail', e)
-        return jsonify({'error': 'TV request timed out'}), 504
+        return jsonify({'error': 'TV request timed out', 'tv_unavailable': True}), 504
     except FrameTVConnectionError as e:
         _log_exception('TV connection failed while fetching thumbnail', e)
-        return jsonify({'error': 'TV is unavailable'}), 503
+        return jsonify({'error': 'TV is unavailable', 'tv_unavailable': True}), 503
     except Exception as e:
         _log_exception('Failed to fetch TV thumbnail', e)
         return jsonify({'error': 'Failed to fetch thumbnail'}), 500

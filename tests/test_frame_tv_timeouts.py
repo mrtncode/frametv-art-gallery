@@ -14,7 +14,11 @@ import time
 import pytest
 
 from utils import frame_tv
-from utils.frame_tv import FrameTVConnectionError, FrameTVTimeoutError
+from utils.frame_tv import (
+    FrameTVConnectionError,
+    FrameTVTimeoutError,
+    FrameTVUnavailableError,
+)
 
 # Long enough to outlive the deadlines below, short enough that the worker threads are
 # gone before the interpreter shuts down.
@@ -68,7 +72,7 @@ def test_unresponsive_tv_is_skipped_during_the_cooldown():
 
     calls = []
     started = time.monotonic()
-    with pytest.raises(FrameTVConnectionError):
+    with pytest.raises(FrameTVUnavailableError):
         frame_tv._tv_call("192.0.2.3", "testing", lambda session: calls.append(1), open_remote=False)
     assert calls == [], "the TV should not have been contacted during the cooldown"
     assert time.monotonic() - started < 1
@@ -96,6 +100,24 @@ def test_the_cooldown_is_shared_between_processes():
     assert frame_tv._tv_cooldown_remaining("192.0.2.8") > 0
     marker.unlink()
     assert frame_tv._tv_cooldown_remaining("192.0.2.8") == 0
+
+
+def test_a_deliberate_action_still_reaches_a_tv_in_cooldown():
+    """A failed thumbnail must not stop someone from pressing play on that TV."""
+    frame_tv._mark_tv_down("192.0.2.9")
+
+    with pytest.raises(FrameTVUnavailableError):
+        frame_tv._tv_call("192.0.2.9", "fetching a thumbnail from", lambda s: "never", open_remote=False)
+
+    assert frame_tv._tv_call(
+        "192.0.2.9", "playing an image on", lambda s: "played",
+        open_remote=False, skip_when_down=False,
+    ) == "played"
+
+
+def test_the_unavailable_error_stays_a_connection_error():
+    """Existing handlers catch FrameTVConnectionError; the new type must not escape them."""
+    assert issubclass(FrameTVUnavailableError, FrameTVConnectionError)
 
 
 def test_tv_errors_are_not_swallowed_as_connection_errors():

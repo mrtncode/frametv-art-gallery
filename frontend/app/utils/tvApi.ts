@@ -102,13 +102,20 @@ export function getTvGalleryThumbnailUrl(ip: string, contentId: string) {
 export async function fetchTvGalleryThumbnails(ip: string, contentIds: string[], concurrency = 6): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   let idx = 0;
+  // A TV that stopped answering answers nothing: once one request says so, asking for
+  // the remaining hundred only fills the log.
+  let tvUnavailable = false;
 
   async function worker() {
-    while (idx < contentIds.length) {
+    while (idx < contentIds.length && !tvUnavailable) {
       const i = idx++;
       const cid = contentIds[i];
       try {
         const res = await fetch(getTvGalleryThumbnailUrl(ip, cid));
+        if (res.status === 503 || res.status === 504) {
+          tvUnavailable = true;
+          break;
+        }
         if (!res.ok) continue;
         const blob = await res.blob();
         const arrayBuffer = await blob.arrayBuffer();

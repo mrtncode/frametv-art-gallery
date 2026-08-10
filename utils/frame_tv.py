@@ -99,6 +99,15 @@ class FrameTVTimeoutError(FrameTVConnectionError):
     """Exception for timeouts while talking to the Frame TV."""
     pass
 
+
+class FrameTVUnavailableError(FrameTVConnectionError):
+    """Raised instead of contacting a TV that just failed, while its cooldown lasts.
+
+    This is the circuit breaker doing its job, not an incident: callers should report
+    it without a stack trace, since one page of thumbnails raises it many times over.
+    """
+    pass
+
 class FrameTVUploadError(FrameTVError):
     """Exception for upload errors to the Frame TV."""
     pass
@@ -216,6 +225,7 @@ def _tv_call(
     token: Optional[str] = None,
     deadline: Optional[int] = None,
     open_remote: bool = True,
+    skip_when_down: bool = True,
 ) -> Any:
     """Run `action(session)` against the TV, never blocking longer than `deadline`.
 
@@ -223,13 +233,18 @@ def _tv_call(
     when the TV is unreachable; errors coming from the TV itself (a rejected
     request, a bad content id) are re-raised untouched so callers can tell the two
     apart. A TV that fails is skipped for TV_DOWN_COOLDOWN seconds.
+
+    `skip_when_down` is what the cooldown protects against: bursts of background
+    reads, above all the one request per thumbnail a gallery page fires. Deliberate
+    actions pass False — someone pressing play is waiting for that TV specifically,
+    and would rather wait for a real answer than be told to come back later.
     """
     if deadline is None:
         deadline = TV_CALL_DEADLINE
 
-    cooldown = _tv_cooldown_remaining(ip)
+    cooldown = _tv_cooldown_remaining(ip) if skip_when_down else 0
     if cooldown > 0:
-        raise FrameTVConnectionError(
+        raise FrameTVUnavailableError(
             f"TV {ip} did not answer recently; skipping {action_description} it for another {cooldown:.0f}s"
         )
 
@@ -322,7 +337,7 @@ def upload_artwork(
             _delete_other_images(art, content_id, debug=True)
         return content_id
 
-    return _tv_call(ip, "uploading artwork to", action, token=token, deadline=TV_UPLOAD_DEADLINE)
+    return _tv_call(ip, "uploading artwork to", action, token=token, deadline=TV_UPLOAD_DEADLINE, skip_when_down=False)
 
 def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
     available = []
@@ -364,7 +379,7 @@ def delete_all_images_from_tv(ip: str, token: Optional[str] = None) -> None:
         else:
             logger.info("No images found on TV %s to delete", ip)
 
-    _tv_call(ip, "deleting images from", action, token=token)
+    _tv_call(ip, "deleting images from", action, token=token, skip_when_down=False)
 
 def play_uploaded_content(ip: str, content_id: str, token: Optional[str] = None) -> None:
     """
@@ -379,6 +394,7 @@ def play_uploaded_content(ip: str, content_id: str, token: Optional[str] = None)
         f"playing image {content_id} on",
         lambda session: session.art().select_image(content_id, show=True),
         token=token,
+        skip_when_down=False,
     )
 
 def set_brightness(ip: str, brightness: int, token: Optional[str] = None) -> None:
@@ -394,6 +410,7 @@ def set_brightness(ip: str, brightness: int, token: Optional[str] = None) -> Non
         "setting brightness on",
         lambda session: session.art().set_brightness(brightness),
         token=token,
+        skip_when_down=False,
     )
 
 def is_art_mode_on(ip: str, token: Optional[str] = None) -> bool:
@@ -446,7 +463,7 @@ def power_off(ip: str, token: Optional[str] = None) -> None:
         ip (str): IP address of the TV.
         token (Optional[str]): Token string to use for authentication.
     """
-    _tv_call(ip, "powering off", lambda session: session.tv.send_key("KEY_POWER"), token=token)
+    _tv_call(ip, "powering off", lambda session: session.tv.send_key("KEY_POWER"), token=token, skip_when_down=False)
 
 def enable_art_mode(ip: str, token: Optional[str] = None) -> None:
     """
@@ -460,6 +477,7 @@ def enable_art_mode(ip: str, token: Optional[str] = None) -> None:
         "enabling art mode on",
         lambda session: session.art().set_artmode(True),
         token=token,
+        skip_when_down=False,
     )
 
 def remove_token(ip: str) -> None:
@@ -504,6 +522,7 @@ def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
             "changing matte on",
             lambda session: session.art().change_matte(matte),
             token=token,
+            skip_when_down=False,
         )
     except Exception:  # pylint: disable=broad-except
         logger.exception("Error changing matte on TV %s", ip)
@@ -582,6 +601,7 @@ def delete_tv_image(ip: str, content_id: str, token: Optional[str] = None) -> bo
         f"deleting image {content_id} from",
         lambda session: session.art().delete(content_id),
         token=token,
+        skip_when_down=False,
     )
     return True
 
