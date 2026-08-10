@@ -1,4 +1,6 @@
+import contextlib
 import socket
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
 from typing import Any, Callable, Dict, List, Optional
@@ -155,9 +157,12 @@ _TV_EXECUTOR = ThreadPoolExecutor(
 TV_DOWN_DIR = _DATA_DIR.joinpath('instance', 'tv_down')
 
 
+def _safe_ip(ip: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in ip)
+
+
 def _tv_down_marker(ip: str) -> Path:
-    safe = "".join(ch if ch.isalnum() or ch in "-._" else "_" for ch in ip)
-    return TV_DOWN_DIR.joinpath(f"tv-{safe}")
+    return TV_DOWN_DIR.joinpath(f"tv-{_safe_ip(ip)}")
 
 
 def _tv_cooldown_remaining(ip: str) -> float:
@@ -181,6 +186,63 @@ def _mark_tv_up(ip: str) -> None:
         _tv_down_marker(ip).unlink()
     except OSError:
         pass
+
+
+# A Frame TV serves a single art channel. Opening a second one while another is still
+# connecting makes the set announce `ms.channel.clientConnect`, which samsungtvws raises
+# as a connection failure — so parallel requests to one TV do not queue, they break each
+# other. gunicorn runs several workers, hence a file lock on top of the in-process one.
+try:
+    import fcntl  # POSIX only; the published image runs Linux
+except ImportError:  # pragma: no cover - Windows development
+    fcntl = None
+
+TV_LOCK_DIR = _DATA_DIR.joinpath('instance', 'tv_locks')
+_LOCAL_TV_LOCKS: Dict[str, threading.Lock] = {}
+_LOCAL_TV_LOCKS_GUARD = threading.Lock()
+
+
+def _local_tv_lock(ip: str) -> threading.Lock:
+    with _LOCAL_TV_LOCKS_GUARD:
+        lock = _LOCAL_TV_LOCKS.get(ip)
+        if lock is None:
+            lock = threading.Lock()
+            _LOCAL_TV_LOCKS[ip] = lock
+        return lock
+
+
+@contextlib.contextmanager
+def _tv_exclusive(ip: str, wait: float):
+    """Hold a TV for one operation at a time, across threads and gunicorn workers."""
+    give_up_at = time.monotonic() + wait
+    busy = FrameTVUnavailableError(f"TV {ip} is busy with another request")
+
+    local = _local_tv_lock(ip)
+    if not local.acquire(timeout=max(0.0, wait)):
+        raise busy
+
+    handle = None
+    try:
+        if fcntl is not None:
+            TV_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+            handle = open(TV_LOCK_DIR.joinpath(f"tv-{_safe_ip(ip)}"), "w")
+            while True:
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except OSError:
+                    if time.monotonic() >= give_up_at:
+                        raise busy
+                    time.sleep(0.1)
+        yield
+    finally:
+        if handle is not None:
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            except OSError:
+                pass
+            handle.close()
+        local.release()
 
 
 class _TVSession:
@@ -248,35 +310,37 @@ def _tv_call(
             f"TV {ip} did not answer recently; skipping {action_description} it for another {cooldown:.0f}s"
         )
 
-    session = _TVSession(ip, token, DEFAULT_TIMEOUT)
+    # One operation at a time per TV: concurrent art channels corrupt each other.
+    with _tv_exclusive(ip, wait=deadline):
+        session = _TVSession(ip, token, DEFAULT_TIMEOUT)
 
-    def run():
-        if open_remote:
-            session.tv.open()
-        return action(session)
+        def run():
+            if open_remote:
+                session.tv.open()
+            return action(session)
 
-    future = _TV_EXECUTOR.submit(run)
-    try:
-        result = future.result(timeout=deadline)
-    except FutureTimeoutError as err:
-        # cancel() succeeds only while the call is still queued; otherwise close the
-        # sockets so the recv() blocking the worker thread raises and lets it go.
-        if not future.cancel():
-            session.close()
-        _mark_tv_down(ip)
-        raise FrameTVTimeoutError(
-            f"Timeout after {deadline}s while {action_description} TV {ip}"
-        ) from err
-    except Exception as err:
-        session.close()
-        if _is_connection_error(err):
+        future = _TV_EXECUTOR.submit(run)
+        try:
+            result = future.result(timeout=deadline)
+        except FutureTimeoutError as err:
+            # cancel() succeeds only while the call is still queued; otherwise close the
+            # sockets so the recv() blocking the worker thread raises and lets it go.
+            if not future.cancel():
+                session.close()
             _mark_tv_down(ip)
-            _raise_tv_connection_error(ip, action_description, err)
-        raise
+            raise FrameTVTimeoutError(
+                f"Timeout after {deadline}s while {action_description} TV {ip}"
+            ) from err
+        except Exception as err:
+            session.close()
+            if _is_connection_error(err):
+                _mark_tv_down(ip)
+                _raise_tv_connection_error(ip, action_description, err)
+            raise
 
-    _mark_tv_up(ip)
-    session.close()
-    return result
+        _mark_tv_up(ip)
+        session.close()
+        return result
 
 
 def _fetch_matte_list(art) -> Optional[Dict]:
@@ -527,6 +591,88 @@ def change_matte(ip: str, matte: str, token: Optional[str] = None) -> None:
     except Exception:  # pylint: disable=broad-except
         logger.exception("Error changing matte on TV %s", ip)
 
+def _cached_thumbnail(ip: str, content_id: str) -> Optional[bytes]:
+    cached = _cache_get((ip, content_id))
+    if cached is not None:
+        return cached
+    disk = _thumb_disk_get(ip, content_id)
+    if disk is not None:
+        _cache_set((ip, content_id), disk)
+    return disk
+
+
+def _collect_thumbnails(art, ip: str, content_ids: List[str]) -> Dict[str, bytes]:
+    """Thumbnails for `content_ids`: cache first, then whatever is left in one TV call.
+
+    Serving the cache keeps a TV that has gone quiet from blanking a gallery it has
+    already answered for once.
+    """
+    found: Dict[str, bytes] = {}
+    missing: List[str] = []
+    for cid in content_ids:
+        cached = _cached_thumbnail(ip, cid)
+        if cached is not None:
+            found[cid] = cached
+        else:
+            missing.append(cid)
+
+    if not missing:
+        return found
+
+    try:
+        thumb_map = art.get_thumbnail_list(missing)
+    except Exception:
+        logger.debug("Batch thumbnail retrieval failed for TV %s", ip, exc_info=True)
+        return found
+
+    if isinstance(thumb_map, dict):
+        for cid, data in thumb_map.items():
+            if not isinstance(data, (bytes, bytearray)):
+                continue
+            payload = bytes(data)
+            found[cid] = payload
+            _thumb_disk_set(ip, cid, payload)
+            _cache_set((ip, cid), payload)
+    return found
+
+
+def get_tv_gallery_thumbnails(
+    ip: str, content_ids: List[str], token: Optional[str] = None
+) -> Dict[str, bytes]:
+    """Fetch several thumbnails in a single round trip to the TV.
+
+    One request beats one per image: the TV only serves a single art channel, so the
+    parallel requests a gallery page used to fire were rejecting each other.
+    """
+    cached = {}
+    missing = []
+    for cid in content_ids:
+        hit = _cached_thumbnail(ip, cid)
+        if hit is not None:
+            cached[cid] = hit
+        else:
+            missing.append(cid)
+
+    if not missing:
+        return cached
+
+    try:
+        fetched = _tv_call(
+            ip,
+            "fetching thumbnails from",
+            lambda session: _collect_thumbnails(session.art(), ip, missing),
+            token=token,
+        )
+    except FrameTVError as err:
+        # Hand back whatever was cached rather than blanking a whole page because one
+        # image was missing from it. One line: the cooldown is already recorded.
+        logger.warning("Serving %d cached thumbnails for TV %s: %s", len(cached), ip, err)
+        return cached
+
+    cached.update(fetched or {})
+    return cached
+
+
 def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
     """
     Fetch the list of images currently on the Frame TV.
@@ -555,32 +701,11 @@ def get_tv_gallery_images(ip: str, token: Optional[str] = None) -> List[Dict]:
                 })
                 seen_content_ids.append(content_id)
 
-        # Serve whatever the disk cache already has, so a TV that stops answering
-        # still renders the thumbnails fetched on an earlier visit.
-        missing = []
         by_content_id = {img["content_id"]: img for img in images}
-        for cid, img in by_content_id.items():
-            disk = _thumb_disk_get(ip, cid)
-            if disk:
-                img["thumbnail"] = base64.b64encode(disk).decode("ascii")
-            else:
-                missing.append(cid)
-
-        # Fetch the rest in a single batch call to avoid many serial connections
-        try:
-            if missing:
-                thumb_map = art.get_thumbnail_list(missing)
-                if isinstance(thumb_map, dict):
-                    for cid, data in thumb_map.items():
-                        img = by_content_id.get(cid)
-                        if img is None or not isinstance(data, (bytes, bytearray)):
-                            continue
-                        b = bytes(data)
-                        img["thumbnail"] = base64.b64encode(b).decode("ascii")
-                        _thumb_disk_set(ip, cid, b)
-        except Exception:
-            # Fall back silently if batch thumbnail retrieval fails
-            logger.debug("Batch thumbnail retrieval failed for TV %s", ip, exc_info=True)
+        for cid, data in _collect_thumbnails(art, ip, list(by_content_id)).items():
+            img = by_content_id.get(cid)
+            if img is not None:
+                img["thumbnail"] = base64.b64encode(data).decode("ascii")
 
         return images
 
@@ -615,40 +740,19 @@ def get_tv_gallery_thumbnail(ip: str, content_id: str, token: Optional[str] = No
     Returns:
         Optional[bytes]: Thumbnail image bytes, or None if unavailable.
     """
-    # Check in-memory cache first
-    cached = _cache_get((ip, content_id))
+    cached = _cached_thumbnail(ip, content_id)
     if cached is not None:
         return cached
 
-    # Check disk-backed cache
-    disk = _thumb_disk_get(ip, content_id)
-    if disk is not None:
-        # also populate in-memory cache
-        _cache_set((ip, content_id), disk)
-        return disk
-
     def action(session: _TVSession) -> Optional[bytes]:
         art = session.art()
-        thumbnail_bytes = None
-
-        # Newer firmware tends to be more reliable when we request thumbnails
-        # through the D2D list endpoint, which returns the response over the
-        # response socket.
-        try:
-            thumbnail_map = art.get_thumbnail_list([content_id])
-            if isinstance(thumbnail_map, dict):
-                thumbnail_bytes = next(
-                    (bytes(data) for data in thumbnail_map.values() if isinstance(data, (bytes, bytearray))),
-                    None,
-                )
-        except Exception:
-            thumbnail_bytes = None
-
+        # The D2D list endpoint is the reliable path on recent firmware; the single
+        # get_thumbnail call is only a fallback for sets that do not answer it.
+        thumbnail_bytes = _collect_thumbnails(art, ip, [content_id]).get(content_id)
         if thumbnail_bytes is None:
             thumbnail = art.get_thumbnail(content_id)
             if isinstance(thumbnail, (bytes, bytearray)):
                 thumbnail_bytes = bytes(thumbnail)
-
         return thumbnail_bytes
 
     thumbnail_bytes = _tv_call(ip, f"fetching thumbnail {content_id} from", action, token=token)

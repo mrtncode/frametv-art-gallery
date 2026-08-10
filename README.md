@@ -98,6 +98,10 @@ The TV stopped answering. Every request to a TV is given a deadline, and a TV th
 it is skipped for `FRAME_TV_DOWN_COOLDOWN` seconds so one silent set cannot tie up the
 whole app — the page then falls back to whatever thumbnails are already cached on disk.
 
+A Frame TV serves a single art channel, so requests to one TV are serialised: opening a
+second connection while another is still being established makes the set reject both. The
+whole page of thumbnails is fetched in one round trip for the same reason.
+
 Deliberate actions (playing an image, deleting one, uploading) ignore that cooldown and
 still try, so the TV waking up is noticed immediately. If it persists, check that the TV is
 on and reachable, then look for a single `Timeout after …` line in the logs: the skipped

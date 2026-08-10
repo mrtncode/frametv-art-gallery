@@ -115,6 +115,51 @@ def test_a_deliberate_action_still_reaches_a_tv_in_cooldown():
     ) == "played"
 
 
+def test_one_tv_serves_one_call_at_a_time():
+    """Concurrent art channels make a Frame TV reject them, so calls must serialise."""
+    overlapping = []
+    active = 0
+    guard = threading.Lock()
+
+    def slow(_session):
+        nonlocal active
+        with guard:
+            active += 1
+            overlapping.append(active)
+        time.sleep(0.3)
+        with guard:
+            active -= 1
+        return "done"
+
+    def call():
+        frame_tv._tv_call("192.0.2.10", "testing", slow, open_remote=False)
+
+    threads = [threading.Thread(target=call) for _ in range(4)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=30)
+
+    assert len(overlapping) == 4, "every call should have run"
+    assert max(overlapping) == 1, f"calls overlapped on one TV: {overlapping}"
+
+
+def test_a_second_tv_is_not_held_up_by_the_first():
+    started = time.monotonic()
+    holder = threading.Thread(
+        target=lambda: frame_tv._tv_call(
+            "192.0.2.11", "testing", lambda s: time.sleep(1), open_remote=False
+        )
+    )
+    holder.start()
+    time.sleep(0.1)
+    assert frame_tv._tv_call(
+        "192.0.2.12", "testing", lambda s: "free", open_remote=False
+    ) == "free"
+    assert time.monotonic() - started < 1, "a different TV should not wait"
+    holder.join(timeout=10)
+
+
 def test_the_unavailable_error_stays_a_connection_error():
     """Existing handlers catch FrameTVConnectionError; the new type must not escape them."""
     assert issubclass(FrameTVUnavailableError, FrameTVConnectionError)

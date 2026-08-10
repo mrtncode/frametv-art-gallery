@@ -1,3 +1,4 @@
+import base64
 from flask import Flask, render_template, request, redirect, url_for, flash, send_from_directory, jsonify, Response
 import os
 from werkzeug.utils import secure_filename
@@ -46,6 +47,7 @@ from utils.frame_tv import (
     FrameTVUnavailableError,
     delete_all_images_from_tv,
     get_tv_gallery_images,
+    get_tv_gallery_thumbnails,
     delete_tv_image,
     play_uploaded_content,
     get_tv_gallery_thumbnail,
@@ -642,6 +644,47 @@ def api_play_tv_image(ip, content_id):
     except Exception as e:
         _log_exception('Unexpected error playing TV image', e)
         return jsonify({'error': 'Unexpected error'}), 500
+
+@app.route("/api/tv/<ip>/gallery/thumbnails", methods=['POST'])
+def api_tv_gallery_thumbnails(ip):
+    """Return several thumbnails at once, as {content_id: base64}.
+
+    A Frame TV serves one art channel at a time, so asking for a page of thumbnails
+    one request at a time made the requests reject each other. This is one round trip.
+    """
+    tv = TV.query.filter_by(ip=ip).first()
+    if not tv:
+        return jsonify({'error': 'TV not found'}), 404
+
+    data = request.get_json(silent=True) or {}
+    content_ids = data.get('content_ids')
+    if not isinstance(content_ids, list) or not all(isinstance(c, str) and c for c in content_ids):
+        return jsonify({'error': 'content_ids must be a list of strings'}), 400
+    if len(content_ids) > 500:
+        return jsonify({'error': 'Too many content ids'}), 400
+    if not content_ids:
+        return jsonify({'thumbnails': {}})
+
+    try:
+        thumbnails = get_tv_gallery_thumbnails(ip, content_ids, token=tv.token)
+        return jsonify({
+            'thumbnails': {
+                cid: base64.b64encode(data).decode('ascii') for cid, data in thumbnails.items()
+            }
+        })
+    except FrameTVUnavailableError as e:
+        app.logger.info('Skipping TV thumbnails: %s', e)
+        return jsonify({'error': 'TV is unavailable', 'tv_unavailable': True}), 503
+    except FrameTVTimeoutError as e:
+        _log_exception('Timeout while fetching TV thumbnails', e)
+        return jsonify({'error': 'TV request timed out', 'tv_unavailable': True}), 504
+    except FrameTVConnectionError as e:
+        _log_exception('TV connection failed while fetching thumbnails', e)
+        return jsonify({'error': 'TV is unavailable', 'tv_unavailable': True}), 503
+    except Exception as e:
+        _log_exception('Failed to fetch TV thumbnails', e)
+        return jsonify({'error': 'Failed to fetch thumbnails'}), 500
+
 
 @app.route("/api/tv/<ip>/gallery/<content_id>/thumbnail", methods=['GET'])
 def api_tv_gallery_thumbnail(ip, content_id):
