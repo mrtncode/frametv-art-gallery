@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import ImageGrid from '../components/imageGrid';
 import { Button } from '../components/ui/button';
-import { fetchAlbum, fetchImages, addImageToAlbum, deleteAlbum, removeImageFromAlbum } from '../utils/galleryApi';
+import { fetchAlbum, deleteAlbum, removeImageFromAlbum } from '../utils/galleryApi';
 import { getTvs, sendToTV, type TVInfo } from '../utils/tvApi';
 
 type AlbumImage = { id: number; filename: string };
@@ -18,8 +18,6 @@ export default function AlbumPage() {
   const { albumId } = useParams();
   const navigate = useNavigate();
   const [album, setAlbum] = useState<AlbumDetail | null>(null);
-  const [images, setImages] = useState<string[]>([]);
-  const [selectedImage, setSelectedImage] = useState('');
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -43,18 +41,8 @@ export default function AlbumPage() {
     }
   };
 
-  const loadImages = async () => {
-    try {
-      const imgs = await fetchImages();
-      setImages(imgs || []);
-    } catch {
-      setImages([]);
-    }
-  };
-
   useEffect(() => {
     loadAlbum();
-    loadImages();
   }, [albumId]);
 
   useEffect(() => {
@@ -107,27 +95,6 @@ export default function AlbumPage() {
       setSuccessMessage(`Sent ${sent} of ${album.images.length} images to the TV.`);
     } else if (lastError) {
       setError(lastError);
-    }
-  };
-
-  const handleAddToAlbum = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!album || !selectedImage) {
-      setError('Select a valid image to add.');
-      return;
-    }
-    setBusy(true);
-    setError('');
-    setSuccessMessage('');
-    try {
-      await addImageToAlbum(album.name, selectedImage);
-      await loadAlbum();
-      setSuccessMessage('Image added to album successfully.');
-      setSelectedImage('');
-    } catch (e: any) {
-      setError(e.message || 'Failed to add image to album');
-    } finally {
-      setBusy(false);
     }
   };
 
