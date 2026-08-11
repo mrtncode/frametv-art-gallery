@@ -1,10 +1,7 @@
 import { useState } from "react";
 import { TrashIcon, PlayIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { Skeleton } from "~/components/ui/skeleton"
-import {
-  getTvGalleryThumbnailUrl,
-  type TVGalleryImage,
-} from "../utils/tvApi";
+import { type TVGalleryImage } from "../utils/tvApi";
 
 function Loader() {
   return (
@@ -17,12 +14,14 @@ function Loader() {
 type TVGalleryImageCardProps = {
   image: TVGalleryImage;
   selectedTvIp: string;
+  /** true while the parent is still batch-fetching the missing thumbnails */
+  thumbnailsLoading?: boolean;
   onPlay: (contentId: string) => void;
   onDelete: (contentId: string) => void;
   formatDate: (dateString: string) => string;
 };
 
-export default function TVGalleryImageCard({ image, selectedTvIp, onPlay, onDelete, formatDate }: TVGalleryImageCardProps) {
+export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoading, onPlay, onDelete, formatDate }: TVGalleryImageCardProps) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   return (
@@ -30,33 +29,34 @@ export default function TVGalleryImageCard({ image, selectedTvIp, onPlay, onDele
       key={image.content_id}
       className="flex gap-4 p-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg hover:shadow-md transition-shadow"
     >
+      {/* The thumbnail always comes from the parent's single batched request. Letting the
+          <img> fall back to the per-image endpoint fired one TV websocket per card, which
+          is what used to pile up and starve the server when a TV stopped answering. */}
       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-        {!imgLoaded && !imgError && <Loader />}
-        <img
-          src={
-            image.thumbnail
-              ? `data:image/jpeg;base64,${image.thumbnail}`
-              : getTvGalleryThumbnailUrl(selectedTvIp, image.content_id)
-          }
-          alt={image.filename}
-          className="h-full w-full object-cover"
-          style={{ display: imgLoaded && !imgError ? "block" : "none" }}
-          onLoad={() => setImgLoaded(true)}
-          onError={(event) => {
-            setImgError(true);
-            event.currentTarget.style.display = "none";
-            const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
-            if (fallback) {
-              fallback.style.display = "flex";
-            }
-          }}
-        />
-        <div
-          className="absolute inset-0 hidden items-center justify-center text-gray-400"
-          style={{ display: imgError ? "flex" : "none" }}
-        >
-          <PhotoIcon className="h-8 w-8" />
-        </div>
+        {image.thumbnail ? (
+          <>
+            {!imgLoaded && !imgError && <Loader />}
+            <img
+              src={`data:image/jpeg;base64,${image.thumbnail}`}
+              alt={image.filename}
+              className="h-full w-full object-cover"
+              style={{ display: imgLoaded && !imgError ? "block" : "none" }}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+            />
+            {imgError && (
+              <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                <PhotoIcon className="h-8 w-8" />
+              </div>
+            )}
+          </>
+        ) : thumbnailsLoading ? (
+          <Loader />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-gray-400" title="No preview available">
+            <PhotoIcon className="h-8 w-8" />
+          </div>
+        )}
       </div>
 
       <div className="flex-1 min-w-0 self-center">

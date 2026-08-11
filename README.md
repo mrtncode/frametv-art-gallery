@@ -68,7 +68,45 @@ Docker Compose (recommended):
 1. `docker compose pull`
 2. `docker compose up -d`
 
+# Configuration
+
+All optional, with sensible defaults. Set them as environment variables on the container.
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `GUNICORN_WORKERS` | `4` | Worker processes. More than one keeps a slow TV from blocking the whole app. |
+| `GUNICORN_TIMEOUT` | `180` | Seconds before gunicorn kills a worker. Keep it above `FRAME_TV_UPLOAD_DEADLINE`. |
+| `FRAME_TV_SOCKET_TIMEOUT` | `8` | Socket timeout for a single read from the TV. |
+| `FRAME_TV_CALL_DEADLINE` | `20` | Seconds a normal TV request may take before it is given up on. |
+| `FRAME_TV_UPLOAD_DEADLINE` | `120` | Same, for image uploads, which push the whole file to the TV. |
+| `FRAME_TV_PAIRING_TIMEOUT` | `45` | How long adding a TV waits for the pairing prompt to be accepted. |
+| `FRAME_TV_DOWN_COOLDOWN` | `30` | Seconds a TV is skipped after it failed to answer. |
+| `FRAME_TV_MAX_PARALLEL_CALLS` | `8` | Concurrent TV requests per worker. |
+
+# Tests
+
+```
+pip install -e ".[test]"
+pytest
+```
+
 # Troubleshooting
+
+## The TV gallery shows placeholders instead of thumbnails
+
+The TV stopped answering. Every request to a TV is given a deadline, and a TV that misses
+it is skipped for `FRAME_TV_DOWN_COOLDOWN` seconds so one silent set cannot tie up the
+whole app — the page then falls back to whatever thumbnails are already cached on disk.
+
+A Frame TV serves a single art channel, so requests to one TV are serialised: opening a
+second connection while another is still being established makes the set reject both. The
+whole page of thumbnails is fetched in one round trip for the same reason.
+
+Deliberate actions (playing an image, deleting one, uploading) ignore that cooldown and
+still try, so the TV waking up is noticed immediately. If it persists, check that the TV is
+on and reachable, then look for a single `Timeout after …` line in the logs: the skipped
+requests that follow are deliberately silent.
+
 ## Errors when uploading images to the TV:
 
 -> Check that the TV is on and has enough free storage space. When the storage space for art images is full, the upload fails. 
