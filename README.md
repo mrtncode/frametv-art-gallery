@@ -110,6 +110,12 @@ still try, so the TV waking up is noticed immediately. If it persists, check tha
 on and reachable, then look for a single `Timeout after …` line in the logs: the skipped
 requests that follow are deliberately silent.
 
+## The TV auto-discovery does not find my TV
+Make sure that:
+- Your TV is on and connected to the same network as the server.
+- Your TV is connected to the same subnet as the server. Some routers isolate Wi-Fi and wired networks, or different VLANs, which prevents discovery.
+- You use network="host" mode in Docker. Discovery uses UDP broadcast, which is not supported in bridge mode.
+
 ## "The TV is busy with another request"
 
 Something else was talking to that TV — most often a page of thumbnails still loading,
