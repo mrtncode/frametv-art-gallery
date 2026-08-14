@@ -744,6 +744,18 @@ def api_update_tv(ip):
     db.session.commit()
     return {'success': True}
 
+@app.route('/api/tvs/discover', methods=['GET'])
+def api_discover_tvs():
+    """Attempt to discover TVs on the local network."""
+    from utils.tv_discovery import TVDiscovery
+    try:
+        tv_discovery = TVDiscovery()
+        discovered = tv_discovery.scan_network()
+        return {'discovered': discovered}
+    except Exception as e:
+        _log_exception('Failed to discover TVs', e)
+        return _error_response('Failed to discover TVs', 500)
+
 @app.route('/api/tvs', methods=['POST'])
 def api_add_tv():
     data = request.get_json()

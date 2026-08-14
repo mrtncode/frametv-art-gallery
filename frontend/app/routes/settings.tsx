@@ -1,6 +1,6 @@
 import React from 'react'
 import { Link } from 'react-router'
-import { getTvs, addTv, removeTv, removeAllTvImages, updateTv, type TVUpdate } from '~/utils/tvApi';
+import { getTvs, addTv, removeTv, removeAllTvImages, updateTv, discoverTvs, type TVUpdate, type DiscoveredTV } from '~/utils/tvApi';
 import { fetchAlbums } from '~/utils/galleryApi';
 import { Input } from '~/components/ui/input';
 import { Button } from '~/components/ui/button';
@@ -9,6 +9,7 @@ import { getBackupUrl, reconcileImages } from '~/utils/galleryApi';
 import { toast } from 'sonner';
 
 import type { ProviderConfig } from '~/utils/providerApi';
+import { SparkleIcon, SparklesIcon } from 'lucide-react';
 
 interface TV {
   ip: string;
@@ -28,9 +29,11 @@ export default function Settings() {
   const [mac, setMac] = React.useState("");
   const [error, setError] = React.useState("");
   const [adding, setAdding] = React.useState(false);
+  const [discovering, setDiscovering] = React.useState(false);
   const [maintenanceBusy, setMaintenanceBusy] = React.useState(false);
   const [showPairModal, setShowPairModal] = React.useState(false);
   const [pairingIp, setPairingIp] = React.useState("");
+  const [discoveredTvs, setDiscoveredTvs] = React.useState<DiscoveredTV[]>([]);
 
   // Provider state
   const [immichHost, setImmichHost] = React.useState("");
@@ -75,22 +78,28 @@ export default function Settings() {
   }, [fetchTvs, fetchProviders]);
 
   // TV handlers
-  const handleAddTv = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!ip.trim()) {
+  const submitAddTv = async (values?: { ip?: string; name?: string; mac?: string }) => {
+    const nextIp = (values?.ip ?? ip).trim();
+    const nextName = (values?.name ?? name).trim();
+    const nextMac = (values?.mac ?? mac).trim();
+
+    if (!nextIp) {
       setError("IP is required");
       return;
     }
+
     setAdding(true);
     setShowPairModal(true);
-    setPairingIp(ip.trim());
+    setPairingIp(nextIp);
+    setError("");
+
     try {
-      await addTv({ ip: ip.trim(), name: name.trim() || undefined, mac: mac.trim() || undefined });
+      await addTv({ ip: nextIp, name: nextName || undefined, mac: nextMac || undefined });
       setIp("");
       setName("");
       setMac("");
-      setError("");
       await fetchTvs();
+      setDiscoveredTvs([]);
       setShowPairModal(false);
       setPairingIp("");
     } catch (e: any) {
@@ -100,6 +109,41 @@ export default function Settings() {
     } finally {
       setAdding(false);
     }
+  };
+
+  const handleAddTv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitAddTv();
+  };
+
+  const handleDiscoverTvs = async () => {
+    setError("");
+    setDiscovering(true);
+    try {
+      const discovered = await discoverTvs();
+      setDiscoveredTvs(discovered);
+      if (!discovered.length) {
+        toast.info('No Samsung TVs were found on the local network. Make sure they are powered on and connected to the same network and the same subnet.', { position: 'top-center' });
+      }
+    } catch (e: any) {
+      setError(e.message || "Failed to discover TVs");
+    } finally {
+      setDiscovering(false);
+    }
+  };
+
+  const handleSelectDiscoveredTv = (tv: DiscoveredTV) => {
+    const nextName = tv.name || "";
+    const nextMac = tv.mac || "";
+    setIp(tv.ip);
+    setName(nextName);
+    setMac(nextMac);
+
+    const label = nextName || tv.ip;
+    const shouldSubmit = window.confirm(`Want to add ${label} (${tv.ip}) or make changes to the name/MAC before adding?\nPress OK to add now, or Cancel to edit the fields.`);
+    if (!shouldSubmit) return;
+
+    void submitAddTv({ ip: tv.ip, name: nextName, mac: nextMac });
   };
 
   const handleRemoveTv = async (tvIp: string) => {
@@ -216,7 +260,46 @@ export default function Settings() {
 
         {/* Add TV Section */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-foreground">Add a New TV</h2>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Add a New TV</h2>
+            <Button
+              type="button"
+              onClick={handleDiscoverTvs}
+              className="bg-secondary text-secondary-foreground hover:bg-secondary/80 disabled:opacity-50"
+              disabled={discovering}
+            >
+              {discovering ? 'Discovering…' : 'Auto Discover TVs'}
+              <SparklesIcon className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {discoveredTvs.length > 0 && (
+            <div className="mb-4 rounded-xl border border-border bg-muted/30 p-3">
+              <div className="mb-2 text-sm font-medium text-foreground">Discovered on your network</div>
+              <div className="space-y-2">
+                {discoveredTvs.map((tv) => (
+                  <button
+                    key={`${tv.ip}-${tv.name || tv.mac || 'tv'}`}
+                    type="button"
+                    onClick={() => handleSelectDiscoveredTv(tv)}
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-blue-400 hover:bg-blue-50/5"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-medium text-foreground">{tv.name || 'Samsung TV'}</span>
+                      {tv.is_frame && (
+                        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                          Frame
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-mono text-xs text-muted-foreground">{tv.ip}</div>
+                    {tv.mac && <div className="text-xs text-muted-foreground">{tv.mac}</div>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleAddTv} className="flex flex-col sm:flex-row gap-3 mb-3">
             <Input type="text" value={ip} onChange={e => setIp(e.target.value)} placeholder="IP address" required />
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" />
