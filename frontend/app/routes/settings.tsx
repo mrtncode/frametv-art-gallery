@@ -123,7 +123,7 @@ export default function Settings() {
       const discovered = await discoverTvs();
       setDiscoveredTvs(discovered);
       if (!discovered.length) {
-        toast.info('No Samsung TVs were found on the local network. Make sure they are powered on and connected to the same network and the same subnet.', { position: 'top-center' });
+        toast.info('No Samsung TVs were found on the local network. Make sure they are powered on and connected to the same network and the same subnet. Make sure you are using the correct network mode in Docker.', { position: 'top-center' });
       }
     } catch (e: any) {
       setError(e.message || "Failed to discover TVs");
