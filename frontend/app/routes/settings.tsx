@@ -17,6 +17,7 @@ interface TV {
   name?: string;
   mac?: string;
   delete_other_images_on_upload?: boolean;
+  one_slot_mode?: boolean;
   slideshow_enabled?: boolean;
   slideshow_album_id?: number | null;
   slideshow_interval_minutes?: number | null;
@@ -169,6 +170,15 @@ export default function Settings() {
   const handleToggleDeleteOthers = async (tvIp: string, value: boolean) => {
     try {
       await updateTv(tvIp, { delete_other_images_on_upload: value });
+      await fetchTvs();
+    } catch (e: any) {
+      setError(e.message || 'Failed to update TV setting');
+    }
+  };
+
+  const handleToggleOneSlotMode = async (tvIp: string, value: boolean) => {
+    try {
+      await updateTv(tvIp, { one_slot_mode: value });
       await fetchTvs();
     } catch (e: any) {
       setError(e.message || 'Failed to update TV setting');
@@ -349,6 +359,21 @@ export default function Settings() {
                       className="accent-blue-600"
                     />
                     <span>Delete other images on upload</span>
+                  </label>
+
+                  <label className="flex items-start gap-2 text-sm mb-4">
+                    <input
+                      type="checkbox"
+                      checked={!!tv.one_slot_mode}
+                      onChange={e => handleToggleOneSlotMode(tv.ip, e.target.checked)}
+                      className="mt-0.5 accent-blue-600"
+                    />
+                    <span>
+                      1-slot mode (auto overwrite managed image)
+                      <span className="block text-xs text-gray-500">
+                        Keeps only one image uploaded by this app on the TV. Other TV images are left untouched.
+                      </span>
+                    </span>
                   </label>
 
                   <fieldset className="mb-4 border border-gray-200 rounded-lg p-3">

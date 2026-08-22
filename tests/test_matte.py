@@ -36,9 +36,15 @@ def upload(client, name):
     )
 
 
-def add_tv(ip, default_matte=None):
+def add_tv(ip, default_matte=None, one_slot_mode=False):
     with backend.app.app_context():
-        tv = backend.TV(ip=ip, name="TV", token="1", default_matte=default_matte)
+        tv = backend.TV(
+            ip=ip,
+            name="TV",
+            token="1",
+            default_matte=default_matte,
+            one_slot_mode=one_slot_mode,
+        )
         backend.db.session.add(tv)
         backend.db.session.commit()
         return tv.id
@@ -109,3 +115,43 @@ def test_no_matte_kwarg_is_sent_when_nothing_is_configured(client, monkeypatch):
 
     assert res.status_code == 200
     assert "matte" not in calls[0]
+
+
+def test_one_slot_mode_prunes_old_managed_images(client, monkeypatch):
+    upload(client, "a.png")
+    upload(client, "b.png")
+    tv_id = add_tv("192.0.2.95", one_slot_mode=True)
+
+    with backend.app.app_context():
+        tv = backend.TV.query.get(tv_id)
+        image_a = backend.Image.query.filter_by(filename="a.png").first()
+        image_b = backend.Image.query.filter_by(filename="b.png").first()
+        backend.db.session.add_all([
+            backend.UploadedImage(image_id=image_a.id, tv_id=tv.id, content_id="OLD_A"),
+            backend.UploadedImage(image_id=image_b.id, tv_id=tv.id, content_id="OLD_B"),
+        ])
+        backend.db.session.commit()
+
+    monkeypatch.setattr(backend, "upload_artwork", lambda *a, **k: "NEW_SLOT")
+    deleted = []
+
+    def fake_delete(ip, content_ids, token=None):
+        deleted.append((ip, set(content_ids), token))
+        return len(content_ids)
+
+    monkeypatch.setattr(backend, "delete_tv_images", fake_delete)
+
+    res = client.post("/api/tv/send", json={"ip": "192.0.2.95", "filename": "a.png"})
+    assert res.status_code == 200
+
+    assert len(deleted) == 1
+    assert deleted[0][0] == "192.0.2.95"
+    assert deleted[0][1] == {"OLD_A", "OLD_B"}
+    assert deleted[0][2] == "1"
+
+    with backend.app.app_context():
+        content_ids = {
+            row.content_id
+            for row in backend.UploadedImage.query.filter_by(tv_id=tv_id).all()
+        }
+    assert content_ids == {"NEW_SLOT"}

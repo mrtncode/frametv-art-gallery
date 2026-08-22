@@ -16,6 +16,7 @@ export interface TVInfo {
   name?: string;
   mac?: string;
   delete_other_images_on_upload?: boolean;
+  one_slot_mode?: boolean;
   slideshow_enabled?: boolean;
   slideshow_album_id?: number | null;
   slideshow_interval_minutes?: number | null;
@@ -32,6 +33,7 @@ export interface DiscoveredTV {
 
 export interface TVUpdate {
   delete_other_images_on_upload?: boolean;
+  one_slot_mode?: boolean;
   slideshow_enabled?: boolean;
   slideshow_album_id?: number | string | null;
   slideshow_interval_minutes?: number | string | null;

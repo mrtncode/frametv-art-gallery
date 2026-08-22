@@ -696,6 +696,7 @@ def api_get_tvs():
             'name': tv.name,
             'mac': tv.mac,
             'delete_other_images_on_upload': getattr(tv, 'delete_other_images_on_upload', False),
+            'one_slot_mode': bool(getattr(tv, 'one_slot_mode', False)),
             'slideshow_enabled': bool(getattr(tv, 'slideshow_enabled', False)),
             'slideshow_album_id': getattr(tv, 'slideshow_album_id', None),
             'slideshow_interval_minutes': getattr(tv, 'slideshow_interval_minutes', None),
@@ -711,6 +712,8 @@ def api_update_tv(ip):
     data = request.get_json() or {}
     if 'delete_other_images_on_upload' in data:
         tv.delete_other_images_on_upload = bool(data['delete_other_images_on_upload'])
+    if 'one_slot_mode' in data:
+        tv.one_slot_mode = bool(data['one_slot_mode'])
     if 'default_matte' in data:
         tv.default_matte = (data['default_matte'] or '').strip() or None
 
@@ -848,6 +851,15 @@ def api_send_to_tv():
         delete_others = False
         if tv and hasattr(tv, 'delete_other_images_on_upload'):
             delete_others = bool(tv.delete_other_images_on_upload)
+
+        one_slot_mode = bool(tv and getattr(tv, 'one_slot_mode', False))
+        managed_content_ids = []
+        if tv and one_slot_mode:
+            managed_content_ids = [
+                uploaded.content_id
+                for uploaded in UploadedImage.query.filter_by(tv_id=tv.id).all()
+                if uploaded.content_id
+            ]
         # A matte named on the request wins; otherwise fall back to the TV's own
         # default. Neither given, and the kwarg is left out entirely so
         # upload_artwork's own "none" default applies, exactly as before this option
@@ -863,20 +875,32 @@ def api_send_to_tv():
         image = Image.query.filter_by(filename=filename).first()
         if image and tv and content_id:
             from sqlalchemy import and_
+            content_id_str = str(content_id)
             exists = UploadedImage.query.filter(
                 and_(UploadedImage.image_id == image.id, UploadedImage.tv_id == tv.id)
             ).first()
             if exists:
                 # The TV assigns a fresh content id on every upload; keeping the old
                 # one would point at something that no longer exists.
-                exists.content_id = str(content_id)
+                exists.content_id = content_id_str
             else:
-                db.session.add(UploadedImage(image_id=image.id, tv_id=tv.id, content_id=str(content_id)))
+                db.session.add(UploadedImage(image_id=image.id, tv_id=tv.id, content_id=content_id_str))
             db.session.commit()
 
             # This option wipes everything else off the TV, so those records go too.
             if delete_others:
-                _forget_uploaded(tv, keep=str(content_id))
+                _forget_uploaded(tv, keep=content_id_str)
+            elif one_slot_mode:
+                stale = [cid for cid in managed_content_ids if cid != content_id_str]
+                pruned = True
+                if stale:
+                    try:
+                        delete_tv_images(ip, stale, token=token)
+                    except (FrameTVError, FrameTVConnectionError, FrameTVTimeoutError, FrameTVUnavailableError, HttpApiError, ResponseError) as e:
+                        _log_exception('Failed to prune previous managed images in 1-slot mode', e)
+                        pruned = False
+                if pruned:
+                    _forget_uploaded(tv, keep=content_id_str)
         return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
         _log_exception('Failed to send artwork to TV', e)

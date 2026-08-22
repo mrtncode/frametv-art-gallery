@@ -24,6 +24,8 @@ class TV(db.Model):
     mac = db.Column(db.String(32), nullable=True)
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
     delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
+    # Keep only one Frame TV Art Gallery-managed image on this TV.
+    one_slot_mode = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
 
     # Slideshow: rotate through an album on this TV. Off unless switched on.
     slideshow_enabled = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))

@@ -180,3 +180,14 @@ def test_existing_tv_settings_are_untouched(client):
     tv = client.get("/api/tvs").get_json()["tvs"][0]
     assert tv["delete_other_images_on_upload"] is True
     assert tv["slideshow_enabled"] is False
+    assert tv["one_slot_mode"] is False
+
+
+def test_the_one_slot_mode_can_be_toggled(client):
+    with backend.app.app_context():
+        backend.db.session.add(backend.TV(ip="192.0.2.24", name="TV", token="1"))
+        backend.db.session.commit()
+
+    assert client.patch("/api/tvs/192.0.2.24", json={"one_slot_mode": True}).status_code == 200
+    tv = client.get("/api/tvs").get_json()["tvs"][0]
+    assert tv["one_slot_mode"] is True
