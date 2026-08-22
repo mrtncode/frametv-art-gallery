@@ -1,26 +1,11 @@
-
 import React, { useState, useEffect } from "react";
-import { getTvs, sendToTV, playUploadedImage, tvPowerOn } from "../utils/tvApi";
+import { getTvs, sendToTV, playUploadedImage, tvPowerOn, type TVInfo } from "../utils/tvApi";
 import { addImageToAlbum } from "../utils/galleryApi";
-import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import CropImageModal from "./CropImageModal";
-import ImageModal from "./imageModal";
+import ImageModal, { type TV, type AlbumOption } from "./imageModal";
 import { MATTE_COLORS, splitMatte, combineMatte } from "../utils/matte";
 
-interface TV {
-  ip: string;
-  name?: string;
-  mac?: string;
-  default_matte?: string | null;
-}
-
-interface AlbumOption {
-  id: string;
-  name: string;
-  images: string[];
-}
-
-interface ImageCardProps {
+export interface ImageCardProps {
   /** what the grid tile shows — may be a downscaled copy */
   src: string;
   /**
@@ -59,10 +44,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
   onCrop,
   onAssignSuccess,
   large,
-  showControls
-  , tvs: tvsProp,
+  showControls,
+  tvs: tvsProp,
   selected,
-  onToggleSelect
+  onToggleSelect,
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
@@ -73,27 +58,30 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const [showControlsModal, setShowControlsModal] = useState(false);
   const [tileURL, setTileURL] = useState(src);
   const [imageURL, setImageURL] = useState(fullSrc ?? src);
-  const [selectedAlbum, setSelectedAlbum] = useState('');
+  const [selectedAlbum, setSelectedAlbum] = useState("");
   const [assigning, setAssigning] = useState(false);
-  const [assignMessage, setAssignMessage] = useState('');
-  const [matteStyle, setMatteStyle] = useState('none');
+  const [assignMessage, setAssignMessage] = useState("");
+  const [matteStyle, setMatteStyle] = useState("none");
   const [matteColor, setMatteColor] = useState<string>(MATTE_COLORS[0]);
   // Whether this send should carry a matte of its own. Left false, the request omits
-  // it and the TV's configured default applies server-side — one source of truth
-  // instead of the picker silently echoing the default back as an explicit choice.
+  // it and the TV's configured default applies server-side.
   const [matteTouched, setMatteTouched] = useState(false);
 
-  const isLocalImage = image?.type === 'local' || !image?.type;
-  const availableAlbums = (albums || []).filter(album => filename && !album.images.includes(filename));
+  const isLocalImage = image?.type === "local" || !image?.type;
+  const availableAlbums = (albums || []).filter(
+    (album) => filename && !album.images.includes(filename)
+  );
 
-  // fetch TV list once when mounted if not provided by parent
+  // Sync or fetch TV list
   useEffect(() => {
     if (tvsProp && tvsProp.length > 0) {
       setTvs(tvsProp);
       return;
     }
     if (tvs.length === 0) {
-      getTvs().then(setTvs).catch(() => setTvs([]));
+      getTvs()
+        .then((fetchedTvs) => setTvs(fetchedTvs || []))
+        .catch(() => setTvs([]));
     }
   }, [tvsProp]);
 
@@ -102,10 +90,8 @@ const ImageCard: React.FC<ImageCardProps> = ({
     setImageURL(fullSrc ?? src);
   }, [src, fullSrc]);
 
-  // Show the TV's own default, so the picker starts from what that set is normally
-  // sent with rather than "none". Keyed on the value rather than on the `tvs` array,
-  // whose identity changes on every refetch and would wipe a choice mid-flow.
-  const selectedTvDefaultMatte = tvs.find(t => t.ip === selectedTvIp)?.default_matte ?? null;
+  // Sync default matte for selected TV
+  const selectedTvDefaultMatte = tvs.find((t) => t.ip === selectedTvIp)?.default_matte ?? null;
   useEffect(() => {
     const { style, color } = splitMatte(selectedTvDefaultMatte);
     setMatteStyle(style);
@@ -113,6 +99,10 @@ const ImageCard: React.FC<ImageCardProps> = ({
     setMatteTouched(false);
   }, [selectedTvIp, selectedTvDefaultMatte]);
 
+  /**
+   * Send artwork to TV.
+   * If ignoreOneSlot is true, passes ignore_one_slot: true in payload so backend bypasses 1-slot pruning.
+   */
   const handleSendToTV = async () => {
     if (!selectedTvIp) {
       setError("Select a TV");
@@ -169,7 +159,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
       setError("Select a TV");
       return;
     }
-    const tv = tvs.find(tv => tv.ip === selectedTvIp);
+    const tv = tvs.find((t) => t.ip === selectedTvIp);
     setTvLoading(true);
     try {
       await tvPowerOn(tv?.ip || "", tv?.mac);
@@ -193,7 +183,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
     try {
       await addImageToAlbum(selectedAlbum, filename);
       setAssignMessage("Assigned to album.");
-      setSelectedAlbum('');
+      setSelectedAlbum("");
       onAssignSuccess?.();
     } catch (e: any) {
       setError(e.message || "Failed to assign image to album");
@@ -206,35 +196,40 @@ const ImageCard: React.FC<ImageCardProps> = ({
     <>
       <div
         className={
-          `group relative flex flex-col overflow-hidden rounded-lg bg-card shadow-sm transition-shadow duration-200 hover:shadow-lg ` +
-          (large ? 'col-span-2 ' : '') +
-          (selected ? 'ring-2 ring-blue-500' : '')
+          `group relative flex flex-col overflow-hidden rounded-xl bg-card border border-border/80 shadow-xs transition-all duration-200 hover:shadow-lg hover:border-border ` +
+          (large ? "col-span-2 " : "") +
+          (selected ? "ring-2 ring-blue-500 border-blue-500" : "")
         }
       >
         {onToggleSelect && (
           <label
-            className="absolute top-2 left-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-md bg-card/90 shadow"
+            className="absolute top-2 left-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-card/90 backdrop-blur-xs border border-border shadow-xs hover:bg-card transition-colors"
             title="Select image"
             onClick={(event) => event.stopPropagation()}
           >
             <input
               type="checkbox"
-              className="h-4 w-4 accent-blue-600"
+              className="h-4 w-4 accent-blue-600 rounded cursor-pointer"
               checked={!!selected}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}
             />
           </label>
         )}
-        <div className={`w-full bg-muted flex items-center justify-center overflow-hidden ` + (large ? 'h-72' : 'h-52')} >
+
+        <div
+          className={
+            `w-full bg-muted/60 flex items-center justify-center overflow-hidden ` +
+            (large ? "h-72" : "h-52")
+          }
+        >
           <img
             src={tileURL}
             alt={alt}
             loading="lazy"
-            className={`max-h-full max-w-full object-contain transition-transform duration-200 group-hover:scale-105 cursor-pointer`}
+            className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-105 cursor-pointer"
             onClick={(event) => {
-              // While selecting, clicking the image extends the selection instead of
-              // opening the modal — the usual file-manager behaviour.
+              // While selecting, clicking the image extends selection instead of opening modal
               if (onToggleSelect && (event.shiftKey || event.ctrlKey || event.metaKey)) {
                 event.preventDefault();
                 onToggleSelect(event.shiftKey);
@@ -245,13 +240,16 @@ const ImageCard: React.FC<ImageCardProps> = ({
             }}
           />
         </div>
-      {filename && (
-        <div className="px-2 py-1 text-xs text-muted-foreground truncate" title={filename}>
-          {filename}
-        </div>
-      )}
-    </div>
 
+        {filename && (
+          <div
+            className="px-3 py-2 text-xs font-medium text-muted-foreground truncate border-t border-border/40 bg-card"
+            title={filename}
+          >
+            {filename}
+          </div>
+        )}
+      </div>
 
       {showCropModal && isLocalImage && (
         <CropImageModal
@@ -261,15 +259,14 @@ const ImageCard: React.FC<ImageCardProps> = ({
           onClose={() => setShowCropModal(false)}
           onCropSuccess={(newUrl) => {
             setImageURL(newUrl);
-            // A crop rewrites the original, so the cached tile has to be re-fetched too.
-            setTileURL(`${src}${src.includes('?') ? '&' : '?'}t=${Date.now()}`);
+            setTileURL(`${src}${src.includes("?") ? "&" : "?"}t=${Date.now()}`);
             setShowCropModal(false);
             onCrop?.();
           }}
         />
       )}
 
-      {/* Controls Modal - now in ImageModal component */}
+      {/* Refactored Controls Modal */}
       <ImageModal
         isOpen={showControlsModal}
         onClose={() => setShowControlsModal(false)}
@@ -282,9 +279,15 @@ const ImageCard: React.FC<ImageCardProps> = ({
         selectedTvIp={selectedTvIp}
         setSelectedTvIp={setSelectedTvIp}
         matteStyle={matteStyle}
-        setMatteStyle={(style: string) => { setMatteStyle(style); setMatteTouched(true); }}
+        setMatteStyle={(style: string) => {
+          setMatteStyle(style);
+          setMatteTouched(true);
+        }}
         matteColor={matteColor}
-        setMatteColor={(color: string) => { setMatteColor(color); setMatteTouched(true); }}
+        setMatteColor={(color: string) => {
+          setMatteColor(color);
+          setMatteTouched(true);
+        }}
         tvLoading={tvLoading}
         handleSendToTV={handleSendToTV}
         handlePlayUploadedImage={handlePlayUploadedImage}
@@ -303,7 +306,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
         assigning={assigning}
         assignMessage={assignMessage}
       />
-  </>
+    </>
   );
 };
 
