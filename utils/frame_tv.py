@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Optional
 import base64
 import websocket
 from samsungtvws import SamsungTVWS
-from samsungtvws.exceptions import ConnectionFailure
+from samsungtvws.exceptions import ConnectionFailure, ResponseError
 from const import CONNECTION_NAME
 import logging
 import os
@@ -432,7 +432,19 @@ def _delete_other_images(art, keep_content_id: str, *, debug: bool) -> None:
         logger.debug("No other images to delete")
         return
     logger.info("Deleting %d old images: %s", len(deletions), deletions)
-    art.delete_list(deletions)
+    try:
+        art.delete_list(deletions)
+    except ResponseError as err:
+        # Some firmware rejects delete_list with -10. Fall back to one-by-one delete.
+        logger.warning("Batch delete rejected, falling back to single deletes: %s", err)
+        for content_id in deletions:
+            try:
+                art.delete(content_id)
+            except ResponseError as single_err:
+                if "error number -10" in str(single_err).lower():
+                    logger.info("TV already missing content %s while deleting old images", content_id)
+                    continue
+                raise
     if debug:
         logger.debug("Deleted %d old images", len(deletions))
 
@@ -790,16 +802,39 @@ def delete_tv_images(ip: str, content_ids: List[str], token: Optional[str] = Non
     if not wanted:
         return 0
 
-    _tv_call(
+    def action(session: _TVSession) -> int:
+        art = session.art()
+        try:
+            art.delete_list(wanted)
+            return len(wanted)
+        except ResponseError as err:
+            # Older/newer firmware mixes may reject the list call entirely.
+            logger.warning("Batch delete rejected for TV %s, falling back to per-image delete: %s", ip, err)
+
+        deleted = 0
+        for content_id in wanted:
+            try:
+                art.delete(content_id)
+                deleted += 1
+            except ResponseError as single_err:
+                if "error number -10" in str(single_err).lower():
+                    # If the TV says the item is already gone, treat it as deleted.
+                    logger.info("TV %s already missing content %s during delete", ip, content_id)
+                    deleted += 1
+                    continue
+                raise
+        return deleted
+
+    deleted = _tv_call(
         ip,
         f"deleting {len(wanted)} images from",
-        lambda session: session.art().delete_list(wanted),
+        action,
         token=token,
         skip_when_down=False,
     )
     for content_id in wanted:
         _CACHE.pop((ip, content_id), None)
-    return len(wanted)
+    return deleted
 
 
 def get_tv_device_info(ip: str, token: Optional[str] = None) -> Optional[Dict]:

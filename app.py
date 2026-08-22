@@ -167,6 +167,11 @@ def _error_response(public_message: str, status_code: int = 500):
     return {'error': public_message}, status_code
 
 
+def _is_tv_missing_content_error(exc: Exception) -> bool:
+    """Whether the TV reports that a content id no longer exists (-10)."""
+    return isinstance(exc, ResponseError) and 'error number -10' in str(exc).lower()
+
+
 def _normalized_upload_path(filename: str, must_exist: bool = False) -> Tuple[str, str]:
     if not filename or not isinstance(filename, str):
         raise ValueError('Invalid filename')
@@ -892,15 +897,32 @@ def api_send_to_tv():
                 _forget_uploaded(tv, keep=content_id_str)
             elif one_slot_mode:
                 stale = [cid for cid in managed_content_ids if cid != content_id_str]
-                pruned = True
-                if stale:
+                cleared_stale = []
+                for stale_content_id in stale:
                     try:
-                        delete_tv_images(ip, stale, token=token)
-                    except (FrameTVError, FrameTVConnectionError, FrameTVTimeoutError, FrameTVUnavailableError, HttpApiError, ResponseError) as e:
-                        _log_exception('Failed to prune previous managed images in 1-slot mode', e)
-                        pruned = False
-                if pruned:
+                        delete_tv_image(ip, stale_content_id, token=token)
+                        cleared_stale.append(stale_content_id)
+                    except ResponseError as e:
+                        if _is_tv_missing_content_error(e):
+                            # Some TVs answer -10 when a content id is already gone.
+                            # Treat as cleared and stop retrying it forever.
+                            app.logger.info(
+                                'TV already missing stale managed image %s on %s, forgetting local record',
+                                stale_content_id,
+                                ip,
+                            )
+                            cleared_stale.append(stale_content_id)
+                        else:
+                            _log_exception('Failed to prune a managed image in 1-slot mode', e)
+                            continue
+                    except (FrameTVError, FrameTVConnectionError, FrameTVTimeoutError, FrameTVUnavailableError, HttpApiError) as e:
+                        _log_exception('Failed to prune a managed image in 1-slot mode', e)
+                        break
+
+                if stale and len(cleared_stale) == len(stale):
                     _forget_uploaded(tv, keep=content_id_str)
+                elif cleared_stale:
+                    _forget_uploaded(tv, content_ids=cleared_stale)
         return jsonify({'success': True, 'content_id': content_id})
     except (FrameTVError, HttpApiError) as e:
         _log_exception('Failed to send artwork to TV', e)

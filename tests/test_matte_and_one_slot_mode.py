@@ -8,6 +8,7 @@ import os
 
 import pytest
 from PIL import Image as PILImage
+from samsungtvws.exceptions import ResponseError
 
 import app as backend
 
@@ -135,19 +136,54 @@ def test_one_slot_mode_prunes_old_managed_images(client, monkeypatch):
     monkeypatch.setattr(backend, "upload_artwork", lambda *a, **k: "NEW_SLOT")
     deleted = []
 
-    def fake_delete(ip, content_ids, token=None):
-        deleted.append((ip, set(content_ids), token))
-        return len(content_ids)
+    def fake_delete(ip, content_id, token=None):
+        deleted.append((ip, content_id, token))
+        return True
 
-    monkeypatch.setattr(backend, "delete_tv_images", fake_delete)
+    monkeypatch.setattr(backend, "delete_tv_image", fake_delete)
 
     res = client.post("/api/tv/send", json={"ip": "192.0.2.95", "filename": "a.png"})
     assert res.status_code == 200
 
-    assert len(deleted) == 1
-    assert deleted[0][0] == "192.0.2.95"
-    assert deleted[0][1] == {"OLD_A", "OLD_B"}
-    assert deleted[0][2] == "1"
+    assert len(deleted) == 2
+    assert {item[1] for item in deleted} == {"OLD_A", "OLD_B"}
+    assert all(item[0] == "192.0.2.95" for item in deleted)
+    assert all(item[2] == "1" for item in deleted)
+
+    with backend.app.app_context():
+        content_ids = {
+            row.content_id
+            for row in backend.UploadedImage.query.filter_by(tv_id=tv_id).all()
+        }
+    assert content_ids == {"NEW_SLOT"}
+
+
+def test_one_slot_mode_forgets_stale_rows_when_tv_reports_missing_content_id(client, monkeypatch):
+    upload(client, "a.png")
+    upload(client, "b.png")
+    tv_id = add_tv("192.0.2.96", one_slot_mode=True)
+
+    with backend.app.app_context():
+        tv = backend.TV.query.get(tv_id)
+        image_a = backend.Image.query.filter_by(filename="a.png").first()
+        image_b = backend.Image.query.filter_by(filename="b.png").first()
+        backend.db.session.add_all([
+            backend.UploadedImage(image_id=image_a.id, tv_id=tv.id, content_id="OLD_A"),
+            backend.UploadedImage(image_id=image_b.id, tv_id=tv.id, content_id="OLD_B"),
+        ])
+        backend.db.session.commit()
+
+    monkeypatch.setattr(backend, "upload_artwork", lambda *a, **k: "NEW_SLOT")
+
+    def flaky_delete(ip, content_id, token=None):
+        if content_id == "OLD_A":
+            raise ResponseError("`delete_image` request failed with error number -10")
+        return True
+
+    monkeypatch.setattr(backend, "delete_tv_image", flaky_delete)
+
+    res = client.post("/api/tv/send", json={"ip": "192.0.2.96", "filename": "a.png"})
+    assert res.status_code == 200
 
     with backend.app.app_context():
         content_ids = {
