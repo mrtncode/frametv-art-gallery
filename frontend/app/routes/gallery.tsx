@@ -9,6 +9,8 @@ import { getTvs } from "~/utils/tvApi";
 import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
 import { toast } from "sonner";
+import ImageUploadModal from "~/components/imageUploadModal";
+import { PlusIcon } from "@heroicons/react/24/outline";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -40,9 +42,8 @@ export default function Gallery() {
   const [tvs, setTvs] = useState<any[]>([]);
   const [creating, setCreating] = useState(false);
   const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
-  // Destination album for uploads: "" = none, NEW_ALBUM = create uploadNewAlbumName first.
-  const [uploadAlbumId, setUploadAlbumId] = useState("");
-  const [uploadNewAlbumName, setUploadNewAlbumName] = useState("");
+  const [showUploadModal, setShowUploadModal] = useState(false);
+
   // Multi-select: filenames, plus the last clicked row so shift-click can span a range.
   const [selected, setSelected] = useState<string[]>([]);
   const lastClickedIndex = useRef<number | null>(null);
@@ -188,10 +189,6 @@ export default function Gallery() {
     }
   }
 
-  // --- Upload Button State and Handler ---
-  const [uploading, setUploading] = useState(false);
-  const [uploadFile, setUploadFile] = useState<File|null>(null);
-
   /** Resolve a destination album id, creating the album first when asked for a new one. */
   async function resolveAlbumId(albumId: string, newAlbumName: string): Promise<string | undefined> {
     if (albumId !== NEW_ALBUM) return albumId || undefined;
@@ -208,18 +205,9 @@ export default function Gallery() {
     return String(target.id);
   }
 
-  async function resolveUploadAlbumId(): Promise<string | undefined> {
-    const resolved = await resolveAlbumId(uploadAlbumId, uploadNewAlbumName);
-    if (uploadAlbumId === NEW_ALBUM && resolved) {
-      setUploadAlbumId(resolved);
-      setUploadNewAlbumName("");
-    }
-    return resolved;
-  }
-
   /** Upload a batch of files into one album, reporting how it went. */
   async function uploadFiles(files: File[], albumId: string | undefined) {
-    setUploading(true);
+    setLoading(true);
     setError("");
     let uploaded = 0;
     let failed = 0;
@@ -244,7 +232,7 @@ export default function Gallery() {
     }
 
     if (uploaded > 0) await loadLocalGallery();
-    setUploading(false);
+    setLoading(false);
 
     if (failed === 0) {
       toast.success(`Uploaded ${uploaded} image${uploaded === 1 ? "" : "s"}`, { position: "top-center" });
@@ -255,27 +243,10 @@ export default function Gallery() {
     }
   }
 
-  async function handleUpload(e: React.FormEvent) {
-    e.preventDefault();
-    if (!uploadFile) return;
-    setUploading(true);
-    setError("");
-    try {
-      await uploadImage(uploadFile, await resolveUploadAlbumId());
-      await loadLocalGallery();
-      setUploadFile(null);
-      setUploading(false)
-      toast.success("Uploaded successfully", {position: "top-center"})
-    } catch (e: any) {
-      setError(e.message || "Failed to upload");
-      setUploading(false);
-    }
-  }
-
   /** Dropped files wait in a modal so the album can be chosen for this batch. */
   async function handleFilesDropped(files: File[]) {
     setError("");
-    setDropAlbumId(uploadAlbumId === NEW_ALBUM ? "" : uploadAlbumId);
+    setDropAlbumId("");
     setDropNewAlbumName("");
     setPendingFiles(files);
   }
@@ -362,59 +333,11 @@ export default function Gallery() {
 
   return (
     <ImageDropZone
-      className="max-w-6xl mx-auto py-8 px-4"
-      disabled={uploading}
+        className="max-w-6xl mx-auto py-8 px-4 pb-28"
+        disabled={loading}
       onFilesDropped={handleFilesDropped}
     >
       <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">Gallery</h1>
-          <div className="flex flex-col md:flex-row gap-6 mb-8">
-            {/* Upload Image Form */}
-            <div className="flex-1 bg-card rounded-lg shadow p-4">
-              <h4 className="text-base font-semibold mb-3">Upload image</h4>
-              <p className="text-sm text-muted-foreground mb-3">Drag and drop images anywhere — you pick the album on drop — or use the file input below</p>
-              <form onSubmit={handleUpload} className="flex flex-col gap-2">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/jpg"
-                  onChange={e => setUploadFile(e.target.files?.[0] || null)}
-                  className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  disabled={uploading}
-                />
-                <label className="text-sm text-muted-foreground">Add to album</label>
-                <select
-                  value={uploadAlbumId}
-                  onChange={e => setUploadAlbumId(e.target.value)}
-                  className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  disabled={uploading}
-                >
-                  <option value="">No album</option>
-                  {albums.map(album => (
-                    <option key={album.id} value={album.id}>{album.name}</option>
-                  ))}
-                  <option value={NEW_ALBUM}>+ New album…</option>
-                </select>
-                {uploadAlbumId === NEW_ALBUM && (
-                  <input
-                    type="text"
-                    value={uploadNewAlbumName}
-                    onChange={e => setUploadNewAlbumName(e.target.value)}
-                    placeholder="New album name"
-                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
-                    disabled={uploading}
-                  />
-                )}
-                <Button
-                  type="submit"
-                  className=" px-4 py-2 rounded text-sm"
-                  disabled={uploading || !uploadFile}
-                >
-                  {uploading ? "Uploading…" : "Upload"}
-                </Button>
-                {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
-              </form>
-            </div>
-          </div>
-
 
           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
             <h3 className="text-xl font-semibold">Uploaded Images</h3>
@@ -656,6 +579,26 @@ export default function Gallery() {
               )}
             </>
           )}
-        </ImageDropZone>
-      );
+
+      {/* Floating Action Button for Upload */}
+      <button
+        type="button"
+        onClick={() => setShowUploadModal(true)}
+        aria-label="Upload Image"
+        title="Upload Image"
+        className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40 flex items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+      >
+        <PlusIcon className="w-7 h-7" strokeWidth={2.5} />
+      </button>
+
+      {/* Image Upload Modal */}
+      <ImageUploadModal
+        isOpen={showUploadModal}
+        onClose={() => setShowUploadModal(false)}
+        albums={albums}
+        onUploadSuccess={loadLocalGallery}
+      />
+    </ImageDropZone>
+  );
 }
+
