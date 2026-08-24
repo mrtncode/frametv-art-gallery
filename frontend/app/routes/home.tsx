@@ -15,7 +15,7 @@ function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footer
   footerSub: React.ReactNode;
 }) {
   return (
-    <Card className="@container/card flex-1">
+    <Card className="@container/card flex-1 bg-gray-100/40 dark:bg-gray-800/20">
       <CardHeader>
         <CardDescription>{description}</CardDescription>
         <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
@@ -57,6 +57,13 @@ export default function Home() {
   const [albums, setAlbums] = useState<{ name: string; images: string[] }[]>([]);
   const [imagesThisMonth, setImagesThisMonth] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning! 👋";
+    if (hour < 18) return "Good Afternoon! 👋";
+    return "Good Evening! 👋";
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -103,9 +110,10 @@ export default function Home() {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto mt-12 p-8 bg-card rounded-2xl shadow-lg">
-      <header className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-foreground">FrameTV Art Gallery</h1>
+    <div className="w-full mx-auto p-12">
+      <header className="text-center mb-8 flex justify-between">
+        <h1 className="text-4xl text-foreground font-bold">FrameTV Art Gallery</h1>
+        <h1 className="text-4xl text-foreground relative font-medium">{greeting()}</h1>
       </header>
 
       {/* Responsive cards container */}
@@ -117,8 +125,8 @@ export default function Home() {
         ))}
       </div>
 
-      <section>
-        <h2 className="text-2xl font-semibold mt-8 mb-4 text-foreground">Featured Artworks</h2>
+      <section className="mt-8 bg-gray-100/40 dark:bg-gray-800/20 p-2 py-4 rounded-2xl">
+        <h2 className="text-2xl font-semibold mb-4 text-foreground">Featured Artworks</h2>
         {loading ? (
           <div className="text-center text-muted-foreground">Loading images...</div>
         ) : images.length === 0 ? (

@@ -25,7 +25,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="rounded-full p-2 text-gray-200 hover:bg-gray-700 hover:text-white transition-colors"
+      className="rounded-full p-2 text-gray-900 dark:text-white hover:bg-gray-700 hover:text-white transition-colors"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-label="Switch between light and dark mode"
     >
@@ -40,15 +40,14 @@ export default function Header() {
   const location = useLocation();
   const pageName = pageNames[location.pathname] || "Page";
   return (
-    <header className="sticky top-0 z-40 w-full bg-gray-800 text-white border-b border-gray-700">
+    <header className="sticky top-0 z-40 w-[95%] self-center rounded-4xl mt-2 bg-white/95 dark:bg-gray-900/70 text-gray-900 dark:text-white border border-gray-200/60 dark:border-gray-800 backdrop-blur-md ">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-baseline gap-2">
           <h1 className="text-xl font-bold">FrameTV Art Gallery</h1>
-          {/* The bar stays dark in both themes, so its text keeps fixed colours. */}
-          <span className="text-xs text-gray-400 font-medium">{VERSION}</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{VERSION}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-base font-semibold text-gray-200">{pageName}</span>
+          <span className="text-base font-semibold text-gray-700 dark:text-gray-200">{pageName}</span>
           <ThemeToggle />
         </div>
       </div>
