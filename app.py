@@ -13,6 +13,7 @@ from flask_sqlalchemy import SQLAlchemy
 from utils.crop_image import crop_image_file, CropImageError, get_preset_crop_box, CROP_PRESETS
 from utils.thumbnails import get_or_create, parse_width
 from samsungtvws.exceptions import HttpApiError, ResponseError
+from samsungtvws import SamsungTVWS
 from const import CONNECTION_NAME
 from typing import Tuple, Optional
 from datetime import datetime
@@ -38,9 +39,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from utils.tv_connection import DEFAULT_PORT
 from utils.frame_tv import (
-    SamsungTVWS,
-    DEFAULT_PORT,
     upload_artwork,
     is_art_mode_on,
     is_tv_reachable,

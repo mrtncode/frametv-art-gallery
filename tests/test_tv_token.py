@@ -12,7 +12,7 @@ import shutil
 import pytest
 
 import app as backend
-from utils import frame_tv
+from utils import tv_connection as frame_tv
 
 
 @pytest.fixture(autouse=True)

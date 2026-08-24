@@ -13,8 +13,8 @@ import time
 
 import pytest
 
-from utils import frame_tv
-from utils.frame_tv import (
+from utils import tv_connection as frame_tv
+from utils.tv_connection import (
     FrameTVConnectionError,
     FrameTVTimeoutError,
     FrameTVUnavailableError,
