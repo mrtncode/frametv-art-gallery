@@ -1,12 +1,19 @@
 {
   "name": "",
   "private": true,
+  "packageManager": "pnpm@11.1.0",
   "type": "module",
   "scripts": {
     "build": "react-router build",
     "dev": "react-router dev --host",
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "onFail": "error"
+    }
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",

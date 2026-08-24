@@ -10,6 +10,11 @@ Thanks for taking the time to contribute!
 *   **Suggesting Enhancements:** Explain the need and provide examples.
 *   **Code contributions/ PRs** Create pull requests to suggest code changes to resolve bugs or add new features
 
+## Frontend Development
+This project uses [pnpm](https://pnpm.io/) for package management. To set up the development environment, follow these steps:
+*   **Install dependencies:** `pnpm install`
+*   **Run the development server:** `pnpm run dev`
+
 ## Your First Code Contribution
 1.  Fork and branch from `main`.
 2.  Make your changes
