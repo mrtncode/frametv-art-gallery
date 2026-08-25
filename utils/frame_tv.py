@@ -27,7 +27,7 @@ TV_THUMBNAIL_BATCH = _env_int("FRAME_TV_THUMBNAIL_BATCH", 8)
 TV_THUMBNAIL_DEADLINE = _env_int("FRAME_TV_THUMBNAIL_DEADLINE", 120)
 TV_THUMBNAIL_GIVE_UP = _env_int("FRAME_TV_THUMBNAIL_GIVE_UP", 3)
 TV_THUMBNAIL_FIRST_ANSWER = _env_int("FRAME_TV_THUMBNAIL_FIRST_ANSWER", 25)
-TV_STALL_TIMEOUT = _env_int("FRAME_TV_STALL_TIMEOUT", 25)
+TV_STALL_TIMEOUT = _env_int("FRAME_TV_STALL_TIMEOUT", 45)
 
 _CACHE: dict = {}
 _CACHE_TTL = 60
@@ -484,6 +484,11 @@ def _collect_thumbnails(
     found: Dict[str, bytes] = {}
     missing: List[str] = []
     for cid in content_ids:
+        # The TV refuses to serve any thumbnail for its own art, so asking for it is a round
+        if cid.startswith("SAM-") or cid.startswith("SAM_") or cid.startswith("SAM"):
+            _remember_no_thumbnail(ip, cid)
+            print(f"TV {ip} has no preview for {cid}")
+            continue
         cached = _cached_thumbnail(ip, cid)
         if cached is not None:
             found[cid] = cached
