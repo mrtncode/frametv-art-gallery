@@ -93,8 +93,8 @@ def test_one_unservable_image_does_not_cost_the_rest_of_its_batch():
     Observed on a real set: `stopped answering after 0 of 2`, both entries blank, while
     the same images answered one at a time.
     """
-    art = FakeArt(unservable={"SAM-S5714"})
-    wanted = ["MY_F0473", "MY_F0472", "SAM-S5714"]
+    art = FakeArt(unservable={"MY_F0471"})
+    wanted = ["MY_F0473", "MY_F0472", "MY_F0471"]
 
     found = frame_tv._collect_thumbnails(art, "192.0.2.35", wanted)
 
@@ -104,11 +104,11 @@ def test_one_unservable_image_does_not_cost_the_rest_of_its_batch():
 
 def test_an_image_the_tv_will_not_preview_is_not_asked_for_again():
     """It answered for the others, so the refusal is about that image. Remember it."""
-    art = FakeArt(unservable={"SAM-S5714"})
-    wanted = ["SAM-S5714", "MY_F0473"]
+    art = FakeArt(unservable={"MY_F0471"})
+    wanted = ["MY_F0471", "MY_F0473"]
 
     frame_tv._collect_thumbnails(art, "192.0.2.37", wanted)
-    assert frame_tv._known_to_have_no_thumbnail("192.0.2.37", "SAM-S5714")
+    assert frame_tv._known_to_have_no_thumbnail("192.0.2.37", "MY_F0471")
 
     before = len(art.singles)
     frame_tv._collect_thumbnails(art, "192.0.2.37", wanted)
@@ -198,12 +198,12 @@ def test_a_batch_refused_in_total_silence_is_not_written_off():
 
 def test_the_tv_is_asked_again_once_the_answer_has_aged():
     """A firmware that starts answering should be picked up without a restart."""
-    art = FakeArt(unservable={"SAM-S5714"})
-    frame_tv._collect_thumbnails(art, "192.0.2.38", ["SAM-S5714", "MY_F0473"])
-    assert frame_tv._known_to_have_no_thumbnail("192.0.2.38", "SAM-S5714")
+    art = FakeArt(unservable={"MY_F0471"})
+    frame_tv._collect_thumbnails(art, "192.0.2.38", ["MY_F0471", "MY_F0473"])
+    assert frame_tv._known_to_have_no_thumbnail("192.0.2.38", "MY_F0471")
 
-    frame_tv._NO_THUMBNAIL[("192.0.2.38", "SAM-S5714")] -= frame_tv._NO_THUMBNAIL_TTL + 1
-    assert not frame_tv._known_to_have_no_thumbnail("192.0.2.38", "SAM-S5714")
+    frame_tv._NO_THUMBNAIL[("192.0.2.38", "MY_F0471")] -= frame_tv._NO_THUMBNAIL_TTL + 1
+    assert not frame_tv._known_to_have_no_thumbnail("192.0.2.38", "MY_F0471")
 
 
 def test_thumbnails_are_asked_for_in_batches():
