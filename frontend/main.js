@@ -62,14 +62,30 @@ function getBackendPath() {
 function startPythonBackend() {
   const backendPath = getBackendPath();
 
+  const dataPath = path.join(
+    app.getPath("userData"),
+    "data"
+  );
+
   console.log("Starting backend:", backendPath);
   console.log("Backend exists:", fs.existsSync(backendPath));
+  console.log("Data path:", dataPath);
 
   if (!fs.existsSync(backendPath)) {
     throw new Error(`Backend executable not found: ${backendPath}`);
   }
 
-  pythonProcess = execFile(backendPath);
+  pythonProcess = execFile(
+    backendPath,
+    ["--upgrade-db"],
+    {
+      cwd: path.dirname(backendPath),
+      env: {
+        ...process.env,
+        FRAME_TV_DATA: dataPath,
+      },
+    }
+  );
 
   pythonProcess.stdout?.on("data", (data) => {
     console.log("[Flask]", data.toString().trim());

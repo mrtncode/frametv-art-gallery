@@ -1286,6 +1286,13 @@ def serve(path):
 
 
 if __name__ == '__main__':
+    if "--upgrade-db" in sys.argv:
+        from flask_migrate import upgrade
+
+        upgrade()
+        print("Database upgrade completed.")
+        sys.exit(0)
+
     # Use DEBUG env variable ("1", "true", "True" = True)
     debug_env = os.environ.get('DEBUG', '').lower()
     debug = debug_env in ('1', 'true', 'yes')
