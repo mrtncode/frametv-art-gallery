@@ -1,2 +1,4 @@
 allowBuilds:
   electron-winstaller: true
+packages:
+  - '.'
