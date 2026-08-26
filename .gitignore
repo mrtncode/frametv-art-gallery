@@ -2,6 +2,7 @@ uploads
 tokens
 data
 build
+build-backend
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

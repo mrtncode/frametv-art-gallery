@@ -1,5 +1,6 @@
 {
-  "name": "",
+  "name": "frametv-art-gallery-frontend",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.1.0",
   "type": "module",
@@ -10,7 +11,7 @@
     "start": "react-router-serve ./build/server/index.js",
     "typecheck": "react-router typegen && tsc",
     "electron:start": "electron \".\"",
-    "electron:dist": "electron-builder"
+    "electron:dist": "pnpm build && electron-builder"
   },
   "devEngines": {
     "packageManager": {
@@ -60,7 +61,7 @@
     ],
     "extraResources": [
       {
-        "from": "build-backend/flask_backend",
+        "from": "../build-backend/flask_backend",
         "to": "flask_backend",
         "filter": ["**/*"]
       }
