@@ -1289,7 +1289,9 @@ if __name__ == '__main__':
     if "--upgrade-db" in sys.argv:
         from flask_migrate import upgrade
 
-        upgrade()
+        with app.app_context():
+            upgrade()
+            
         print("Database upgrade completed.")
         sys.exit(0)
 

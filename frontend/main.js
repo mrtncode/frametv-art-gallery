@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execFile } from "child_process";
@@ -213,9 +213,12 @@ function stopPythonBackend() {
 }
 
 async function createWindow() {
+  Menu.setApplicationMenu(null);
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    autoHideMenuBar: true,
+    icon: path.join(__dirname, "public/icon.png"),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
