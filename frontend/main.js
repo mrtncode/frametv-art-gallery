@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from "electron";
+import { app, BrowserWindow, Menu, dialog } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { execFile } from "child_process";
@@ -67,13 +67,11 @@ function startPythonBackend() {
     "data"
   );
 
+  fs.mkdirSync(dataPath, { recursive: true });
+
   console.log("Starting backend:", backendPath);
   console.log("Backend exists:", fs.existsSync(backendPath));
   console.log("Data path:", dataPath);
-
-  if (!fs.existsSync(backendPath)) {
-    throw new Error(`Backend executable not found: ${backendPath}`);
-  }
 
   pythonProcess = execFile(
     backendPath,
@@ -87,20 +85,47 @@ function startPythonBackend() {
     }
   );
 
+  let stderr = "";
+
   pythonProcess.stdout?.on("data", (data) => {
     console.log("[Flask]", data.toString().trim());
   });
 
   pythonProcess.stderr?.on("data", (data) => {
-    console.error("[Flask]", data.toString().trim());
+    const message = data.toString();
+
+    stderr += message;
+
+    console.error("[Flask]", message.trim());
   });
 
   pythonProcess.on("error", (error) => {
-    console.error("Failed to start Flask backend:", error);
+    console.error("Backend process error:", error);
+
+    showBackendError(error.message);
   });
 
   pythonProcess.on("exit", (code, signal) => {
-    console.log(`Flask backend exited. Code: ${code}, signal: ${signal}`);
+    console.log(
+      `Flask backend exited. Code: ${code}, signal: ${signal}`
+    );
+
+    if (code !== 0) {
+      showBackendError(
+        stderr.trim() ||
+        `The backend stopped unexpectedly (exit code ${code}).`
+      );
+    }
+  });
+}
+
+function showBackendError(message) {
+  dialog.showMessageBoxSync({
+    type: "error",
+    title: "FrameTV Art Gallery – Backend Error",
+    message: "The backend could not be started.",
+    detail: message,
+    buttons: ["OK"],
   });
 }
 
