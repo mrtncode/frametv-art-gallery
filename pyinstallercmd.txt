@@ -1,1 +1,4 @@
-& .\.venv\Scripts\python.exe -m PyInstaller --onedir --noconsole --clean --hidden-import=flask_sqlalchemy --hidden-import=sqlalchemy --distpath ./build-backend --name flask_backend .\app.py
+& .\.venv\Scripts\python.exe -m PyInstaller --onedir --noconsole --clean --hidden-import=flask_sqlalchemy --hidden-import=sqlalchemy --distpath ./build-backend --name flask_backend .\app.python
+
+Neu:
+& .\.venv\Scripts\python.exe -m PyInstaller --clean --distpath ./build-backend .\flask_backend.spec

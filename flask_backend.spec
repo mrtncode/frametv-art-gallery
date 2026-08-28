@@ -8,7 +8,7 @@ a = Analysis(
     datas=[
         ("migrations", "migrations"),
     ],
-    hiddenimports=['flask_sqlalchemy', 'sqlalchemy'],
+    hiddenimports=['flask_sqlalchemy', 'sqlalchemy', 'logging.config',],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
