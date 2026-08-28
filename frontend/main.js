@@ -16,6 +16,7 @@ const FRONTEND_HOST = "127.0.0.1";
 let mainWindow = null;
 let pythonProcess = null;
 let frontendServer = null;
+let isQuitting = false;
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -109,6 +110,10 @@ function startPythonBackend() {
     console.log(
       `Flask backend exited. Code: ${code}, signal: ${signal}`
     );
+
+    if (isQuitting) {
+      return;
+    }
 
     if (code !== 0) {
       showBackendError(
@@ -261,9 +266,9 @@ async function createWindow() {
     );
   }
 
-  mainWindow.webContents.openDevTools({
-    mode: "detach",
-  });
+  //#mainWindow.webContents.openDevTools({
+  //  mode: "detach",
+  //});
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -281,6 +286,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("before-quit", () => {
+  isQuitting = true;
   stopFrontendServer();
   stopPythonBackend();
 });

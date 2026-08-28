@@ -15,6 +15,13 @@ This project uses [pnpm](https://pnpm.io/) for package management. To set up the
 *   **Install dependencies:** `pnpm install`
 *   **Run the development server:** `pnpm run dev`
 
+
+## Desktop Client testing
+backend builds: `& .\.venv\Scripts\python.exe -m PyInstaller --clean --distpath ./build-backend .\flask_backend.spec`
+frontend builds: `pnpm electron:start` or `pnpm electron:dist` for bundled build
+Note: When using electron:start you have to run pnpm run dev in a separate terminal to start the frontend dev server.
+
+
 ## Your First Code Contribution
 1.  Fork and branch from `main`.
 2.  Make your changes
