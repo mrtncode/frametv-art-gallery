@@ -19,13 +19,24 @@
 
 frametv-art-gallery is an independent, open-source, self-hosted gallery manager for Samsung Frame TVs. Not affiliated with Samsung. It lets you create and manage a personal gallery of images, photos, or artworks locally on your TV.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=FFFFFF&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+  <source media="(prefers-color-scheme: light)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=000000&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+  <img alt="Typing SVG" src="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=160780&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+</picture>
+
 ## Features
-- Upload your own images or import them from Immich.
-- Maintain a virtual gallery of images and artworks and share them easily with your Frame TV.
-- Manage multiple Frame TVs in your local network.
-- Manage images in albums
-- View the gallery on your TV and select images to display.
-- Play images on your TV with a single click.
+- **Immich Integration**: Direct import images from your Immich instance or local storage.
+- **Multi-Device**: Control and broadcast to multiple Frame TVs across your network.
+- **Easy Playback**: Cast any photo or classic artwork to your TV in a single click.
+- **Organized Collections**: Group artworks into custom albums and digital exhibits.
+- **Responsive UI**: Full mobile support with automatic dark/light mode switching.
+- **Offline/ privacy First**: Entirely local communication via native Samsung WebSocket protocols.
+- **Open Source**: Fully open-source and community-driven, with no hidden tracking or telemetry.
+- **Docker Support**: Easy deployment with Docker and Docker Compose.
+- **Desktop App**: Frametv-art-gallery is also available as a desktop app for Windows, MacOS, and Linux. Download it under the [releases](https://github.com/mrtncode/frametv-art-gallery/releases)
+
+
 
 ## Images
 You can use any kind of image! Either upload your own personal photos or import them from Immich. Or download copyright-free artwork from the internet and import it into Frame TV Gallery.
@@ -96,17 +107,19 @@ This project uses local websocket APIs provided by the TVs.
 >
 > **Always create backups of your data before updating** to a new version. While we strive to maintain compatibility, updates may introduce breaking changes or require data migrations. You are responsible for ensuring you have a complete backup of your uploads and database before proceeding with any update. unofficial, fun, open-source project and is **not affiliated with, endorsed by, or sponsored by Samsung** (or any other company). It is provided "as is" and use is entirely at your own risk. 
 
-This project uses local websocket APIs provided by the TVs.
+## Architecture
 
-> ⚠️ **Security Warning:** This application does **not** implement authentication, authorization, or other hardening controls. It is intended for **private, local network use only**.
->
-> - Do **not** expose this service to the public internet.
-> - Do **not** run it on a publicly reachable IP/host without adding your own security layer (VPN, reverse proxy auth, firewall rules, etc.).
-> - If you want to access it remotely, put it behind a secure tunnel or VPN and ensure only trusted devices can reach it.
+```mermaid
+flowchart LR
+    User([User]) -->|Browser UI| Frontend[React Frontend]
+    Frontend -->|REST API| Backend[Flask API]
+    Backend -->|Local WebSocket| TV[Samsung Frame TV]
 
-> ⚠️ **No Warranty and Liability:** The author assumes **no liability** for any damages, data loss, device malfunction, or any other issues that may arise from using this application. You use frametv-art-gallery **entirely at your own risk**. The software is provided without any warranties, express or implied. 
->
-> **Always create backups of your data before updating** to a new version. While we strive to maintain compatibility, updates may introduce breaking changes or require data migrations. You are responsible for ensuring you have a complete backup of your uploads and database before proceeding with any update.
+    style User fill:#1e293b,color:#f8fafc,stroke:#475569,stroke-width:2px
+    style Frontend fill:#0f172a,color:#38bdf8,stroke:#0284c7,stroke-width:2px
+    style Backend fill:#0f172a,color:#a855f7,stroke:#7e22ce,stroke-width:2px
+    style TV fill:#0f172a,color:#34d399,stroke:#059669,stroke-width:2px
+```
 
 # Tests
 
