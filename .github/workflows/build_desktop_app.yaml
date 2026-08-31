@@ -79,7 +79,11 @@ jobs:
 
       - name: Build Flask backend
         working-directory: backend
-        run: python -m PyInstaller --clean --distpath ../build-backend ./flask_backend.spec
+        shell: bash
+        run: |
+          echo "FRAME_TV_VERSION=${{ env.APP_VERSION }}" > .env
+          
+          python -m PyInstaller --clean --distpath ../build-backend ./flask_backend.spec
 
       - name: Build Electron application
         working-directory: frontend

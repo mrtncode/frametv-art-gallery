@@ -31,6 +31,10 @@ ENV PYTHONUNBUFFERED=1
 
 ENV PORT=8000
 
+# Get the build arg for APP_VEERSION
+ARG APP_VERSION=unknown
+ENV FRAME_TV_VERSION=${APP_VERSION}
+
 EXPOSE 8000
 
 COPY entrypoint.sh /entrypoint.sh

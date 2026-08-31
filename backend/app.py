@@ -21,6 +21,7 @@ from flask_migrate import Migrate
 import importlib
 from media_provider_routes import media_provider_routes
 from provider_config_routes import provider_config_routes
+import requests
 
 try:
     from PIL import Image as PILImage
@@ -113,7 +114,7 @@ def add_cors_headers(response):
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-from models import db, Album, Image, TV, UploadedImage, ProviderConfig
+from models import AppSetting, db, Album, Image, TV, UploadedImage, ProviderConfig
 db.init_app(app)
 
 # Import blueprints
@@ -298,6 +299,88 @@ app.media_provider = media_provider
 
 
 # --- API Endpoints ---
+
+import json
+from packaging.version import parse as parse_version
+
+@app.route('/api/status', methods=['GET'])
+def backend_status():
+    """Return a simple status message for health checks and update availability."""
+    current_version = os.environ.get('FRAME_TV_VERSION', 'unknown')
+    repo = 'mrtncode/frametv-art-gallery'
+    
+    cache_entry = AppSetting.query.filter_by(key='github_version_cache').first()
+    
+    now = datetime.now()
+    use_cached = False
+    cache_data = {}
+
+    if cache_entry and cache_entry.value:
+        try:
+            cache_data = json.loads(cache_entry.value)
+            last_fetched = cache_data.get('last_fetched', 0)
+            
+            # 24 hours = 86400 seconds
+            if now.timestamp() - last_fetched < 86400:
+                use_cached = True
+        except Exception:
+            app.logger.warning("Error parsing cached GitHub version data; will fetch fresh", exc_info=True)
+    if use_cached:
+        latest_version = cache_data.get('latest_version')
+        changelog = cache_data.get('changelog')
+    else:
+        latest_version = None
+        changelog = None
+        url = f'https://api.github.com/repos/{repo}/releases/latest'
+        
+        try:
+            headers = {"User-Agent": f"Flask-FrameTV/{current_version}"}
+            response = requests.get(url, headers=headers, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                latest_version = data.get('tag_name', 'unknown')
+                changelog = data.get('body', '')
+                
+                new_cache_content = {
+                    'last_fetched': now.timestamp(),
+                    'latest_version': latest_version,
+                    'changelog': changelog
+                }
+                
+                if not cache_entry:
+                    cache_entry = AppSetting(key='github_version_cache')
+                    db.session.add(cache_entry)
+                
+                cache_entry.value = json.dumps(new_cache_content)
+                db.session.commit()
+            else:
+                app.logger.warning(f"GitHub API responds with status {response.status_code}. Using cached version if available.")
+                latest_version = cache_data.get('latest_version', 'unknown')
+                changelog = cache_data.get('changelog', '')
+                
+        except Exception as e:
+            app.logger.exception("Failed to check for updates against GitHub API")
+            app.logger.warning("Using cached version as fallback.")
+            latest_version = cache_data.get('latest_version', 'unknown')
+            changelog = cache_data.get('changelog', '')
+
+    update_available = False
+    if current_version != 'unknown' and latest_version and latest_version != 'unknown':
+        try:
+            update_available = parse_version(latest_version) > parse_version(current_version)
+        except Exception:
+            app.logger.exception("Failed to parse version numbers")
+            update_available = latest_version != current_version
+
+    return jsonify({
+        'status': 'ok', 
+        'timestamp': now.isoformat(), 
+        'update_available': update_available, 
+        'current_version': current_version,
+        'latest_version': latest_version, 
+        'changelog': changelog
+    }), 200
 
 # List all uploaded images (not album-specific)
 @app.route('/api/images', methods=['GET'])

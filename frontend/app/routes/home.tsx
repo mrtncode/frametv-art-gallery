@@ -1,12 +1,19 @@
-import type { Route } from "./+types/settings";
-import { ChartBarIcon, TvIcon } from "@heroicons/react/24/outline";
+import type { Route } from "./+types/home";
+import { ChartBarIcon } from "@heroicons/react/24/outline";
 import React, { useEffect, useState } from "react";
+import { Card, CardHeader, CardDescription, CardTitle, CardFooter } from "~/components/ui/card";
 import { fetchImages, fetchAlbums, fetchImagesAddedThisMonth, getUploadUrl } from "~/utils/galleryApi";
-import { Card, CardHeader, CardDescription, CardTitle, CardAction, CardFooter } from "~/components/ui/card";
 import { Badge } from "~/components/ui/badge";
+import UpdateStatus from "~/components/update-status";
 
-// Reusable CardInfo component
-function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footerSub }: {
+function CardInfo({
+  description,
+  title,
+  badgeText,
+  badgeIcon,
+  footerMain,
+  footerSub,
+}: {
   description: string;
   title: string;
   badgeText: string;
@@ -23,17 +30,13 @@ function CardInfo({ description, title, badgeText, badgeIcon, footerMain, footer
         </CardTitle>
       </CardHeader>
       <CardFooter className="flex-col items-start gap-1.5 text-sm">
-        <div className="line-clamp-1 flex gap-2 font-medium">
-          {footerMain}
-        </div>
-        <div className="text-muted-foreground">
-          {footerSub}
-        </div>
-        <div className="mt-2 w-full flex justify-start">
+        <div className="line-clamp-1 flex gap-2 font-medium">{footerMain}</div>
+        <div className="text-muted-foreground">{footerSub}</div>
+        <div className="mt-2 flex w-full justify-start">
           <Badge
             variant="outline"
-            className="flex items-center gap-1 px-2 py-1 text-xs md:text-sm sm:text-xs md:px-3 md:py-1.5 whitespace-nowrap"
-            style={{ minWidth: 0, maxWidth: '100%' }}
+            className="flex items-center gap-1 whitespace-nowrap px-2 py-1 text-xs md:px-3 md:py-1.5 md:text-sm sm:text-xs"
+            style={{ minWidth: 0, maxWidth: "100%" }}
           >
             {badgeIcon}
             {badgeText}
@@ -51,7 +54,6 @@ export function meta({}: Route.MetaArgs) {
   ];
 }
 
-
 export default function Home() {
   const [images, setImages] = useState<string[]>([]);
   const [albums, setAlbums] = useState<{ name: string; images: string[] }[]>([]);
@@ -60,18 +62,14 @@ export default function Home() {
 
   const greeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good Morning! 👋";
-    if (hour < 18) return "Good Afternoon! 👋";
-    return "Good Evening! 👋";
-  }
+    if (hour < 12) return "Good morning";
+    if (hour < 18) return "Good afternoon";
+    return "Good evening";
+  };
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([
-      fetchImages(),
-      fetchAlbums(),
-      fetchImagesAddedThisMonth(),
-    ])
+    Promise.all([fetchImages(), fetchAlbums(), fetchImagesAddedThisMonth()])
       .then(([imgs, albms, count]) => {
         setImages(imgs || []);
         setAlbums(albms || []);
@@ -81,13 +79,12 @@ export default function Home() {
       .catch(() => setLoading(false));
   }, []);
 
-  // Array to control cards
   const cards = [
     {
       description: "Total images",
       title: loading ? "-" : images.length.toString(),
       badgeText: images.length > 0 ? `+${images.length}` : "0",
-      badgeIcon: <ChartBarIcon />, 
+      badgeIcon: <ChartBarIcon />,
       footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
@@ -95,7 +92,7 @@ export default function Home() {
       description: "Total albums",
       title: loading ? "-" : albums.length.toString(),
       badgeText: albums.length > 0 ? `+${albums.length}` : "0",
-      badgeIcon: <ChartBarIcon />, 
+      badgeIcon: <ChartBarIcon />,
       footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
@@ -103,30 +100,32 @@ export default function Home() {
       description: "Images added this month",
       title: loading || imagesThisMonth === null ? "-" : imagesThisMonth.toString(),
       badgeText: imagesThisMonth !== null ? `+${imagesThisMonth}` : "0",
-      badgeIcon: <ChartBarIcon />, 
+      badgeIcon: <ChartBarIcon />,
       footerMain: null,
       footerSub: loading ? "Loading..." : "",
     },
   ];
 
   return (
-    <div className="w-full mx-auto p-12">
-      <header className="text-center mb-8 flex justify-between">
-        <h1 className="text-4xl text-foreground font-bold">FrameTV Art Gallery</h1>
-        <h1 className="text-4xl text-foreground relative font-medium">{greeting()}</h1>
+    <div className="relative mx-auto w-full p-12">
+      <header className="mb-8 flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-bold text-foreground">FrameTV Art Gallery</h1>
+            <UpdateStatus />
+          </div>
+        </div>
+        <h2 className="text-4xl font-medium text-foreground">{greeting()}</h2>
       </header>
 
-      {/* Responsive cards container */}
-      <div
-        className="flex flex-row gap-4 md:flex-row md:gap-4 sm:flex-col sm:gap-4 sm:w-full sm:items-stretch"
-      >
+      <div className="flex flex-row gap-4 md:flex-row md:gap-4 sm:w-full sm:flex-col sm:items-stretch sm:gap-4">
         {cards.map((card, idx) => (
           <CardInfo key={idx} {...card} />
         ))}
       </div>
 
-      <section className="mt-8 bg-gray-100/40 dark:bg-gray-800/20 p-2 py-4 rounded-2xl">
-        <h2 className="text-2xl font-semibold mb-4 text-foreground">Featured Artworks</h2>
+      <section className="mt-8 rounded-2xl bg-gray-100/40 p-2 py-4 dark:bg-gray-800/20">
+        <h2 className="mb-4 text-2xl font-semibold text-foreground">Featured Artworks</h2>
         {loading ? (
           <div className="text-center text-muted-foreground">Loading images...</div>
         ) : images.length === 0 ? (
@@ -138,13 +137,12 @@ export default function Home() {
                 key={idx}
                 src={getUploadUrl(img, 400)}
                 alt={`Artwork ${idx + 1}`}
-                className="w-48 h-32 object-cover rounded-xl shadow-md border border-border"
+                className="h-32 w-48 rounded-xl border border-border object-cover shadow-md"
               />
             ))}
           </div>
         )}
       </section>
-
     </div>
   );
 }

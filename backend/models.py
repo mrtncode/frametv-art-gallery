@@ -1,8 +1,17 @@
+import datetime
+
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
 # --- Models ---
+
+class AppSetting(db.Model):
+    __tablename__ = 'app_settings'
+    key = db.Column(db.String(50), primary_key=True)
+    value = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, default=datetime.datetime.now(datetime.timezone.utc), onupdate=datetime.datetime.now(datetime.timezone.utc))
+
 class Album(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(80), unique=True, nullable=False)
