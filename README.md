@@ -19,11 +19,13 @@
 
 frametv-art-gallery is an independent, open-source, self-hosted gallery manager for Samsung Frame TVs. Not affiliated with Samsung. It lets you create and manage a personal gallery of images, photos, or artworks locally on your TV.
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=FFFFFF&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
-  <source media="(prefers-color-scheme: light)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=000000&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
-  <img alt="Typing SVG" src="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=160780&vCenter=true&width=435&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&center=true&duration=6000&pause=1000&color=FFFFFF&vCenter=true&width=800&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+    <source media="(prefers-color-scheme: light)" srcset="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=000000&center=true&vCenter=true&width=800&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+    <img alt="Typing SVG" width="100%" src="https://readme-typing-svg.demolab.com?font=Impact&size=30&duration=6000&pause=1000&color=160780&vCenter=true&width=800&lines=Frame+TV+Art+Gallery;Start+easily+with+Docker+on+your+homeserver;Or+just+use+the+desktop+app+for+your+PC;Manage+your+images+%3A%29">
+  </picture>
+</p>
 
 ## Features
 - **Immich Integration**: Direct import images from your Immich instance or local storage.
@@ -44,6 +46,7 @@ You can use any kind of image! Either upload your own personal photos or import 
 ## App Screenshots
 <p align="center">
   <img alt="Screenshot Home" src="docs/Screenshot_home_light.png" width="100%" />
+  <br / >
   <img alt="Screenshot Gallery" src="docs/Screenshot_gallery_light.png" width="49.6%" />
   <img alt="Screenshot TV Gallery" src="docs/Screenshot_tv_gallery_light.png" width="49.6%" />
 </p>
