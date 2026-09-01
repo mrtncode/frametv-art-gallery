@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@lottiefiles/dotlottie-react": "^0.19.4",
+    "@lottiefiles/dotlottie-react": "^0.19.16",
     "@react-router/node": "8.3.0",
     "@react-router/serve": "8.3.0",
     "class-variance-authority": "^0.7.1",
