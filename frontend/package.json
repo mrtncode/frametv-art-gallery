@@ -44,7 +44,7 @@
     "@tailwindcss/vite": "^4.1.13",
     "@types/node": "^22",
     "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.4",
+    "@types/react-dom": "^19.2.5",
     "electron": "^43.4.1",
     "electron-builder": "^26.15.3",
     "shadcn": "^4.10.0",
