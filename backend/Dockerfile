@@ -20,7 +20,7 @@ WORKDIR /app
 COPY --from=builder /install /usr/local
 
 COPY backend/ .
-COPY frontend/dist/ ./static/
+COPY frontend/dist/ /frontend/build/client/
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8000
