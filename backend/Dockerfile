@@ -1,43 +1,36 @@
-# ---------- Builder ----------
 FROM python:3.13-slim AS builder
 
-# Install git only for dependency build
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY backend/pyproject.toml ./
 
 COPY . .
 
-# Upgrade pip and install dependencies into custom prefix
 RUN pip install --upgrade pip \
-    && pip install --no-cache-dir --prefix=/install .
+    && pip install --no-cache-dir --prefix=/install ./backend
 
 
-# ---------- Runtime ----------
 FROM python:3.13-slim
 
 WORKDIR /app
 
-# Copy installed packages
 COPY --from=builder /install /usr/local
 
-# Copy app code
-COPY . .
+COPY backend/ .
+COPY frontend/dist/ ./static/
 
 ENV PYTHONUNBUFFERED=1
-
 ENV PORT=8000
 
-# Get the build arg for APP_VEERSION
 ARG APP_VERSION=unknown
 ENV FRAME_TV_VERSION=${APP_VERSION}
 
 EXPOSE 8000
 
-COPY entrypoint.sh /entrypoint.sh
+COPY backend/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
