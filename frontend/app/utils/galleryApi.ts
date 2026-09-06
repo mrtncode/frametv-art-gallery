@@ -111,6 +111,16 @@ export async function uploadImage(file: File, albumId?: string | number) {
   return await res.json();
 }
 
+export async function importReframedGallery(url: string, albumId?: string | number) {
+  const res = await fetch(`${API_BASE}/api/import/reframed`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, album_id: albumId || undefined }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to import artwork');
+  return await res.json();
+}
+
 export async function createAlbum(name: string) {
   const res = await fetch(`${API_BASE}/api/albums`, {
     method: 'POST',

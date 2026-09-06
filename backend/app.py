@@ -1,27 +1,46 @@
 import base64
 import hashlib
+import importlib
+import os
 import shutil
 import sqlite3
+import sys
 import tempfile
 import zipfile
-from flask import Flask, after_this_request, render_template, request, redirect, url_for, flash, send_file, send_from_directory, jsonify, Response
-import os
-from werkzeug.utils import secure_filename
-from pathlib import Path
-import sys
-from flask_sqlalchemy import SQLAlchemy
-from utils.crop_image import crop_image_file, CropImageError, get_preset_crop_box, CROP_PRESETS
-from utils.thumbnails import get_or_create, parse_width
-from samsungtvws.exceptions import HttpApiError, ResponseError
-from samsungtvws import SamsungTVWS
-from const import CONNECTION_NAME
-from typing import Tuple, Optional
 from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+import requests
+from const import CONNECTION_NAME
+from flask import (
+    Flask,
+    Response,
+    after_this_request,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_file,
+    send_from_directory,
+    url_for,
+)
 from flask_migrate import Migrate
-import importlib
 from media_provider_routes import media_provider_routes
 from provider_config_routes import provider_config_routes
-import requests
+from samsungtvws import SamsungTVWS
+from samsungtvws.exceptions import HttpApiError, ResponseError
+from utils.crop_image import (
+    CROP_PRESETS,
+    CropImageError,
+    crop_image_file,
+    get_preset_crop_box,
+)
+from utils.thumbnails import get_or_create, parse_width
+from werkzeug.utils import secure_filename
+
+from utils.reframed_gallery import get_image_from_reframed_gallery
 
 try:
     from PIL import Image as PILImage
@@ -40,28 +59,28 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from utils.tv_connection import DEFAULT_PORT
 from utils.frame_tv import (
-    upload_artwork,
-    is_art_mode_on,
-    is_tv_reachable,
-    power_on,
-    power_off,
-    enable_art_mode,
-    FrameTVError,
     FrameTVConnectionError,
+    FrameTVError,
     FrameTVTimeoutError,
     FrameTVUnavailableError,
     delete_all_images_from_tv,
-    get_tv_gallery_images,
-    get_tv_gallery_thumbnails,
     delete_tv_image,
     delete_tv_images,
+    enable_art_mode,
     get_tv_device_info,
-    play_uploaded_content,
+    get_tv_gallery_images,
     get_tv_gallery_thumbnail,
+    get_tv_gallery_thumbnails,
+    is_art_mode_on,
+    is_tv_reachable,
+    play_uploaded_content,
+    power_off,
+    power_on,
     set_token_observer,
+    upload_artwork,
 )
+from utils.tv_connection import DEFAULT_PORT
 
 DATA_DIR = os.environ.get("FRAME_TV_DATA", "data")
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -114,7 +133,8 @@ def add_cors_headers(response):
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-from models import AppSetting, db, Album, Image, TV, UploadedImage, ProviderConfig
+from models import TV, Album, AppSetting, Image, ProviderConfig, UploadedImage, db
+
 db.init_app(app)
 
 # Import blueprints
@@ -205,7 +225,7 @@ def _is_tv_missing_content_error(exc: Exception) -> bool:
     return isinstance(exc, ResponseError) and 'error number -10' in str(exc).lower()
 
 
-def _normalized_upload_path(filename: str, must_exist: bool = False) -> Tuple[str, str]:
+def _normalized_upload_path(filename: str, must_exist: bool = False) -> tuple[str, str]:
     if not filename or not isinstance(filename, str):
         raise ValueError('Invalid filename')
     normalized_name = secure_filename(filename)
@@ -301,7 +321,9 @@ app.media_provider = media_provider
 # --- API Endpoints ---
 
 import json
+
 from packaging.version import parse as parse_version
+
 
 @app.route('/api/status', methods=['GET'])
 def backend_status():
@@ -747,6 +769,58 @@ def upload():
         'album_id': album.id if album else None,
         'duplicate_of': duplicate_of,
     }
+
+@app.route('/api/import/reframed', methods=['POST'])
+def import_image_from_reframed_gallery():
+    data = request.get_json(silent=True) or {}
+    url = data.get('url')
+    album_id = data.get('album_id')
+    if not isinstance(url, str) or not url.strip():
+        return {'error': 'Reframed gallery URL required'}, 400
+
+    album = None
+    if album_id not in (None, ''):
+        try:
+            album = Album.query.get(int(album_id))
+        except (TypeError, ValueError):
+            return {'error': 'Invalid album'}, 400
+        if not album:
+            return {'error': 'Album not found'}, 404
+
+    try:
+        filename = get_image_from_reframed_gallery(url, location=app.config['UPLOAD_FOLDER'])
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        digest = _file_sha256(file_path)
+        image = Image.query.filter_by(filename=filename).first()
+        if not image:
+            image = Image(filename=filename)
+            db.session.add(image)
+
+        duplicate_of = None
+        if digest:
+            twin = Image.query.filter(Image.sha256 == digest, Image.filename != filename).first()
+            if twin and os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], twin.filename)):
+                duplicate_of = twin.filename
+            image.sha256 = digest
+        if album:
+            image.album = album
+        db.session.commit()
+        return {
+            'success': True,
+            'filename': filename,
+            'album_id': album.id if album else None,
+            'duplicate_of': duplicate_of,
+        }
+    except (ValueError, requests.RequestException) as error:
+        return {'error': str(error)}, 400
+    except OSError:
+        db.session.rollback()
+        return {'error': 'Could not save the imported artwork'}, 500
+    except Exception as error:
+        db.session.rollback()
+        _log_exception('Failed to import Reframed artwork', error)
+        return {'error': 'Failed to import artwork'}, 500
+    
     
 # --- Play Uploaded Image on TV ---
 @app.route('/api/tv/play_uploaded', methods=['POST'])
@@ -805,6 +879,7 @@ def uploaded_file(filename):
 
 # --- TV API endpoints ---
 from flask import jsonify
+
 
 # TV management endpoints
 @app.route('/api/tvs', methods=['GET'])

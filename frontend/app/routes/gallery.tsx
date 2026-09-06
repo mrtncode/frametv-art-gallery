@@ -10,7 +10,8 @@ import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
 import { toast } from "sonner";
 import ImageUploadModal from "~/components/imageUploadModal";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import ReframedGalleryImportModal from "~/components/ReframedGalleryImportModal";
+import { ArrowUpTrayIcon, PhotoIcon } from "@heroicons/react/24/outline";
 
 type Album = { id:string, name: string; images: string[] };
 type ProviderAlbum = { id: string; name: string; asset_count: number };
@@ -43,6 +44,7 @@ export default function Gallery() {
   const [creating, setCreating] = useState(false);
   const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showReframedModal, setShowReframedModal] = useState(false);
 
   // Multi-select: filenames, plus the last clicked row so shift-click can span a range.
   const [selected, setSelected] = useState<string[]>([]);
@@ -580,21 +582,38 @@ export default function Gallery() {
             </>
           )}
 
-      {/* Floating Action Button for Upload */}
-      <button
-        type="button"
-        onClick={() => setShowUploadModal(true)}
-        aria-label="Upload Image"
-        title="Upload Image"
-        className="fixed bottom-24 right-6 md:bottom-8 md:right-8 z-40 flex items-center justify-center w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
-      >
-        <PlusIcon className="w-7 h-7" strokeWidth={2.5} />
-      </button>
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-24 flex-row right-6 md:bottom-8 md:right-8 z-40 flex gap-2">
+        <button
+          type="button"
+          onClick={() => setShowReframedModal(true)}
+          aria-label="Import from Reframed Gallery"
+          title="Import from Reframed Gallery"
+          className="flex items-center justify-center w-16 h-16 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+        >
+          <PhotoIcon className="w-7 h-7" strokeWidth={2} />
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowUploadModal(true)}
+          aria-label="Upload Image"
+          title="Upload Image"
+          className=" flex items-center justify-center w-16 h-16 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+        >
+          <ArrowUpTrayIcon className="w-7 h-7" strokeWidth={2} />
+        </button>
+      </div>
 
       {/* Image Upload Modal */}
       <ImageUploadModal
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
+        albums={albums}
+        onUploadSuccess={loadLocalGallery}
+      />
+      <ReframedGalleryImportModal
+        isOpen={showReframedModal}
+        onClose={() => setShowReframedModal(false)}
         albums={albums}
         onUploadSuccess={loadLocalGallery}
       />

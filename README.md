@@ -37,7 +37,7 @@ frametv-art-gallery is an independent, open-source, self-hosted gallery manager 
 - **Open Source**: Fully open-source and community-driven, with no hidden tracking or telemetry.
 - **Docker Support**: Easy deployment with Docker and Docker Compose.
 - **Desktop App**: Frametv-art-gallery is also available as a desktop app for Windows, MacOS, and Linux. Download it under the [releases](https://github.com/mrtncode/frametv-art-gallery/releases)
-
+- **Reframed Gallery Integration**: Import real artworks directly from [Reframed Gallery](https://www.reframed.gallery/).
 
 
 ## Images
@@ -52,6 +52,17 @@ You can use any kind of image! Either upload your own personal photos or import 
 </p>
 The UI is also available in dark mode and is fully responsive for mobile devices.
 Gallery example images from https://pixabay.com/
+
+
+## Third party integrations
+
+### Immich
+Integrate your immich library with Frame TV Gallery.
+
+### Reframed Gallery
+Automatic import via URL for art from https://www.reframed.gallery/.
+Thanks to the creator of Reframed for this great tool! Visit his page :)
+
 
 # Installation
 
