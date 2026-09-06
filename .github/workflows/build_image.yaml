@@ -77,7 +77,7 @@ jobs:
           # produce an invalid tag. type=sha covers the manual runs instead.
           tags: |
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
-            type=ref,event=release
+            type=ref,event=release,enable=${{ github.event_name == 'release' }}
             type=raw,value=${{ inputs.version }},enable=${{ inputs.version != '' }}
             type=sha,format=short
       - name: Build and push Docker image
