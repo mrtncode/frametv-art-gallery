@@ -85,6 +85,13 @@ const ImageCard: React.FC<ImageCardProps> = ({
     }
   }, [tvsProp]);
 
+  // Default to the first TV, so sending an image is one click away.
+  useEffect(() => {
+    if (tvs.length > 0 && !tvs.some((tv) => tv.ip === selectedTvIp)) {
+      setSelectedTvIp(tvs[0].ip);
+    }
+  }, [tvs, selectedTvIp]);
+
   useEffect(() => {
     setTileURL(src);
     setImageURL(fullSrc ?? src);

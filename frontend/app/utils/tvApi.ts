@@ -2,9 +2,13 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+/** Where a picture on the TV came from: this app, the Samsung Art Store, or another upload. */
+export type TVImageOrigin = "app" | "samsung" | "personal";
+
 export interface TVGalleryImage {
   content_id: string;
   filename: string;
+  origin: TVImageOrigin;
   date_added: string;
   width?: number | null;
   height?: number | null;
@@ -119,6 +123,7 @@ export async function getTvGalleryImages(ip: string): Promise<TVGalleryImage[]> 
   return (data.images || []).map((img: any) => ({
     content_id: img.content_id,
     filename: img.filename || img.content_id,
+    origin: img.origin || "personal",
     date_added: img.date_added,
     width: img.width ?? null,
     height: img.height ?? null,

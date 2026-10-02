@@ -1147,6 +1147,20 @@ def api_remove_all_tv_images(ip):
         _log_exception('Failed to remove all images from TV', e)
         return jsonify({'error': 'Failed to remove all images from TV'}), 500
 
+def _tv_image_origin(content_id: str, sent_from_here: bool) -> str:
+    """Where a picture on the TV came from.
+
+    "app": sent by this app. "samsung": the Samsung Art Store subscription, whose ids
+    start with SAM (for example SAM-S1110436). "personal": anything else, such as photos
+    added from a phone or USB.
+    """
+    if sent_from_here:
+        return 'app'
+    if str(content_id).upper().startswith('SAM'):
+        return 'samsung'
+    return 'personal'
+
+
 @app.route("/api/tv/<ip>/gallery", methods=['GET'])
 def api_get_tv_gallery(ip):
     """Get list of images currently on the TV."""
@@ -1169,6 +1183,7 @@ def api_get_tv_gallery(ip):
         for entry in images:
             if not entry.get('filename'):
                 entry['filename'] = known.get(entry['content_id'], entry['content_id'])
+            entry['origin'] = _tv_image_origin(entry['content_id'], entry['content_id'] in known)
 
         return jsonify({'images': images, 'tv_ip': ip})
     except FrameTVUnavailableError as e:

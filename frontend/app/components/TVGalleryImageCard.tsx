@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { TrashIcon, PlayIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { Skeleton } from "~/components/ui/skeleton"
-import { type TVGalleryImage } from "../utils/tvApi";
+import { type TVGalleryImage, type TVImageOrigin } from "../utils/tvApi";
 
 function Loader() {
   return (
@@ -10,6 +10,12 @@ function Loader() {
     </div>
   );
 }
+
+const ORIGIN_BADGE: Record<TVImageOrigin, { label: string; className: string }> = {
+  app: { label: "From this app", className: "bg-blue-100 text-blue-900 dark:bg-blue-900/50 dark:text-blue-100" },
+  personal: { label: "Other upload", className: "bg-neutral-200 text-neutral-900 dark:bg-neutral-700 dark:text-neutral-100" },
+  samsung: { label: "Samsung Art Store", className: "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400" },
+};
 
 type TVGalleryImageCardProps = {
   image: TVGalleryImage;
@@ -32,7 +38,10 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
       key={image.content_id}
       className={
         "flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow " +
-        (selected ? "border-blue-500 ring-1 ring-blue-500" : "border-border")
+        (selected ? "border-blue-500 ring-1 ring-blue-500" : "border-border") +
+        // Ours stand out with an accent edge; Samsung's own art is quieter.
+        (image.origin === "app" ? " border-l-4 border-l-blue-500" : "") +
+        (image.origin === "samsung" ? " opacity-75" : "")
       }
     >
       {onToggleSelect && (
@@ -77,6 +86,11 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
 
       <div className="flex-1 min-w-0 self-center">
         <p className="font-medium truncate">{image.filename}</p>
+        <span
+          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ORIGIN_BADGE[image.origin].className}`}
+        >
+          {ORIGIN_BADGE[image.origin].label}
+        </span>
         <div className="text-xs text-muted-foreground mt-1 space-y-1">
           <p>
             Added: {formatDate(image.date_added)}

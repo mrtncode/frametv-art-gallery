@@ -89,3 +89,31 @@ def test_a_tv_image_sent_from_here_shows_its_real_name(client, monkeypatch):
     ])
     images = client.get("/api/tv/192.0.2.51/gallery").get_json()["images"]
     assert images[0]["filename"] == "sunset.png"
+
+
+def test_tv_images_are_labelled_by_where_they_came_from(client, monkeypatch):
+    upload(client, "ours.png")
+    with backend.app.app_context():
+        tv = backend.TV(ip="192.0.2.52", name="TV", token="1")
+        backend.db.session.add(tv)
+        backend.db.session.commit()
+        image = backend.Image.query.filter_by(filename="ours.png").first()
+        backend.db.session.add(
+            backend.UploadedImage(image_id=image.id, tv_id=tv.id, content_id="MY_F0001")
+        )
+        backend.db.session.commit()
+
+    monkeypatch.setattr(backend, "get_tv_gallery_images", lambda ip, token=None: [
+        {"content_id": "MY_F0001", "filename": "", "date_added": ""},    # sent from this app
+        {"content_id": "MY_F0002", "filename": "", "date_added": ""},    # added from a phone, say
+        {"content_id": "SAM-S1110436", "filename": "", "date_added": ""},  # Samsung Art Store
+        {"content_id": "sam-s3945", "filename": "", "date_added": ""},   # case does not matter
+    ])
+    images = client.get("/api/tv/192.0.2.52/gallery").get_json()["images"]
+
+    assert [(i["content_id"], i["origin"]) for i in images] == [
+        ("MY_F0001", "app"),
+        ("MY_F0002", "personal"),
+        ("SAM-S1110436", "samsung"),
+        ("sam-s3945", "samsung"),
+    ]
