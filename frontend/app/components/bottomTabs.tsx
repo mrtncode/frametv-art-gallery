@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { NavLink } from "react-router"; // Achtung: react-router-dom
 import { HomeIcon, UserIcon, PlusIcon, Cog6ToothIcon, PhotoIcon, SparklesIcon, TvIcon } from "@heroicons/react/24/outline";
 
@@ -18,15 +18,11 @@ export type TabItem = {
 };
 
 export default function BottomTabs() {
-  const [isIOS, setIsIOS] = useState(false);
-
-  useEffect(() => {
-    const ua = navigator.userAgent || '';
-    setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
-  }, []);
-
   return (
-    <div className={`fixed z-50 w-full max-w-lg -translate-x-1/2 ${isIOS ? 'bottom-0' : 'bottom-4'} left-1/2`} >
+    <div
+      className="fixed left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-lg -translate-x-1/2"
+      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)" }}
+    >
       <div className="grid h-16 grid-cols-5 mx-auto bg-card border border-border rounded-full overflow-hidden shadow-[var(--shadow-card)]">
         <style>{`
           .bottom-tab-icon {

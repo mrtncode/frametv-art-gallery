@@ -36,7 +36,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#FAF8F4" media="(prefers-color-scheme: light)" />
         <meta name="theme-color" content="#1E211F" media="(prefers-color-scheme: dark)" />
         <Meta />

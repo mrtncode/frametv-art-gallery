@@ -6,8 +6,6 @@ import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 
 import lockupForLight from "~/assets/brand/frame-gallery-logo-wordmark-for-light.svg";
 import lockupForDark from "~/assets/brand/frame-gallery-logo-wordmark-for-dark.svg";
-import symbolForLight from "~/assets/brand/frame-gallery-logo-for-light.svg";
-import symbolForDark from "~/assets/brand/frame-gallery-logo-for-dark.svg";
 
 const VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 
@@ -47,24 +45,20 @@ export default function Header() {
   const location = useLocation();
   const pageName = pageNames[location.pathname] || "Page";
   return (
-    <header className="sticky top-0 z-40 w-[95%] self-center rounded-4xl mt-2 bg-card/95 text-foreground border border-border shadow-[var(--shadow-card)] backdrop-blur-md">
+    <header className="w-[95%] self-center rounded-4xl mt-2 bg-card/95 text-foreground border border-border shadow-[var(--shadow-card)] backdrop-blur-md">
       <div className="flex items-center justify-between px-6 py-3">
         <div className="flex items-center gap-3">
           <h1 className="m-0 flex items-center">
             {/* for-light art has a dark frame/text, for-dark has ivory; swap on the theme class. */}
             <img src={lockupForLight} alt="Frame Gallery" width={240} height={48}
-              className="hidden h-auto w-[240px] sm:block dark:sm:hidden" />
+              className="block h-auto w-[180px] sm:w-[240px] dark:hidden" />
             <img src={lockupForDark} alt="Frame Gallery" width={240} height={48}
-              className="hidden h-auto w-[240px] dark:sm:block" />
-            <img src={symbolForLight} alt="Frame Gallery" width={42} height={33}
-              className="block h-auto w-[42px] sm:hidden dark:hidden" />
-            <img src={symbolForDark} alt="Frame Gallery" width={42} height={33}
-              className="hidden h-auto w-[42px] dark:block dark:sm:hidden" />
+              className="hidden h-auto w-[180px] sm:w-[240px] dark:block" />
           </h1>
           <span className="hidden text-xs font-medium text-muted-foreground sm:inline">{VERSION}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-base font-semibold text-muted-foreground">{pageName}</span>
+          <span className="hidden text-base font-semibold text-muted-foreground sm:inline">{pageName}</span>
           <ThemeToggle />
         </div>
       </div>
