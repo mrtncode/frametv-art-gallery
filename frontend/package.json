@@ -22,7 +22,6 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@lottiefiles/dotlottie-react": "^0.19.16",
     "@react-router/node": "8.3.0",
     "@react-router/serve": "8.3.0",
     "class-variance-authority": "^0.7.1",
@@ -54,17 +53,19 @@
     "vite": "^8.2.1",
     "vite-tsconfig-paths": "^6.1.1"
   },
-    "build": {
+  "build": {
     "appId": "com.mrtncode.frametv-art-gallery",
     "files": [
       "main.js",
-      "build/client/**/*" 
+      "build/client/**/*"
     ],
     "extraResources": [
       {
         "from": "../build-backend/flask_backend",
         "to": "flask_backend",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -76,8 +77,8 @@
       "icon": "public/icon.icns"
     },
     "linux": {
-      "target": "AppImage", 
-      "icon": "public/icon.png" 
+      "target": "AppImage",
+      "icon": "public/icon.png"
     }
   }
 }

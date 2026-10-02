@@ -10,19 +10,9 @@ import { toast } from 'sonner';
 
 import type { ProviderConfig } from '~/utils/providerApi';
 import { SparkleIcon, SparklesIcon } from 'lucide-react';
-import { MATTE_STYLES, MATTE_COLORS, splitMatte, combineMatte } from '~/utils/matte';
-
-interface TV {
-  ip: string;
-  name?: string;
-  mac?: string;
-  delete_other_images_on_upload?: boolean;
-  one_slot_mode?: boolean;
-  slideshow_enabled?: boolean;
-  slideshow_album_id?: number | null;
-  slideshow_interval_minutes?: number | null;
-  default_matte?: string | null;
-}
+import { splitMatte } from '~/utils/matte';
+import { Switch } from '~/components/ui/switch';
+import { TvEditModal, type TV } from '~/components/TvEditModal';
 
 export default function Settings() {
   // TV state
@@ -34,6 +24,7 @@ export default function Settings() {
   const [adding, setAdding] = React.useState(false);
   const [discovering, setDiscovering] = React.useState(false);
   const [maintenanceBusy, setMaintenanceBusy] = React.useState(false);
+  const [editingIp, setEditingIp] = React.useState<string | null>(null);
   const [showPairModal, setShowPairModal] = React.useState(false);
   const [pairingIp, setPairingIp] = React.useState("");
   const [discoveredTvs, setDiscoveredTvs] = React.useState<DiscoveredTV[]>([]);
@@ -167,24 +158,6 @@ export default function Settings() {
     }
   };
 
-  const handleToggleDeleteOthers = async (tvIp: string, value: boolean) => {
-    try {
-      await updateTv(tvIp, { delete_other_images_on_upload: value });
-      await fetchTvs();
-    } catch (e: any) {
-      setError(e.message || 'Failed to update TV setting');
-    }
-  };
-
-  const handleToggleOneSlotMode = async (tvIp: string, value: boolean) => {
-    try {
-      await updateTv(tvIp, { one_slot_mode: value });
-      await fetchTvs();
-    } catch (e: any) {
-      setError(e.message || 'Failed to update TV setting');
-    }
-  };
-
   const handleSlideshow = async (tvIp: string, updates: TVUpdate) => {
     setError('');
     try {
@@ -193,17 +166,6 @@ export default function Settings() {
       setError(e.message || 'Failed to update the slideshow');
     } finally {
       // Refetched either way, so a rejected change does not linger in the form.
-      await fetchTvs();
-    }
-  };
-
-  const handleDefaultMatte = async (tvIp: string, matte: string) => {
-    setError('');
-    try {
-      await updateTv(tvIp, { default_matte: matte });
-    } catch (e: any) {
-      setError(e.message || 'Failed to update the default matte');
-    } finally {
       await fetchTvs();
     }
   };
@@ -340,131 +302,56 @@ export default function Settings() {
           {tvs.length === 0 ? (
             <div className="text-muted-foreground text-center">No TVs added yet.</div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <ul className="flex flex-col gap-3">
               {tvs.map((tv) => {
                 const { style: matteStyle, color: matteColor } = splitMatte(tv.default_matte);
+                const album = albums.find(a => String(a.id) === String(tv.slideshow_album_id));
+                const chips: string[] = [];
+                if (tv.slideshow_enabled && album) {
+                  chips.push(`Slideshow: ${album.name}${tv.slideshow_interval_minutes ? ` · ${tv.slideshow_interval_minutes} min` : ''}`);
+                } else {
+                  chips.push('Slideshow off');
+                }
+                chips.push(matteStyle === 'none' ? 'No matte' : `Matte: ${matteStyle} · ${matteColor}`);
+                if (tv.one_slot_mode) chips.push('1-slot mode');
+                if (tv.delete_other_images_on_upload) chips.push('Replaces on upload');
                 return (
-                <div key={tv.ip} className="bg-card shadow-md rounded-xl p-5 border border-border">
-                  <div className="mb-4">
-                    {tv.name && <div className="font-semibold text-foreground">{tv.name}</div>}
-                    <div className="font-mono text-primary">{tv.ip}</div>
-                    {tv.mac && <div className="text-xs bg-muted text-foreground px-2 py-1 rounded inline-block mt-2">{tv.mac}</div>}
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm mb-4">
-                    <input
-                      type="checkbox"
-                      checked={!!tv.delete_other_images_on_upload}
-                      onChange={e => handleToggleDeleteOthers(tv.ip, e.target.checked)}
-                      className="accent-primary"
-                    />
-                    <span>Delete other images on upload</span>
-                  </label>
-
-                  <label className="flex items-start gap-2 text-sm mb-4">
-                    <input
-                      type="checkbox"
-                      checked={!!tv.one_slot_mode}
-                      onChange={e => handleToggleOneSlotMode(tv.ip, e.target.checked)}
-                      className="mt-0.5 accent-primary"
-                    />
-                    <span>
-                      1-slot mode (auto overwrite managed image)
-                      <span className="block text-xs text-muted-foreground">
-                        Keeps only one image uploaded by this app on the TV. Other TV images are left untouched.
-                      </span>
-                    </span>
-                  </label>
-
-                  <fieldset className="mb-4 border border-border rounded-lg p-3">
-                    <legend className="text-sm font-medium px-1">Slideshow</legend>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Rotates through images of an album that are already on this TV. It only
-                      moves art that is already on screen, so it never interrupts what you are
-                      watching.
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <select
-                        value={tv.slideshow_album_id ?? ''}
-                        onChange={e => handleSlideshow(tv.ip, { slideshow_album_id: e.target.value || null })}
-                        aria-label="Slideshow album"
-                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
-                      >
-                        <option value="">No album</option>
-                        {albums.map(album => (
-                          <option key={album.id} value={album.id}>{album.name}</option>
-                        ))}
-                      </select>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={1}
-                          value={tv.slideshow_interval_minutes ?? ''}
-                          onChange={e => handleSlideshow(tv.ip, { slideshow_interval_minutes: e.target.value || null })}
-                          placeholder="Every … minutes"
-                          aria-label="Slideshow interval in minutes"
-                        />
-                        <span className="text-sm text-muted-foreground whitespace-nowrap">min</span>
+                  <li key={tv.ip} className="flex flex-col gap-3 rounded-xl border border-border p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-baseline gap-x-3">
+                        <span className="font-semibold text-foreground">{tv.name || tv.ip}</span>
+                        {tv.name && <span className="font-mono text-sm text-primary">{tv.ip}</span>}
                       </div>
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={!!tv.slideshow_enabled}
-                          onChange={e => handleSlideshow(tv.ip, { slideshow_enabled: e.target.checked })}
-                          className="accent-primary"
-                        />
-                        <span>Enabled</span>
-                      </label>
-                    </div>
-                  </fieldset>
-
-                  <fieldset className="mb-4 border border-border rounded-lg p-3">
-                    <legend className="text-sm font-medium px-1">Default matte</legend>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Used for anything sent to this TV without a matte of its own.
-                    </p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select
-                        value={matteStyle}
-                        onChange={e => handleDefaultMatte(tv.ip, combineMatte(e.target.value, matteColor))}
-                        aria-label="Default matte style"
-                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
-                      >
-                        {MATTE_STYLES.map(style => (
-                          <option key={style} value={style}>{style === 'none' ? 'No matte' : style}</option>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {tv.mac && <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground">{tv.mac}</span>}
+                        {chips.map(chip => (
+                          <span key={chip} className="rounded-full bg-muted px-2.5 py-0.5 text-xs text-foreground">{chip}</span>
                         ))}
-                      </select>
-                      <select
-                        value={matteColor}
-                        onChange={e => handleDefaultMatte(tv.ip, combineMatte(matteStyle, e.target.value))}
-                        disabled={matteStyle === 'none'}
-                        aria-label="Default matte color"
-                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-50"
-                      >
-                        {MATTE_COLORS.map(color => (
-                          <option key={color} value={color}>{color}</option>
-                        ))}
-                      </select>
+                      </div>
                     </div>
-                  </fieldset>
-
-                  <div className="flex flex-col gap-2">
-                    <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium py-2 px-4 rounded-lg text-center">
-                      View Gallery
-                    </Link>
-                    <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-destructive hover:text-destructive/80 text-sm font-medium">
-                      Delete all Images from TV
-                    </button>
-                    <Button onClick={() => handleRemoveTv(tv.ip)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full">
-                      Remove TV
-                    </Button>
-                  </div>
-                </div>
+                    <div className="flex shrink-0 gap-2">
+                      <Button type="button" onClick={() => setEditingIp(tv.ip)} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                        Edit
+                      </Button>
+                      <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover">
+                        View Gallery
+                      </Link>
+                    </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           )}
         </div>
+
+        <TvEditModal
+          tv={tvs.find(t => t.ip === editingIp) ?? null}
+          albums={albums}
+          onClose={() => setEditingIp(null)}
+          onUpdate={(tvIp, updates) => { void handleSlideshow(tvIp, updates); }}
+          onRemoveAllImages={handleRemoveAllImages}
+          onRemove={handleRemoveTv}
+        />
 
         {/* Library */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
@@ -513,14 +400,9 @@ export default function Settings() {
               placeholder="Immich API Key"
               required={immichEnabled}
             />
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={immichEnabled}
-                onChange={e => setImmichEnabled(e.target.checked)}
-                className="accent-primary"
-              />
+            <label className="flex items-center justify-between gap-4">
               <span>Enable Immich</span>
+              <Switch checked={immichEnabled} onCheckedChange={setImmichEnabled} aria-label="Enable Immich" />
             </label>
             <div className="flex flex-col sm:flex-row gap-2 mt-2">
               <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary-hover" disabled={providerSaving}>

@@ -47,7 +47,7 @@ export default function Header() {
   return (
     <header className="w-[95%] self-center rounded-4xl mt-2 bg-card/95 text-foreground border border-border shadow-[var(--shadow-card)] backdrop-blur-md">
       <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-4">
           <h1 className="m-0 flex items-center">
             {/* for-light art has a dark frame/text, for-dark has ivory; swap on the theme class. */}
             <img src={lockupForLight} alt="Frame Gallery" width={240} height={48}
@@ -55,9 +55,13 @@ export default function Header() {
             <img src={lockupForDark} alt="Frame Gallery" width={240} height={48}
               className="hidden h-auto w-[180px] sm:w-[240px] dark:block" />
           </h1>
-          {/* Where you are, set like the wordmark (light, widely spaced) and divided from it by a hairline. */}
-          <span aria-hidden="true" className="hidden h-6 w-px bg-border sm:block" />
-          <span className="hidden text-lg font-light tracking-[0.14em] text-foreground sm:inline">{pageName}</span>
+          {/* Where you are, set like the wordmark (light, widely spaced) and divided from it by a hairline.
+              The wordmark's baseline sits 31.3px down the 240px-wide lockup, and this text (18px, line-height 1)
+              puts its own baseline 15.6px down its box, so about 16px of margin lines the two up (measured in the browser: 16.3px). */}
+          <span aria-hidden="true" className="hidden h-6 w-px self-center bg-border sm:block" />
+          <span className="hidden text-[18px] font-light leading-none tracking-[0.14em] text-foreground/80 antialiased sm:mt-[16.3px] sm:inline">
+            {pageName}
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className="hidden text-xs font-medium text-muted-foreground sm:inline">{VERSION}</span>

@@ -26,7 +26,7 @@ export default function ExploreGrid({ tiles, onPick }: ExploreGridProps) {
             >
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute -right-1 -top-1 select-none text-6xl opacity-90 drop-shadow-sm transition-transform group-hover:scale-110 sm:text-7xl"
+                className="pointer-events-none absolute -right-1 -top-1 select-none text-6xl opacity-90 saturate-[.65] drop-shadow-sm transition-transform group-hover:scale-110 sm:text-7xl"
               >
                 {tile.emoji}
               </span>
