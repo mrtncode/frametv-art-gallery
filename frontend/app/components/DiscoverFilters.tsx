@@ -9,14 +9,15 @@ export type Filters = { shape: Shape; paintings: boolean; sharp: boolean };
 export const DEFAULT_FILTERS: Filters = { shape: "wide", paintings: true, sharp: false };
 export const NO_FILTERS: Filters = { shape: "any", paintings: false, sharp: false };
 
+// "Landscape" used to sit between these. Every Wide work is already landscape, and every
+// No-matte work is already Wide, so it only added a fourth choice that mostly overlapped.
 const SHAPE_OPTIONS: { value: Shape; label: string; hint: string }[] = [
   { value: "any", label: "Any shape", hint: "Everything, including portraits and squares." },
-  { value: "landscape", label: "Landscape", hint: "Wider than tall." },
   { value: "wide", label: "Wide", hint: "Close to 16:9, so a crop to fill the screen loses little." },
   {
     value: "fits",
     label: "No matte needed",
-    hint: "Already 16:9 (within 3%): fills the whole screen with nothing cropped or padded.",
+    hint: "Exactly 16:9 (within 3%): fills the screen with nothing cropped or padded. A narrower slice of Wide.",
   },
 ];
 
@@ -44,7 +45,7 @@ export default function DiscoverFilters({ filters, onChange, source, onSwitchToT
   return (
     <Popover.Root onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
-        <Button type="button" variant="outline" aria-label={`Filters, ${count} active`} className="shrink-0">
+        <Button type="button" variant="outline" aria-label={`Filters, ${count} active`} className="h-11 shrink-0">
           <AdjustmentsHorizontalIcon aria-hidden="true" />
           <span className="hidden sm:inline">Filters</span>
           {count > 0 && (

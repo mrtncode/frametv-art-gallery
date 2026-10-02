@@ -29,6 +29,7 @@ function HeroImage({ artwork, eager }: { artwork: Artwork; eager: boolean }) {
           loading={eager ? "eager" : "lazy"}
           referrerPolicy="no-referrer"
           onError={() => setAttempt((n) => n + 1)}
+          draggable={false}
           className="absolute inset-0 size-full object-cover"
         />
       )}
@@ -77,7 +78,9 @@ export default function DiscoverHero({ items, sources, collapsed, onAdd, onBrows
 
   return (
     <div
-      className={`grid transition-[grid-template-rows,opacity,margin] duration-500 ease-out motion-reduce:transition-none ${
+      // select-none: when the hero unfolds under the pointer at the end of a click, the browser
+      // can read it as a drag and highlight the whole thing blue.
+      className={`grid select-none transition-[grid-template-rows,opacity,margin] duration-500 ease-out motion-reduce:transition-none ${
         collapsed ? "mb-0 grid-rows-[0fr] opacity-0" : "mb-6 grid-rows-[1fr] opacity-100"
       }`}
       inert={collapsed}

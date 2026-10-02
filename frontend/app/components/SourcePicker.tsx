@@ -54,13 +54,15 @@ export default function SourcePicker({ sources, scope, onSelect, onOpen, onOpenC
     >
       <Popover.Trigger
         aria-label={`Searching ${current ? current.name : "all sources"}. Change source`}
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-card py-1 pl-2 pr-2.5 text-sm transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        // The left segment of the search bar: it shares the bar's border and height, and is
+        // divided from the text field by a rule of its own.
+        className="inline-flex h-full shrink-0 items-center gap-2 rounded-l-md border-r border-border bg-muted/50 pl-3 pr-2.5 text-sm transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 focus-visible:outline-none"
       >
-        <span className="text-muted-foreground">Searching</span>
+        <span className="hidden text-muted-foreground sm:inline">Searching</span>
         {current ? (
           <span className="flex items-center gap-1.5 font-medium">
             <SourceLogo source={current} className="size-5" />
-            {current.name}
+            <span className="max-w-28 truncate sm:max-w-40">{current.name}</span>
           </span>
         ) : (
           <span className="flex items-center gap-2 font-medium">
@@ -78,7 +80,7 @@ export default function SourcePicker({ sources, scope, onSelect, onOpen, onOpenC
       <Popover.Portal>
         <Popover.Content
           align="start"
-          sideOffset={8}
+          sideOffset={12}
           collisionPadding={12}
           className="z-50 max-h-[min(34rem,calc(100dvh-8rem))] w-[min(34rem,calc(100vw-1.5rem))] overflow-y-auto rounded-lg border border-border bg-popover p-3 text-popover-foreground shadow-lg focus:outline-none"
         >

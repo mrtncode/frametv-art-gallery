@@ -545,6 +545,32 @@ def api_images_added_this_month():
     return {'count': count}
 
 
+@app.route('/api/images/added_by_month', methods=['GET'])
+def api_images_added_by_month():
+    """How many images were added in each of the last few months, oldest first (for the home page)."""
+    try:
+        months = max(1, min(int(request.args.get('months', 6)), 24))
+    except ValueError:
+        months = 6
+    now = datetime.now()
+    # Walk back from this month, one calendar month at a time.
+    starts = []
+    year, month = now.year, now.month
+    for _ in range(months):
+        starts.append((year, month))
+        month -= 1
+        if month == 0:
+            year, month = year - 1, 12
+    starts.reverse()
+    first = datetime(starts[0][0], starts[0][1], 1)
+    counts = {key: 0 for key in starts}
+    for (created_at,) in db.session.query(Image.created_at).filter(Image.created_at >= first):
+        key = (created_at.year, created_at.month)
+        if key in counts:
+            counts[key] += 1
+    return {'months': [{'month': f'{y:04d}-{m:02d}', 'count': counts[(y, m)]} for y, m in starts]}
+
+
 @app.route('/api/images/<filename>', methods=['DELETE'])
 def api_delete_image(filename):
     try:

@@ -120,6 +120,7 @@ export default function Discover() {
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState("");
   const bookmarklet = useRef<HTMLAnchorElement>(null);
+  const searchBar = useRef<HTMLFormElement>(null);
 
   const inAll = scope === ALL_SOURCES;
   const source = inAll ? null : (sources.find((s) => s.id === scope) ?? null);
@@ -357,6 +358,14 @@ export default function Discover() {
     setQuery(text.trim());
   }
 
+  /** A suggestion chip: search it, then bring the search bar to the top so the results start right under it. */
+  function pickSuggestion(text: string) {
+    runSearch(text);
+    // The hero folds away over half a second; scroll once it has settled, or the page
+    // would land wherever the shifting layout left it.
+    window.setTimeout(() => searchBar.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 560);
+  }
+
   function chooseScope(next: string) {
     setScope(next);
     // Choosing a source is a decision: search it now, with whatever is typed.
@@ -495,12 +504,11 @@ export default function Discover() {
   const dialogSource = dialogArt ? (sources.find((s) => s.id === dialogArt.source) ?? null) : null;
   const defaultFraming: Framing = remembered(FRAMING_KEY) === "whole" ? "whole" : "fill";
   const filtersNarrow = filters.shape !== "any" || filters.sharp || Boolean(source?.has_type_filter && filters.paintings);
-  const searchPlaceholder = source
-    ? `Search ${source.name}: an artist, a place, a mood`
-    : "Search every source: an artist, a place, a mood";
+  // The segment on the left of the bar already says what is searched.
+  const searchPlaceholder = "An artist, a place, a mood";
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 pb-28">
+    <div className="mx-auto max-w-6xl px-4 py-8 pb-28 [overflow-anchor:none]">
       <h1 className="mb-1 mt-3 text-center text-2xl font-bold text-foreground">Discover</h1>
       <p className="mb-5 text-center text-sm text-muted-foreground">
         Free, high-resolution art, imported at the right size for your Frame.
@@ -516,39 +524,50 @@ export default function Discover() {
 
       {/* Search: results update as you type */}
       <form
+        ref={searchBar}
         role="search"
-        className="mb-3 flex gap-2"
+        className="mb-3 flex scroll-mt-24 gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (inAll) searchAllNow();
           else runSearch(queryInput);
         }}
       >
-        <div className="relative flex-1">
-          <MagnifyingGlassIcon
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
+        {/* Two segments in one bar: what is searched, then what to search for. */}
+        <div className="flex h-11 min-w-0 flex-1 items-stretch rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
+          <SourcePicker
+            sources={pickerSources}
+            scope={scope}
+            onSelect={chooseScope}
+            onOpen={refreshStatuses}
+            onOpenChange={popoverToggled}
           />
-          <Input
-            type="search"
-            value={queryInput}
-            onChange={(e) => setQueryInput(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            placeholder={searchPlaceholder}
-            aria-label="Search for art"
-            className="h-11 pl-9 pr-9 text-base [&::-webkit-search-cancel-button]:hidden"
-          />
-          {queryInput && (
-            <button
-              type="button"
-              onClick={() => runSearch("")}
-              aria-label="Clear search"
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-            >
-              <XCircleIcon className="size-5" aria-hidden="true" />
-            </button>
-          )}
+          <div className="relative min-w-0 flex-1">
+            <MagnifyingGlassIcon
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              type="search"
+              value={queryInput}
+              onChange={(e) => setQueryInput(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              placeholder={searchPlaceholder}
+              aria-label="Search for art"
+              className="h-full rounded-l-none rounded-r-md border-0 bg-transparent pl-9 pr-9 text-base shadow-none focus-visible:ring-0 dark:bg-transparent [&::-webkit-search-cancel-button]:hidden"
+            />
+            {queryInput && (
+              <button
+                type="button"
+                onClick={() => runSearch("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <XCircleIcon className="size-5" aria-hidden="true" />
+              </button>
+            )}
+          </div>
         </div>
         <DiscoverFilters
           filters={filters}
@@ -562,19 +581,13 @@ export default function Discover() {
         />
       </form>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <SourcePicker
-          sources={pickerSources}
-          scope={scope}
-          onSelect={chooseScope}
-          onOpen={refreshStatuses}
-          onOpenChange={popoverToggled}
-        />
+      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Suggested searches">
+        <span className="mr-0.5 text-sm font-medium text-muted-foreground">Explore:</span>
         {QUICK_PICKS.map((pick) => (
           <button
             key={pick}
             type="button"
-            onClick={() => runSearch(pick)}
+            onClick={() => pickSuggestion(pick)}
             className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
               query.toLowerCase() === pick.toLowerCase() || trimmed.toLowerCase() === pick.toLowerCase()
                 ? "border-primary bg-primary/10 text-primary"

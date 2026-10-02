@@ -59,6 +59,15 @@ export async function fetchImagesAddedThisMonth() {
   return (await res.json()).count;
 }
 
+export type MonthlyCount = { month: string; count: number };
+
+/** Images added in each of the last few months, oldest first. */
+export async function fetchImagesAddedByMonth(months = 6): Promise<MonthlyCount[]> {
+  const res = await fetch(`${API_BASE}/api/images/added_by_month?months=${months}`);
+  if (!res.ok) throw new Error('Failed to fetch monthly image counts');
+  return (await res.json()).months;
+}
+
 export async function cropImage(
   filename: string,
   x?: number,

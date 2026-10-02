@@ -5,6 +5,7 @@ import { CheckCircleIcon, FunnelIcon, SparklesIcon } from "@heroicons/react/24/o
 import { CheckCircleIcon as CheckCircleSolidIcon } from "@heroicons/react/24/solid";
 import TVGalleryImageCard from "~/components/TVGalleryImageCard";
 import { Skeleton } from "~/components/ui/skeleton";
+import { Tooltip } from "~/components/ui/tooltip";
 
 import { toast } from "sonner";
 import {
@@ -129,6 +130,8 @@ export default function TVGallery() {
         .map(({ img }) => img),
     [images, showSamsung]
   );
+  // Samsung images are hidden unless asked for, so by default a filter is narrowing the list.
+  const filterActive = !showSamsung;
   const allSelected = visibleImages.length > 0 && visibleImages.every((img) => selected.includes(img.content_id));
 
   function changeShowSamsung(show: boolean) {
@@ -277,16 +280,23 @@ export default function TVGallery() {
                 </p>
                 <div className="flex items-center gap-2">
                   <Popover.Root>
-                    <Popover.Trigger
-                      className={iconButton}
-                      aria-label="Filter images"
-                      title="Filter images"
+                    <Tooltip
+                      label={
+                        showSamsung
+                          ? "Filter images: showing everything"
+                          : "Filter images: Samsung Art Store images are hidden"
+                      }
                     >
-                      <FunnelIcon className="size-5" aria-hidden="true" />
-                      {showSamsung && (
-                        <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-blue-600" aria-hidden="true" />
-                      )}
-                    </Popover.Trigger>
+                      <Popover.Trigger
+                        className={`${iconButton} ${filterActive ? "border-blue-600/60 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : ""}`}
+                        aria-label={filterActive ? "Filter images, 1 filter applied" : "Filter images"}
+                      >
+                        <FunnelIcon className="size-5" aria-hidden="true" />
+                        {filterActive && (
+                          <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-blue-600" aria-hidden="true" />
+                        )}
+                      </Popover.Trigger>
+                    </Tooltip>
                     <Popover.Portal>
                       <Popover.Content
                         align="end"
@@ -313,24 +323,31 @@ export default function TVGallery() {
                       </Popover.Content>
                     </Popover.Portal>
                   </Popover.Root>
-                  <button
-                    type="button"
-                    className={iconButton}
-                    aria-label={allSelected ? "Clear selection" : `Select all ${visibleImages.length}`}
-                    title={allSelected ? "Clear selection" : "Select all"}
-                    aria-pressed={allSelected}
-                    disabled={visibleImages.length === 0}
-                    onClick={() => {
-                      setSelected(allSelected ? [] : visibleImages.map(img => img.content_id));
-                      lastClickedIndex.current = null;
-                    }}
+                  <Tooltip
+                    label={
+                      allSelected
+                        ? "Clear selection"
+                        : `Select all ${visibleImages.length} image${visibleImages.length !== 1 ? "s" : ""} shown`
+                    }
                   >
-                    {allSelected ? (
-                      <CheckCircleSolidIcon className="size-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-                    ) : (
-                      <CheckCircleIcon className="size-5" aria-hidden="true" />
-                    )}
-                  </button>
+                    <button
+                      type="button"
+                      className={iconButton}
+                      aria-label={allSelected ? "Clear selection" : `Select all ${visibleImages.length}`}
+                      aria-pressed={allSelected}
+                      disabled={visibleImages.length === 0}
+                      onClick={() => {
+                        setSelected(allSelected ? [] : visibleImages.map(img => img.content_id));
+                        lastClickedIndex.current = null;
+                      }}
+                    >
+                      {allSelected ? (
+                        <CheckCircleSolidIcon className="size-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                      ) : (
+                        <CheckCircleIcon className="size-5" aria-hidden="true" />
+                      )}
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
