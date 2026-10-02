@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { toast } from "sonner";
 import {
@@ -8,14 +8,18 @@ import {
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 import AddToGalleryDialog, { NEW_ALBUM, type AddChoice } from "~/components/AddToGalleryDialog";
+import AllResults, { type Group } from "~/components/AllResults";
 import ArtworkCard from "~/components/ArtworkCard";
 import DiscoverFilters, { DEFAULT_FILTERS, NO_FILTERS, type Filters } from "~/components/DiscoverFilters";
-import SourceLogo from "~/components/SourceLogo";
+import DiscoverHero from "~/components/DiscoverHero";
+import SourcePicker, { ALL_SOURCES } from "~/components/SourcePicker";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Skeleton } from "~/components/ui/skeleton";
 import { createAlbum, fetchAlbums } from "~/utils/galleryApi";
 import {
+  DiscoverApiError,
+  fetchHighlights,
   fetchImportJob,
   fetchSources,
   resolveLink,
@@ -25,6 +29,7 @@ import {
   type DiscoverSource,
   type Framing,
   type ImportJob,
+  type SourceStatus,
 } from "~/utils/discoverApi";
 
 const QUICK_PICKS = ["Landscape", "Seascape", "Winter", "Flowers", "Mountains", "Impressionism"];
@@ -32,7 +37,9 @@ const QUICK_PICKS = ["Landscape", "Seascape", "Winter", "Flowers", "Mountains", 
 // few pages until there is something to look at.
 const WANT_AT_LEAST = 8;
 const MAX_PAGES_PER_LOAD = 4;
-const SEARCH_DELAY_MS = 350;
+// Searching all sources shows a taste of each.
+const ALL_PER_SOURCE = 6;
+const DEFAULT_DELAY_MS = 350;
 const POLL_MS = 400;
 const POLL_FAILURES_BEFORE_GIVING_UP = 15;
 const FRAMING_KEY = "discover.framing";
@@ -69,13 +76,19 @@ export default function Discover() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [sources, setSources] = useState<DiscoverSource[]>([]);
-  const [sourceId, setSourceId] = useState("");
+  // Which sources are resting or busy, kept apart so refreshing it never restarts a search.
+  const [statuses, setStatuses] = useState<Record<string, SourceStatus>>({});
+  const [scope, setScope] = useState<string>(ALL_SOURCES);
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const [focused, setFocused] = useState(false);
+  const [popoversOpen, setPopoversOpen] = useState(0);
 
+  const [highlights, setHighlights] = useState<Artwork[] | null>(null);
   const [albums, setAlbums] = useState<AlbumOption[]>([]);
 
+  // One source at a time...
   const [results, setResults] = useState<Artwork[]>([]);
   const [lastPage, setLastPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -84,6 +97,14 @@ export default function Discover() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const latestSearch = useRef(0);
+
+  // ...or every source at once, each filling in as it answers.
+  const [groups, setGroups] = useState<Record<string, Group>>({});
+  const allTimers = useRef<number[]>([]);
+  const allToken = useRef(0);
+  const ranQuery = useRef<Record<string, string>>({});
+  // Set when a search is a decision (a chip, Enter) and not typing, so nothing is held back.
+  const flushNext = useRef(false);
 
   // The artwork whose dialog is open, and the import that was confirmed (which carries on
   // in the background if the dialog is hidden).
@@ -100,10 +121,18 @@ export default function Discover() {
   const [linkError, setLinkError] = useState("");
   const bookmarklet = useRef<HTMLAnchorElement>(null);
 
-  const source = sources.find((s) => s.id === sourceId) ?? null;
+  const inAll = scope === ALL_SOURCES;
+  const source = inAll ? null : (sources.find((s) => s.id === scope) ?? null);
+  const trimmed = queryInput.trim();
   const dialogStarted = active !== null && active.artwork === dialogArt;
+  const pickerSources = useMemo(
+    () => sources.map((s) => ({ ...s, status: statuses[s.id] ?? s.status })),
+    [sources, statuses]
+  );
+  const heroCollapsed = !inAll || focused || trimmed !== "" || popoversOpen > 0;
+  const popoverToggled = (open: boolean) => setPopoversOpen((n) => Math.max(0, n + (open ? 1 : -1)));
 
-  // --- Loading the sources and albums -------------------------------------------
+  // --- Loading the sources, highlights and albums -----------------------------
 
   const loadAlbums = useCallback(async () => {
     try {
@@ -114,16 +143,25 @@ export default function Discover() {
     }
   }, []);
 
+  const refreshStatuses = useCallback(() => {
+    fetchSources()
+      .then((list) => setStatuses(Object.fromEntries(list.map((s) => [s.id, s.status]))))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetchSources()
       .then((list) => {
         setSources(list);
-        setSourceId((current) => current || list[0]?.id || "");
+        setStatuses(Object.fromEntries(list.map((s) => [s.id, s.status])));
       })
       .catch((e) => {
         setError(e.message || "Could not load the art sources");
         setLoading(false);
       });
+    fetchHighlights()
+      .then((day) => setHighlights(day.items))
+      .catch(() => setHighlights([]));
     loadAlbums();
   }, [loadAlbums]);
 
@@ -137,12 +175,13 @@ export default function Discover() {
     );
   }, [sources.length]);
 
-  // --- Searching: as you type -----------------------------------------------------
+  // --- One source: results update as you type, after a pause that depends on the source ---
 
   useEffect(() => {
-    const timer = setTimeout(() => setQuery(queryInput.trim()), SEARCH_DELAY_MS);
+    const delay = source?.search_delay_ms ?? DEFAULT_DELAY_MS;
+    const timer = setTimeout(() => setQuery(queryInput.trim()), delay);
     return () => clearTimeout(timer);
-  }, [queryInput]);
+  }, [queryInput, source?.search_delay_ms]);
 
   const collect = useCallback(
     async (src: string, q: string, firstPage: number, token: number) => {
@@ -171,12 +210,12 @@ export default function Discover() {
   );
 
   useEffect(() => {
-    if (!sourceId) return;
+    if (inAll) return;
     const token = ++latestSearch.current;
     setLoading(true);
     setError("");
     setResults([]);
-    collect(sourceId, query, 1, token)
+    collect(scope, query, 1, token)
       .then((outcome) => {
         if (!outcome) return;
         setResults(outcome.found);
@@ -184,15 +223,24 @@ export default function Discover() {
         setHasMore(outcome.more);
         setLastPage(outcome.lastPage);
       })
-      .catch((e) => token === latestSearch.current && setError(e.message || "Search failed"))
+      .catch((e) => {
+        if (token !== latestSearch.current) return;
+        if (e instanceof DiscoverApiError && e.retryAfter) {
+          setStatuses((current) => ({
+            ...current,
+            [scope]: { state: "resting", retry_after: e.retryAfter!, used: 0, max: 0 },
+          }));
+        }
+        setError(e.message || "Search failed");
+      })
       .finally(() => token === latestSearch.current && setLoading(false));
-  }, [sourceId, query, collect]);
+  }, [scope, inAll, query, collect]);
 
   async function loadMore() {
     const token = latestSearch.current;
     setLoadingMore(true);
     try {
-      const outcome = await collect(sourceId, query, lastPage + 1, token);
+      const outcome = await collect(scope, query, lastPage + 1, token);
       if (!outcome) return;
       setResults((current) => {
         const seen = new Set(current.map(keyOf));
@@ -208,9 +256,111 @@ export default function Discover() {
     }
   }
 
+  // --- All sources: each searched on its own schedule ---------------------------------
+
+  const runGroup = useCallback(
+    async (s: DiscoverSource, q: string, token: number) => {
+      ranQuery.current[s.id] = q;
+      setGroups((current) => ({
+        ...current,
+        [s.id]: { ...(current[s.id] ?? { results: [], hidden: 0, hasMore: false, total: null }), status: "loading" },
+      }));
+      try {
+        const data = await searchArt({
+          source: s.id,
+          q,
+          page: 1,
+          shape: filters.shape,
+          paintings: filters.paintings,
+          sharp: filters.sharp,
+          limit: ALL_PER_SOURCE,
+        });
+        if (token !== allToken.current) return;
+        setGroups((current) => ({
+          ...current,
+          [s.id]: { status: "done", results: data.results, hidden: data.hidden, hasMore: data.has_more, total: data.total },
+        }));
+      } catch (e: any) {
+        if (token !== allToken.current) return;
+        delete ranQuery.current[s.id];
+        const retryAfter = e instanceof DiscoverApiError ? e.retryAfter : undefined;
+        if (retryAfter) {
+          setStatuses((current) => ({
+            ...current,
+            [s.id]: { state: "resting", retry_after: retryAfter, used: 0, max: 0 },
+          }));
+        }
+        setGroups((current) => ({
+          ...current,
+          [s.id]: {
+            status: retryAfter ? "resting" : "error",
+            results: [],
+            hidden: 0,
+            hasMore: false,
+            total: null,
+            error: e.message,
+            retryAfter,
+          },
+        }));
+      }
+    },
+    [filters]
+  );
+
+  useEffect(() => {
+    if (!inAll) return;
+    allTimers.current.forEach(window.clearTimeout);
+    allTimers.current = [];
+    const q = queryInput.trim();
+    const token = ++allToken.current;
+    if (!q) {
+      setGroups({});
+      ranQuery.current = {};
+      return;
+    }
+    // Earlier results stay (dimmed) while typing. A source with none yet shows that it is
+    // coming, or, for the slow ones, that it is waiting for you to stop typing.
+    setGroups((current) =>
+      Object.fromEntries(
+        sources.map((s) => [
+          s.id,
+          current[s.id]
+            ? { ...current[s.id], status: s.weight === "heavy" ? "waiting" : "pending" }
+            : { status: s.weight === "heavy" ? "waiting" : "pending", results: [], hidden: 0, hasMore: false, total: null },
+        ])
+      ) as Record<string, Group>
+    );
+    const decided = flushNext.current;
+    flushNext.current = false;
+    for (const s of sources) {
+      // A filter change on a search this source already answered goes straight to the
+      // server's cache, so there is no reason to hold it back.
+      const delay = decided || ranQuery.current[s.id] === q ? 0 : s.search_delay_ms;
+      allTimers.current.push(window.setTimeout(() => runGroup(s, q, token), delay));
+    }
+    return () => allTimers.current.forEach(window.clearTimeout);
+  }, [inAll, queryInput, sources, runGroup]);
+
+  /** Enter: search every source now, without waiting for the pause. */
+  function searchAllNow() {
+    const q = queryInput.trim();
+    if (!q) return;
+    allTimers.current.forEach(window.clearTimeout);
+    allTimers.current = [];
+    for (const s of sources) runGroup(s, q, allToken.current);
+  }
+
   function runSearch(text: string) {
+    // A chip or a clear is a decision, not typing: no need to wait.
+    flushNext.current = true;
     setQueryInput(text);
     setQuery(text.trim());
+  }
+
+  function chooseScope(next: string) {
+    setScope(next);
+    // Choosing a source is a decision: search it now, with whatever is typed.
+    setQuery(queryInput.trim());
   }
 
   // --- Adding to the gallery -------------------------------------------------------
@@ -345,36 +495,24 @@ export default function Discover() {
   const dialogSource = dialogArt ? (sources.find((s) => s.id === dialogArt.source) ?? null) : null;
   const defaultFraming: Framing = remembered(FRAMING_KEY) === "whole" ? "whole" : "fill";
   const filtersNarrow = filters.shape !== "any" || filters.sharp || Boolean(source?.has_type_filter && filters.paintings);
+  const searchPlaceholder = source
+    ? `Search ${source.name}: an artist, a place, a mood`
+    : "Search every source: an artist, a place, a mood";
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 pb-28">
       <h1 className="mb-1 mt-3 text-center text-2xl font-bold text-foreground">Discover</h1>
-      <p className="mb-6 text-center text-sm text-muted-foreground">
+      <p className="mb-5 text-center text-sm text-muted-foreground">
         Free, high-resolution art, imported at the right size for your Frame.
       </p>
 
-      {/* Sources */}
-      <div
-        role="group"
-        aria-label="Art sources"
-        className="-mx-4 mb-1 flex gap-2 overflow-x-auto px-4 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
-      >
-        {sources.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            aria-pressed={s.id === sourceId}
-            onClick={() => setSourceId(s.id)}
-            className={`flex shrink-0 items-center gap-2 rounded-lg border py-1.5 pl-1.5 pr-3 text-sm font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
-              s.id === sourceId ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:bg-accent"
-            }`}
-          >
-            <SourceLogo source={s} className="size-7" />
-            <span className="whitespace-nowrap">{s.name}</span>
-          </button>
-        ))}
-      </div>
-      <p className="mb-4 min-h-5 text-xs text-muted-foreground">{source?.tagline}</p>
+      <DiscoverHero
+        items={highlights}
+        sources={sources}
+        collapsed={heroCollapsed}
+        onAdd={openAdd}
+        onBrowse={chooseScope}
+      />
 
       {/* Search: results update as you type */}
       <form
@@ -382,7 +520,8 @@ export default function Discover() {
         className="mb-3 flex gap-2"
         onSubmit={(e) => {
           e.preventDefault();
-          runSearch(queryInput);
+          if (inAll) searchAllNow();
+          else runSearch(queryInput);
         }}
       >
         <div className="relative flex-1">
@@ -394,9 +533,11 @@ export default function Discover() {
             type="search"
             value={queryInput}
             onChange={(e) => setQueryInput(e.target.value)}
-            placeholder={source ? `Search ${source.name}: an artist, a place, a mood` : "Search"}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder={searchPlaceholder}
             aria-label="Search for art"
-            className="pl-9 pr-9 [&::-webkit-search-cancel-button]:hidden"
+            className="h-11 pl-9 pr-9 text-base [&::-webkit-search-cancel-button]:hidden"
           />
           {queryInput && (
             <button
@@ -413,20 +554,29 @@ export default function Discover() {
           filters={filters}
           onChange={setFilters}
           source={source}
+          onOpenChange={popoverToggled}
           onSwitchToTvReady={() => {
             const ready = sources.find((s) => s.tv_ready);
-            if (ready) setSourceId(ready.id);
+            if (ready) chooseScope(ready.id);
           }}
         />
       </form>
-      <div className="mb-4 flex flex-wrap gap-2">
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <SourcePicker
+          sources={pickerSources}
+          scope={scope}
+          onSelect={chooseScope}
+          onOpen={refreshStatuses}
+          onOpenChange={popoverToggled}
+        />
         {QUICK_PICKS.map((pick) => (
           <button
             key={pick}
             type="button"
             onClick={() => runSearch(pick)}
             className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
-              query.toLowerCase() === pick.toLowerCase()
+              query.toLowerCase() === pick.toLowerCase() || trimmed.toLowerCase() === pick.toLowerCase()
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-border bg-card hover:bg-accent"
             }`}
@@ -435,9 +585,26 @@ export default function Discover() {
           </button>
         ))}
       </div>
+      {source && <p className="mb-4 text-xs text-muted-foreground">{source.tagline}</p>}
+      {!source && <div className="mb-4" />}
 
-      {/* Results */}
-      {error && (
+      {/* All sources */}
+      {inAll && trimmed !== "" && (
+        <AllResults
+          sources={sources}
+          groups={groups}
+          added={added}
+          onAdd={openAdd}
+          onSeeAll={chooseScope}
+          onRetry={(id) => {
+            const s = sources.find((x) => x.id === id);
+            if (s) runGroup(s, trimmed, allToken.current);
+          }}
+        />
+      )}
+
+      {/* One source */}
+      {error && (!inAll || sources.length === 0) && (
         <div
           role="alert"
           className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100"
@@ -449,7 +616,7 @@ export default function Discover() {
         </div>
       )}
 
-      {source && !error && (
+      {!inAll && source && !error && (
         <p className="mb-3 text-xs text-muted-foreground" aria-live="polite">
           {loading ? "Searching…" : `${results.length} work${results.length === 1 ? "" : "s"} shown`}
           {!loading && hidden > 0 && filtersNarrow && (
@@ -468,54 +635,55 @@ export default function Discover() {
         </p>
       )}
 
-      {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="overflow-hidden rounded-lg border border-border">
-              <Skeleton className="aspect-video rounded-none" />
-              <div className="space-y-2 p-3">
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-3 w-1/2" />
+      {!inAll &&
+        (loading ? (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="overflow-hidden rounded-lg border border-border">
+                <Skeleton className="aspect-video rounded-none" />
+                <div className="space-y-2 p-3">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-1/2" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <>
-          {!error && results.length === 0 && (
-            <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-              <p>Nothing matched{query ? ` “${query}”` : ""}.</p>
-              <p className="mt-1">Try another word{filtersNarrow ? ", or loosen the filters" : ""}.</p>
-              {filtersNarrow && (
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setFilters(NO_FILTERS)}>
-                  Show everything
-                </Button>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {source &&
-              results.map((art) => (
-                <ArtworkCard
-                  key={keyOf(art)}
-                  artwork={art}
-                  source={source}
-                  added={added.has(keyOf(art))}
-                  onAdd={openAdd}
-                />
-              ))}
+            ))}
           </div>
+        ) : (
+          <>
+            {!error && results.length === 0 && (
+              <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                <p>Nothing matched{query ? ` “${query}”` : ""}.</p>
+                <p className="mt-1">Try another word{filtersNarrow ? ", or loosen the filters" : ""}.</p>
+                {filtersNarrow && (
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => setFilters(NO_FILTERS)}>
+                    Show everything
+                  </Button>
+                )}
+              </div>
+            )}
 
-          {hasMore && (
-            <div className="mt-6 text-center">
-              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? "Loading…" : "Load more"}
-              </Button>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {source &&
+                results.map((art) => (
+                  <ArtworkCard
+                    key={keyOf(art)}
+                    artwork={art}
+                    source={source}
+                    added={added.has(keyOf(art))}
+                    onAdd={openAdd}
+                  />
+                ))}
             </div>
-          )}
-        </>
-      )}
+
+            {hasMore && (
+              <div className="mt-6 text-center">
+                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? "Loading…" : "Load more"}
+                </Button>
+              </div>
+            )}
+          </>
+        ))}
 
       {/* From a link */}
       <section className="mt-10 rounded-lg border border-border bg-card p-4" aria-labelledby="discover-link-heading">

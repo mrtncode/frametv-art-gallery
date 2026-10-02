@@ -19,6 +19,19 @@ export type DiscoverSource = {
   /** Files come pre-cropped to 3840x2160, so there is nothing to choose about framing. */
   tv_ready: boolean;
   has_type_filter: boolean;
+  /** "heavy" sources cost the most to ask, so they wait until typing has settled. */
+  weight: "light" | "heavy";
+  /** How long to wait after the last keystroke before searching this source. */
+  search_delay_ms: number;
+  status: SourceStatus;
+};
+
+export type SourceStatus = {
+  state: "ok" | "busy" | "resting";
+  /** Seconds until it can be asked again, when busy or resting */
+  retry_after: number;
+  used: number;
+  max: number;
 };
 
 export type Artwork = {
@@ -36,6 +49,8 @@ export type Artwork = {
   /** Share (0-1) of the picture lost when cropped to 16:9; null when the shape is unknown. */
   crop_loss: number | null;
   tv_ready: boolean;
+  /** A larger picture, on highlights only */
+  hero_url?: string;
 };
 
 export type SearchPage = {
@@ -46,6 +61,8 @@ export type SearchPage = {
   hidden: number;
   has_more: boolean;
   total: number | null;
+  /** True when the page came from the server's 24-hour search cache */
+  cached: boolean;
 };
 
 export type Framing = "fill" | "whole";
@@ -82,9 +99,18 @@ export function proxiedImageUrl(url: string) {
   return `${API_BASE}/api/discover/thumb?url=${encodeURIComponent(url)}`;
 }
 
+/** A failed request. retryAfter (seconds) is set when a source is resting or busy. */
+export class DiscoverApiError extends Error {
+  retryAfter?: number;
+  constructor(message: string, retryAfter?: number) {
+    super(message);
+    this.retryAfter = retryAfter;
+  }
+}
+
 async function readJson(res: Response) {
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  if (!res.ok) throw new DiscoverApiError(data.error || `Request failed (${res.status})`, data.retry_after);
   return data;
 }
 
@@ -99,6 +125,8 @@ export async function searchArt(options: {
   shape: Shape;
   paintings: boolean;
   sharp: boolean;
+  /** Trim the page, when only a taste of this source is wanted */
+  limit?: number;
 }): Promise<SearchPage> {
   const params = new URLSearchParams({
     source: options.source,
@@ -108,7 +136,15 @@ export async function searchArt(options: {
     paintings: options.paintings ? "1" : "0",
     sharp: options.sharp ? "1" : "0",
   });
+  if (options.limit) params.set("limit", String(options.limit));
   return readJson(await fetch(`${API_BASE}/api/discover/search?${params}`));
+}
+
+export type Highlights = { mood: string; items: Artwork[] };
+
+/** A few wide, sharp pictures from different sources, picked fresh each day. */
+export async function fetchHighlights(): Promise<Highlights> {
+  return readJson(await fetch(`${API_BASE}/api/discover/highlights`));
 }
 
 export async function resolveLink(url: string): Promise<{ source: string; id: string; artwork: Artwork }> {

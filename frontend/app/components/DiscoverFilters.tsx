@@ -35,13 +35,14 @@ interface DiscoverFiltersProps {
   source: DiscoverSource | null;
   /** When the source offers it, a quick route to art that is already 16:9 */
   onSwitchToTvReady?: () => void;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export default function DiscoverFilters({ filters, onChange, source, onSwitchToTvReady }: DiscoverFiltersProps) {
+export default function DiscoverFilters({ filters, onChange, source, onSwitchToTvReady, onOpenChange }: DiscoverFiltersProps) {
   const count = activeFilterCount(filters, source);
 
   return (
-    <Popover.Root>
+    <Popover.Root onOpenChange={onOpenChange}>
       <Popover.Trigger asChild>
         <Button type="button" variant="outline" aria-label={`Filters, ${count} active`} className="shrink-0">
           <AdjustmentsHorizontalIcon aria-hidden="true" />
