@@ -10,6 +10,9 @@ from urllib.parse import urlsplit
 
 import requests
 
+from .errors import DiscoverError  # noqa: F401  (re-exported)
+from .limits import Limiter
+
 USER_AGENT = "frametv-art-gallery/discover (+https://github.com/mrtncode/frametv-art-gallery)"
 
 TARGET_WIDTH = 3840
@@ -29,19 +32,13 @@ READ_TIMEOUT = 30
 MAX_DOWNLOAD_BYTES = 120 * 1024 * 1024
 
 
-class DiscoverError(Exception):
-    """A failure that is safe to show to the user."""
-
-    def __init__(self, message, status=400):
-        super().__init__(message)
-        self.status = status
-
-
 def http_get(url, *, stream=False, params=None, headers=None, allowed_hosts=None):
     """GET with the project user agent and uniform error handling."""
     merged = {"User-Agent": USER_AGENT}
     if headers:
         merged.update(headers)
+    host = urlsplit(url).hostname
+    Limiter.acquire(host)
     try:
         response = requests.get(
             url,
@@ -60,17 +57,20 @@ def http_get(url, *, stream=False, params=None, headers=None, allowed_hosts=None
         raise DiscoverError("That artwork could not be found", 404)
     if response.status_code in (403, 429):
         response.close()
+        Limiter.trip(host)
         raise DiscoverError(
-            f"{urlsplit(url).hostname} is limiting requests right now, try again in a few minutes",
-            429,
+            f"{host} is limiting requests right now, try again in a few minutes", 429, retry_after=300
         )
     if not response.ok:
         response.close()
         raise DiscoverError(f"The source answered with HTTP {response.status_code}", 502)
+    Limiter.success(host)
     return response
 
 
 def http_post_json(url, payload, headers=None):
+    host = urlsplit(url).hostname
+    Limiter.acquire(host)
     try:
         response = requests.post(
             url,
@@ -81,12 +81,13 @@ def http_post_json(url, payload, headers=None):
     except requests.RequestException as exc:
         raise DiscoverError(f"Could not reach {urlsplit(url).hostname}: {exc}", 502) from exc
     if response.status_code in (403, 429):
+        Limiter.trip(host)
         raise DiscoverError(
-            f"{urlsplit(url).hostname} is limiting requests right now, try again in a few minutes",
-            429,
+            f"{host} is limiting requests right now, try again in a few minutes", 429, retry_after=300
         )
     if not response.ok:
         raise DiscoverError(f"The source answered with HTTP {response.status_code}", 502)
+    Limiter.success(host)
     return response.json()
 
 

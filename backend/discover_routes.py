@@ -13,14 +13,15 @@ from urllib.parse import urlsplit
 from flask import Blueprint, Response, current_app, jsonify, request
 from models import Album, Image, db
 from utils.discover import SOURCES, configure, get_source, resolve_url, source_info
+from utils.discover.aggregate import cached_search, filter_results, highlights
 from utils.discover.artic import AIC_HEADERS
 from utils.discover.common import (
     DEFAULT_SHAPE,
     MAX_DOWNLOAD_BYTES,
     SHAPES,
     DiscoverError,
+    PAGE_SIZE,
     http_get,
-    matches_sharp,
     prune_old_files,
 )
 from utils.discover.crop import (
@@ -70,7 +71,10 @@ def _configure(state):
 
 @discover_routes.errorhandler(DiscoverError)
 def _discover_error(error):
-    return jsonify(error=str(error)), error.status
+    body = {"error": str(error)}
+    if error.retry_after:
+        body["retry_after"] = error.retry_after
+    return jsonify(body), error.status
 
 
 def _store():
@@ -98,16 +102,31 @@ def api_discover_search():
     source = get_source(request.args.get("source", ""))
     query = request.args.get("q", "").strip()[:200]
     page = _int_arg("page", 1, 1, 200)
+    limit = _int_arg("limit", PAGE_SIZE, 1, PAGE_SIZE)
     paintings_only = request.args.get("paintings", "1") != "0"
     shape = request.args.get("shape", DEFAULT_SHAPE)
     if shape not in SHAPES:
         raise DiscoverError("shape must be one of: " + ", ".join(SHAPES))
-    result = source.search(query, page, paintings_only, shape)
-    if request.args.get("sharp") == "1":
-        kept = [item for item in result["results"] if matches_sharp(item)]
-        result["hidden"] += len(result["results"]) - len(kept)
-        result["results"] = kept
-    return jsonify(source=source.id, query=query, **result)
+
+    # The source's own page is cached for a day; the filters are applied to it afterwards.
+    raw, cached = cached_search(source, query, page, paintings_only)
+    results, hidden = filter_results(raw["results"], shape, request.args.get("sharp") == "1")
+    return jsonify(
+        source=source.id,
+        query=query,
+        results=results[:limit],
+        page=page,
+        hidden=hidden,
+        has_more=raw["has_more"] or len(results) > limit,
+        total=raw["total"],
+        cached=cached,
+    )
+
+
+@discover_routes.route("/api/discover/highlights", methods=["GET"])
+def api_discover_highlights():
+    """A few wide, sharp pictures from different sources for the hero, refreshed daily."""
+    return jsonify(highlights(SOURCES))
 
 
 @discover_routes.route("/api/discover/thumb", methods=["GET"])

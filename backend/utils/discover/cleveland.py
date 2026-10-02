@@ -18,6 +18,7 @@ def _to_int(value):
 
 
 class Cleveland:
+    api_hosts = ("openaccess-api.clevelandart.org",)
     id = "cleveland"
     name = "Cleveland Museum of Art"
     short_name = "the Cleveland Museum of Art"

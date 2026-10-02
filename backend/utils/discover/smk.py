@@ -10,6 +10,7 @@ _PAGE_URL = re.compile(r"^/artwork/image/([A-Za-z0-9._-]+)$")
 
 
 class SMK:
+    api_hosts = ("api.smk.dk",)
     id = "smk"
     name = "SMK, National Gallery of Denmark"
     short_name = "SMK"

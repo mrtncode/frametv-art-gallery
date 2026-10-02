@@ -1,10 +1,12 @@
 """Discover: search free, high-resolution art and import it ready for the Frame."""
 
+import os
 from urllib.parse import urlsplit
 
 from .artic import artic
 from .cleveland import cleveland
 from .common import DiscoverError, DiskCache
+from .limits import Limiter
 from .met import met
 from .reframed import reframed
 from .smk import smk
@@ -41,6 +43,10 @@ def source_info(source):
         "default_query": source.default_query,
         "tv_ready": source.id == "reframed",
         "has_type_filter": getattr(source, "has_type_filter", source.id != "reframed"),
+        # How eagerly it may be searched: heavy sources wait until typing has settled.
+        "weight": getattr(source, "weight", "light"),
+        "search_delay_ms": getattr(source, "search_delay_ms", 350),
+        "status": Limiter.status(getattr(source, "api_hosts", ())),
     }
 
 
@@ -60,3 +66,4 @@ def resolve_url(url):
 
 def configure(cache_dir):
     DiskCache.directory = cache_dir
+    Limiter.directory = os.path.join(cache_dir, "limits")

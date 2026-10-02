@@ -9,3 +9,17 @@ os.environ.setdefault(
 )
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fresh_discover_state(tmp_path, monkeypatch):
+    """Discover keeps request budgets, cooldowns and cached searches on disk; give each
+    test its own so one test's 403 or cached search never leaks into another."""
+    from utils.discover.common import DiskCache
+    from utils.discover.limits import Limiter
+
+    monkeypatch.setattr(DiskCache, "directory", str(tmp_path / "discover-cache"))
+    monkeypatch.setattr(Limiter, "directory", str(tmp_path / "discover-limits"))

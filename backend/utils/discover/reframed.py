@@ -62,6 +62,7 @@ def _is_artwork_path(path):
 
 
 class Reframed:
+    api_hosts = ("www.reframed.gallery",)
     id = "reframed"
     name = "Reframed Gallery"
     short_name = "Reframed Gallery"

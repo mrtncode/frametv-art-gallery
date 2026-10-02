@@ -57,6 +57,11 @@ def summarise(record):
 
 
 class Met:
+    api_hosts = ("collectionapi.metmuseum.org",)
+    # The Met needs a search plus dozens of lookups, and its firewall dislikes bursts, so it is
+    # only searched once the visitor has stopped typing.
+    weight = "heavy"
+    search_delay_ms = 1500
     id = "met"
     name = "The Metropolitan Museum of Art"
     short_name = "The Met"

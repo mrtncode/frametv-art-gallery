@@ -47,6 +47,7 @@ def iiif_url(image_id, fit, width, height):
 
 
 class ArtInstituteChicago:
+    api_hosts = ("api.artic.edu",)
     id = "artic"
     name = "Art Institute of Chicago"
     short_name = "the Art Institute of Chicago"

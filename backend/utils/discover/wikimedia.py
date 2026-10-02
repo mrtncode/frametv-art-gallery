@@ -70,6 +70,7 @@ def _title_from_file(file_title):
 
 
 class CommonsCollection:
+    api_hosts = ("commons.wikimedia.org",)
     support_url = "https://donate.wikimedia.org/"
     support_label = "Support Wikimedia"
     support_name = "Wikimedia Commons"

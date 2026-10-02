@@ -118,12 +118,13 @@ def test_sources_describe_where_to_send_thanks(client):
     assert all(s["name"] and s["support_label"] and s["icon_url"] for s in sources)
 
 
-def test_search_passes_the_filters_to_the_source(client, fake):
+def test_search_asks_the_source_for_the_raw_page_and_filters_afterwards(client, fake):
     client.get("/api/discover/search?source=fake&q=%20sunset%20&page=3&paintings=0&shape=any")
     client.get("/api/discover/search?source=fake&q=x&page=99999")
     client.get("/api/discover/search?source=fake")
 
-    assert fake.searches == [("sunset", 3, False, "any"), ("x", 200, True, "wide"), ("", 1, True, "wide")]
+    # The shape is applied to the cached page afterwards, so the source is always asked for "any".
+    assert fake.searches == [("sunset", 3, False, "any"), ("x", 200, True, "any"), ("", 1, True, "any")]
 
 
 def test_search_rejects_unknown_sources_pages_and_shapes(client, fake):
@@ -136,11 +137,18 @@ def test_search_rejects_unknown_sources_pages_and_shapes(client, fake):
     assert bad_shape.status_code == 400 and "shape must be one of" in bad_shape.get_json()["error"]
 
 
-@pytest.mark.parametrize("shape", ["any", "landscape", "wide", "fits"])
-def test_every_shape_is_accepted(client, fake, shape):
-    client.get(f"/api/discover/search?source=fake&shape={shape}")
+@pytest.mark.parametrize(
+    "shape, kept",
+    [("any", ["tall", "landscape", "wide", "fits"]), ("landscape", ["landscape", "wide", "fits"]),
+     ("wide", ["wide", "fits"]), ("fits", ["fits"])],
+)
+def test_every_shape_filters_the_page_the_source_returned(client, fake, shape, kept):
+    fake.results = [shaped_item("tall", 0.7), shaped_item("landscape", 1.3), shaped_item("wide", 1.65), shaped_item("fits", 1.78)]
 
-    assert fake.searches[-1][3] == shape
+    response = client.get(f"/api/discover/search?source=fake&shape={shape}")
+
+    assert response.status_code == 200
+    assert [r["id"] for r in response.get_json()["results"]] == kept
 
 
 def test_a_source_failure_is_reported_as_json(client, fake, monkeypatch):
@@ -395,6 +403,12 @@ def test_an_image_from_before_source_tracking_reads_as_uploaded(client):
     assert details["source"] is None and details["source_label"] == "Uploaded"
 
 
+def shaped_item(item_id, aspect):
+    from utils.discover.common import crop_loss
+
+    return {"source": "fake", "id": item_id, "aspect": aspect, "crop_loss": crop_loss(aspect)}
+
+
 def sized(item_id, width, height, tv_ready=False):
     return {"source": "fake", "id": item_id, "width": width, "height": height, "tv_ready": tv_ready}
 
@@ -415,3 +429,207 @@ def test_the_sharp_filter_keeps_only_works_that_will_be_crisp_on_4k(client, fake
     assert len(everything["results"]) == 6
     assert [r["id"] for r in sharp["results"]] == ["big", "tall", "ready"]
     assert sharp["hidden"] == 3
+
+
+# --- Cached searches, per-source flags and highlights -------------------------------
+
+
+def search(client, **params):
+    params.setdefault("source", "fake")
+    return client.get("/api/discover/search", query_string=params)
+
+
+def test_a_repeated_search_is_served_from_the_cache(client, fake):
+    first = search(client, q="monet").get_json()
+    second = search(client, q="monet").get_json()
+
+    assert fake.searches == [("monet", 1, True, "any")]  # the source was asked once
+    assert first["cached"] is False and second["cached"] is True
+
+
+def test_changing_a_filter_reuses_the_cached_page(client, fake):
+    fake.results = [shaped_item("wide", 1.7), shaped_item("tall", 0.7)]
+
+    shown = {shape: [r["id"] for r in search(client, q="x", shape=shape).get_json()["results"]]
+             for shape in ("any", "wide", "fits")}
+
+    assert shown == {"any": ["wide", "tall"], "wide": ["wide"], "fits": []}
+    assert len(fake.searches) == 1
+
+
+def test_the_cache_is_per_query_page_and_type_not_shared(client, fake):
+    search(client, q="monet")
+    search(client, q="  MONET ")            # same search, whatever the case or spacing
+    search(client, q="monet", page=2)
+    search(client, q="monet", paintings=0)
+    search(client, q="degas")
+
+    assert [s[:3] for s in fake.searches] == [
+        ("monet", 1, True), ("monet", 2, True), ("monet", 1, False), ("degas", 1, True)
+    ]
+
+
+def test_a_failed_search_is_not_remembered(client, fake, monkeypatch):
+    calls = []
+
+    def flaky(query, page, paintings_only, shape):
+        calls.append(query)
+        if len(calls) == 1:
+            raise DiscoverError("The source is having a moment", 502)
+        return {"results": [], "page": 1, "hidden": 0, "has_more": False, "total": 0}
+
+    monkeypatch.setattr(fake, "search", flaky)
+
+    assert search(client, q="x").status_code == 502
+    assert search(client, q="x").status_code == 200
+    assert len(calls) == 2
+
+
+def test_cached_searches_are_released_after_a_day(client, fake, monkeypatch):
+    import time
+
+    start = time.time()
+    search(client, q="monet")
+    monkeypatch.setattr("utils.discover.common.time.time", lambda: start + 23 * 3600)
+    search(client, q="monet")
+    assert len(fake.searches) == 1                     # still fresh at 23 hours
+
+    monkeypatch.setattr("utils.discover.common.time.time", lambda: start + 25 * 3600)
+    assert search(client, q="monet").get_json()["cached"] is False
+    assert len(fake.searches) == 2                     # released after a day
+
+
+def test_limit_trims_a_page_and_says_there_is_more(client, fake):
+    fake.results = [shaped_item(str(n), 1.78) for n in range(10)]
+
+    page = search(client, q="x", limit=4).get_json()
+
+    assert len(page["results"]) == 4 and page["has_more"] is True
+    assert len(search(client, q="x", limit=24).get_json()["results"]) == 10
+    assert search(client, q="x", limit=24).get_json()["has_more"] is False
+
+
+def test_a_resting_source_says_when_to_try_again(client, fake, monkeypatch):
+    def resting(*_):
+        raise DiscoverError("The source is resting", 429, retry_after=240)
+
+    monkeypatch.setattr(fake, "search", resting)
+
+    response = search(client, q="x")
+
+    assert response.status_code == 429
+    assert response.get_json() == {"error": "The source is resting", "retry_after": 240}
+
+
+def test_sources_say_how_eagerly_each_may_be_searched(client):
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+
+    assert (sources["met"]["weight"], sources["met"]["search_delay_ms"]) == ("heavy", 1500)
+    assert (sources["artic"]["weight"], sources["artic"]["search_delay_ms"]) == ("light", 350)
+    assert sources["met"]["status"]["state"] == "ok"
+
+
+def test_sources_report_when_one_is_resting(client):
+    from utils.discover.limits import Limiter
+
+    Limiter.trip("collectionapi.metmuseum.org")
+
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+
+    assert sources["met"]["status"]["state"] == "resting" and sources["met"]["status"]["retry_after"] > 0
+    assert sources["artic"]["status"]["state"] == "ok"
+
+
+class StubSource:
+    def __init__(self, source_id, results=None, error=None):
+        self.id, self._results, self._error, self.searches = source_id, results or [], error, []
+
+    def search(self, query, page, paintings_only, shape):
+        self.searches.append(query)
+        if self._error:
+            raise self._error
+        return {"results": self._results, "page": page, "hidden": 0, "has_more": False, "total": len(self._results)}
+
+
+def art(source, item_id, width, height, thumb="https://t/x.jpg", tv_ready=False):
+    from utils.discover.common import artwork
+
+    return artwork(source, item_id, f"Work {item_id}", "Artist", "", thumb, "https://t/p", "CC0",
+                   width=width, height=height, tv_ready=tv_ready)
+
+
+def test_highlights_pick_wide_sharp_works_and_alternate_between_sources():
+    import datetime
+
+    from utils.discover.aggregate import highlights
+
+    sources = {
+        "reframed": StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True), art("reframed", "r2", None, None, tv_ready=True)]),
+        "artic": StubSource("artic", [art("artic", "square", 4000, 4000), art("artic", "a1", 6000, 3400), art("artic", "a2", 6000, 3400)]),
+        "cleveland": StubSource("cleveland", [art("cleveland", "small", 2000, 1100)]),   # not sharp: skipped
+        "smk": StubSource("smk", error=DiscoverError("resting", 429, retry_after=60)),    # failing: skipped
+    }
+
+    result = highlights(sources, today=datetime.date(2026, 10, 2))
+
+    assert [(i["source"], i["id"]) for i in result["items"]] == [
+        ("reframed", "r1"), ("artic", "a1"), ("reframed", "r2"), ("artic", "a2")
+    ]
+    assert result["mood"] in __import__("utils.discover.aggregate", fromlist=["MOODS"]).MOODS
+
+
+def test_highlights_leave_out_the_met_and_are_remembered_for_the_day():
+    import datetime
+
+    from utils.discover.aggregate import highlights
+
+    met_like = StubSource("met", [art("met", "m1", 6000, 3400)])
+    reframed = StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True)])
+    sources = {"met": met_like, "reframed": reframed}
+    day = datetime.date(2026, 10, 3)
+
+    first = highlights(sources, today=day)
+    second = highlights(sources, today=day)
+
+    assert [i["source"] for i in first["items"]] == ["reframed"] and met_like.searches == []
+    assert second == first and len(reframed.searches) == 1
+    assert highlights(sources, today=datetime.date(2026, 10, 4))["mood"] != first["mood"]  # a new day, a new theme
+
+
+def test_a_day_with_no_highlights_is_not_remembered():
+    import datetime
+
+    from utils.discover.aggregate import highlights
+
+    broken = StubSource("reframed", error=DiscoverError("down", 502))
+    day = datetime.date(2026, 10, 5)
+    assert highlights({"reframed": broken}, today=day)["items"] == []
+
+    working = StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True)])
+    assert len(highlights({"reframed": working}, today=day)["items"]) == 1
+
+
+@pytest.mark.parametrize(
+    "source, thumb, expected",
+    [
+        ("reframed", "https://cdn.reframed.gallery/cdn-cgi/image/width=480,quality=75,format=auto/originals/A.jpg",
+         "https://cdn.reframed.gallery/cdn-cgi/image/width=1600,quality=75,format=auto/originals/A.jpg"),
+        ("artic", "https://www.artic.edu/iiif/2/abc/full/400,/0/default.jpg",
+         "https://www.artic.edu/iiif/2/abc/full/1400,/0/default.jpg"),
+        ("smk", "https://iip-thumb.smk.dk/iiif/jp2/x.jp2/full/!480,/0/default.jpg",
+         "https://iip-thumb.smk.dk/iiif/jp2/x.jp2/full/!1400,/0/default.jpg"),
+        ("louvre", "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Name.jpg/480px-Name.jpg",
+         "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Name.jpg/1280px-Name.jpg"),
+        ("cleveland", "https://openaccess-cdn.clevelandart.org/1/1_web.jpg", "https://openaccess-cdn.clevelandart.org/1/1_web.jpg"),
+    ],
+)
+def test_the_hero_asks_each_source_for_a_larger_picture(source, thumb, expected):
+    from utils.discover.aggregate import hero_url
+
+    assert hero_url({"source": source, "thumb_url": thumb}) == expected
+
+
+def test_the_highlights_endpoint_returns_the_days_picks(client, monkeypatch):
+    monkeypatch.setattr(discover_routes, "highlights", lambda sources: {"mood": "winter", "items": [{"id": "1"}]})
+
+    assert client.get("/api/discover/highlights").get_json() == {"mood": "winter", "items": [{"id": "1"}]}
