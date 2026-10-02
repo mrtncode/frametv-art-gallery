@@ -1,0 +1,139 @@
+// API service for Discover: searching free art sources and importing from them
+
+const API_BASE = import.meta.env.VITE_API_URL || window.location.origin;
+
+export type DiscoverSource = {
+  id: string;
+  name: string;
+  short_name: string;
+  tagline: string;
+  site_url: string;
+  support_url: string;
+  support_label: string;
+  icon_url: string;
+  license: string;
+  default_query: string;
+  /** Files come pre-cropped to 3840x2160, so there is nothing to choose about framing. */
+  tv_ready: boolean;
+  has_type_filter: boolean;
+};
+
+export type Artwork = {
+  source: string;
+  id: string;
+  title: string;
+  artist: string;
+  date: string;
+  thumb_url: string;
+  page_url: string;
+  license: string;
+  width: number | null;
+  height: number | null;
+  aspect: number | null;
+  /** Share (0-1) of the picture lost when cropped to 16:9; null when the shape is unknown. */
+  crop_loss: number | null;
+  tv_ready: boolean;
+};
+
+export type SearchPage = {
+  source: string;
+  query: string;
+  results: Artwork[];
+  page: number;
+  hidden: number;
+  has_more: boolean;
+  total: number | null;
+};
+
+export type Framing = "fill" | "whole";
+
+export type ImportResult = {
+  filename: string;
+  duplicate_of: string | null;
+  album_id: number | null;
+  width: number;
+  height: number;
+  quality: "tv_ready" | "soft" | "low";
+};
+
+export type ImportJob = {
+  id: string;
+  state: "queued" | "running" | "done" | "error";
+  stage: string;
+  /** null while the size of the download is not known */
+  percent: number | null;
+  received_bytes: number;
+  total_bytes: number | null;
+  message: string;
+  title: string | null;
+  artist: string | null;
+  result: ImportResult | null;
+  error: string | null;
+};
+
+/** Same image, fetched through this app, for when the browser cannot load it directly. */
+export function proxiedImageUrl(url: string) {
+  return `${API_BASE}/api/discover/thumb?url=${encodeURIComponent(url)}`;
+}
+
+async function readJson(res: Response) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+  return data;
+}
+
+export async function fetchSources(): Promise<DiscoverSource[]> {
+  return (await readJson(await fetch(`${API_BASE}/api/discover/sources`))).sources;
+}
+
+export async function searchArt(options: {
+  source: string;
+  q: string;
+  page: number;
+  wide: boolean;
+  paintings: boolean;
+}): Promise<SearchPage> {
+  const params = new URLSearchParams({
+    source: options.source,
+    q: options.q,
+    page: String(options.page),
+    wide: options.wide ? "1" : "0",
+    paintings: options.paintings ? "1" : "0",
+  });
+  return readJson(await fetch(`${API_BASE}/api/discover/search?${params}`));
+}
+
+export async function resolveLink(url: string): Promise<{ source: string; id: string; artwork: Artwork }> {
+  return readJson(
+    await fetch(`${API_BASE}/api/discover/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    })
+  );
+}
+
+export async function startImport(options: {
+  source: string;
+  id: string;
+  fit: Framing;
+  albumId?: string | number;
+}): Promise<string> {
+  const data = await readJson(
+    await fetch(`${API_BASE}/api/discover/import`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: options.source,
+        id: options.id,
+        fit: options.fit,
+        album_id: options.albumId || undefined,
+      }),
+    })
+  );
+  return data.job_id;
+}
+
+export async function fetchImportJob(jobId: string): Promise<ImportJob> {
+  return readJson(await fetch(`${API_BASE}/api/discover/jobs/${encodeURIComponent(jobId)}`));
+}

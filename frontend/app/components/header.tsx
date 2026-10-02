@@ -9,6 +9,7 @@ const VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 const pageNames: { [key: string]: string } = {
   "/": "Home",
   "/gallery": "Gallery",
+  "/discover": "Discover",
   "/settings": "Settings"
 };
 
