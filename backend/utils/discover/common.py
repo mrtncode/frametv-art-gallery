@@ -1,0 +1,230 @@
+"""Shared pieces for the Discover sources: HTTP, caching and artwork shape."""
+
+import hashlib
+import json
+import os
+import re
+import threading
+import time
+from urllib.parse import urlsplit
+
+import requests
+
+USER_AGENT = "frametv-art-gallery/discover (+https://github.com/mrtncode/frametv-art-gallery)"
+
+TARGET_WIDTH = 3840
+TARGET_HEIGHT = 2160
+TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT
+
+PAGE_SIZE = 24
+# A work counts as "wide" for the Frame when it crops to 16:9 with little loss.
+WIDE_MIN_ASPECT = 1.6
+
+CONNECT_TIMEOUT = 10
+READ_TIMEOUT = 30
+MAX_DOWNLOAD_BYTES = 120 * 1024 * 1024
+
+
+class DiscoverError(Exception):
+    """A failure that is safe to show to the user."""
+
+    def __init__(self, message, status=400):
+        super().__init__(message)
+        self.status = status
+
+
+def http_get(url, *, stream=False, params=None, headers=None, allowed_hosts=None):
+    """GET with the project user agent and uniform error handling."""
+    merged = {"User-Agent": USER_AGENT}
+    if headers:
+        merged.update(headers)
+    try:
+        response = requests.get(
+            url,
+            params=params,
+            headers=merged,
+            stream=stream,
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+        )
+    except requests.RequestException as exc:
+        raise DiscoverError(f"Could not reach {urlsplit(url).hostname}: {exc}", 502) from exc
+    if allowed_hosts is not None and urlsplit(response.url).hostname not in allowed_hosts:
+        response.close()
+        raise DiscoverError("The download was redirected to an unexpected host", 502)
+    if response.status_code == 404:
+        response.close()
+        raise DiscoverError("That artwork could not be found", 404)
+    if response.status_code in (403, 429):
+        response.close()
+        raise DiscoverError(
+            f"{urlsplit(url).hostname} is limiting requests right now, try again in a few minutes",
+            429,
+        )
+    if not response.ok:
+        response.close()
+        raise DiscoverError(f"The source answered with HTTP {response.status_code}", 502)
+    return response
+
+
+def http_post_json(url, payload, headers=None):
+    try:
+        response = requests.post(
+            url,
+            json=payload,
+            headers={"User-Agent": USER_AGENT, **(headers or {})},
+            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT),
+        )
+    except requests.RequestException as exc:
+        raise DiscoverError(f"Could not reach {urlsplit(url).hostname}: {exc}", 502) from exc
+    if response.status_code in (403, 429):
+        raise DiscoverError(
+            f"{urlsplit(url).hostname} is limiting requests right now, try again in a few minutes",
+            429,
+        )
+    if not response.ok:
+        raise DiscoverError(f"The source answered with HTTP {response.status_code}", 502)
+    return response.json()
+
+
+def crop_loss(aspect):
+    """Share (0-1) of the picture thrown away by a centred 16:9 crop."""
+    if not aspect:
+        return None
+    if aspect >= TARGET_RATIO:
+        return round(1 - TARGET_RATIO / aspect, 3)
+    return round(1 - aspect / TARGET_RATIO, 3)
+
+
+def artwork(
+    source,
+    item_id,
+    title,
+    artist,
+    date,
+    thumb_url,
+    page_url,
+    license_note,
+    width=None,
+    height=None,
+    aspect=None,
+    tv_ready=False,
+):
+    """The one shape every source returns to the front end."""
+    if width and height:
+        aspect = round(width / height, 3)
+    return {
+        "source": source,
+        "id": str(item_id),
+        "title": (title or "Untitled").strip(),
+        "artist": (artist or "Unknown artist").strip(),
+        "date": (date or "").strip(),
+        "thumb_url": thumb_url,
+        "page_url": page_url,
+        "license": license_note,
+        "width": width,
+        "height": height,
+        "aspect": aspect,
+        "crop_loss": crop_loss(aspect),
+        "tv_ready": tv_ready,
+    }
+
+
+def is_wide(item):
+    """Unknown shapes are kept: better a maybe than hiding a work we cannot judge."""
+    aspect = item.get("aspect")
+    return aspect is None or aspect >= WIDE_MIN_ASPECT
+
+
+def apply_wide(items, wide_only):
+    """Drop works that would lose too much to a 16:9 crop; say how many were hidden."""
+    if not wide_only:
+        return items, 0
+    kept = [item for item in items if is_wide(item)]
+    return kept, len(items) - len(kept)
+
+
+class DownloadPlan:
+    """Everything the importer needs once a source has resolved an artwork."""
+
+    def __init__(self, url, title, artist, source, page_url, width=None, height=None,
+                 server_cropped=False, headers=None):
+        self.url = url
+        self.title = title
+        self.artist = artist
+        self.source = source
+        self.page_url = page_url
+        self.width = width
+        self.height = height
+        self.server_cropped = server_cropped
+        self.headers = headers or {}
+
+
+def slugify_words(text):
+    return re.sub(r"[^a-z0-9]+", " ", (text or "").lower()).split()
+
+
+class DiskCache:
+    """JSON cache on disk, shared by every gunicorn worker.
+
+    Without a directory (as in tests) it quietly does nothing, so callers always
+    work and just fetch again.
+    """
+
+    directory = None
+
+    def __init__(self, namespace, ttl):
+        self.namespace = namespace
+        self.ttl = ttl
+
+    def _path(self, key):
+        if not self.directory:
+            return None
+        digest = hashlib.sha256(key.encode()).hexdigest()[:24]
+        return os.path.join(self.directory, f"{self.namespace}_{digest}.json")
+
+    def get(self, key):
+        path = self._path(key)
+        if not path:
+            return None
+        try:
+            with open(path, encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError):
+            return None
+        if time.time() - payload.get("fetched_at", 0) > self.ttl:
+            return None
+        return payload.get("value")
+
+    def put(self, key, value):
+        path = self._path(key)
+        if not path:
+            return
+        try:
+            os.makedirs(self.directory, exist_ok=True)
+            temp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(temp, "w", encoding="utf-8") as handle:
+                json.dump({"fetched_at": time.time(), "value": value}, handle)
+            os.replace(temp, path)
+        except OSError:
+            pass
+
+    def memo(self, key, producer):
+        hit = self.get(key)
+        if hit is not None:
+            return hit
+        value = producer()
+        self.put(key, value)
+        return value
+
+
+def prune_old_files(directory, max_age_seconds):
+    """Delete cached files nobody has refreshed for a while; called once at startup."""
+    cutoff = time.time() - max_age_seconds
+    for root, _dirs, names in os.walk(directory):
+        for name in names:
+            path = os.path.join(root, name)
+            try:
+                if os.path.getmtime(path) < cutoff:
+                    os.remove(path)
+            except OSError:
+                pass

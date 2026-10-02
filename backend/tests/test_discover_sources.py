@@ -1,0 +1,366 @@
+"""Covers each Discover source: what it asks the museum, and how it reads the answer.
+
+Run with: pytest tests/test_discover_sources.py
+"""
+
+import pytest
+from discover_fakes import FakeNet, FakeResponse
+
+from utils.discover import SOURCES, resolve_url
+from utils.discover.artic import artic
+from utils.discover.cleveland import cleveland
+from utils.discover.common import DiscoverError, DiskCache, prune_old_files
+from utils.discover.met import met
+from utils.discover.reframed import reframed
+
+
+@pytest.fixture
+def net(monkeypatch, tmp_path):
+    # A private cache directory per test, so nothing is remembered from another one.
+    monkeypatch.setattr(DiskCache, "directory", str(tmp_path / "cache"))
+    return FakeNet().install(monkeypatch)
+
+
+# --- Art Institute of Chicago ----------------------------------------------------
+
+
+def aic_record(record_id, title, width, height, public=True, image=True):
+    return {
+        "id": record_id,
+        "title": title,
+        "artist_title": "Claude Monet",
+        "date_display": "1891",
+        "image_id": f"img-{record_id}" if image else None,
+        "thumbnail": {"width": width, "height": height},
+        "is_public_domain": public,
+    }
+
+
+def test_aic_search_asks_for_public_domain_paintings_and_matches_the_text(net):
+    net.add("artworks/search", FakeResponse({
+        "pagination": {"total": 3, "total_pages": 2},
+        "data": [
+            aic_record(1, "Wide", 4000, 2250),
+            aic_record(2, "Square", 3000, 3000),
+            aic_record(3, "Rights held", 4000, 2250, public=False),
+            aic_record(4, "No image", 4000, 2250, image=False),
+        ],
+    }))
+
+    page = artic.search("monet", 1, paintings_only=True, wide_only=True)
+
+    body = net.calls[0]["json"]
+    must = body["query"]["bool"]["must"]
+    # The text has to be inside the query: the API ignores a top-level `q` once `query` is set.
+    assert any("multi_match" in clause and clause["multi_match"]["query"] == "monet" for clause in must)
+    assert {"term": {"is_public_domain": True}} in must
+    assert {"term": {"artwork_type_title.keyword": "Painting"}} in must
+    assert "q" not in body
+    assert "AIC-User-Agent" in net.calls[0]["headers"]
+
+    assert [item["title"] for item in page["results"]] == ["Wide"]
+    assert page["hidden"] == 1  # the square one
+    assert page["has_more"] is True and page["total"] == 3
+    item = page["results"][0]
+    assert item["thumb_url"] == "https://www.artic.edu/iiif/2/img-1/full/400,/0/default.jpg"
+    assert item["page_url"] == "https://www.artic.edu/artworks/1"
+    assert item["crop_loss"] == pytest.approx(0, abs=0.001)
+
+
+def test_aic_can_include_everything_not_only_paintings(net):
+    net.add("artworks/search", FakeResponse({"pagination": {"total": 0, "total_pages": 0}, "data": []}))
+
+    artic.search("", 1, paintings_only=False, wide_only=False)
+
+    must = net.calls[0]["json"]["query"]["bool"]["must"]
+    assert not any("artwork_type_title.keyword" in str(clause) for clause in must)
+    # An empty search still needs something to match, so it falls back to the default.
+    assert must[0]["multi_match"]["query"] == artic.default_query
+
+
+def test_aic_plan_asks_the_museum_to_crop(net):
+    net.add("artworks/64818", FakeResponse({"data": aic_record(64818, "Stacks of Wheat", 5898, 4176)}))
+
+    plan = artic.plan("64818", "fill")
+
+    assert plan.url == "https://www.artic.edu/iiif/2/img-64818/0,429,5898,3317/3840,2160/0/default.jpg"
+    assert plan.server_cropped and "AIC-User-Agent" in plan.headers
+
+
+def test_aic_refuses_works_that_are_not_public_domain(net):
+    net.add("artworks/9", FakeResponse({"data": aic_record(9, "Rights held", 4000, 2250, public=False)}))
+
+    with pytest.raises(DiscoverError):
+        artic.plan("9", "fill")
+
+
+# --- Cleveland ---------------------------------------------------------------------
+
+
+def cleveland_record(record_id, license_status="CC0", width="3400", height="1900", has_print=True):
+    return {
+        "id": record_id,
+        "title": f"Work {record_id}",
+        "creators": [{"description": "Pierre-Auguste Renoir (French, 1841-1919)"}],
+        "creation_date": "1880",
+        "share_license_status": license_status,
+        "url": f"https://www.clevelandart.org/art/{record_id}",
+        "images": {
+            "web": {"url": "https://cdn.test/web.jpg", "width": "900", "height": "500"},
+            "print": {"url": "https://cdn.test/print.jpg", "width": width, "height": height} if has_print else None,
+        },
+    }
+
+
+def test_cleveland_search_only_asks_for_cc0_with_images(net):
+    net.add("openaccess-api", FakeResponse({
+        "info": {"total": 60},
+        "data": [cleveland_record(1), cleveland_record(2, license_status="Copyrighted"),
+                 cleveland_record(3, has_print=False), cleveland_record(4, width="1500", height="2000")],
+    }))
+
+    page = cleveland.search("renoir", 2, paintings_only=True, wide_only=True)
+
+    params = net.calls[0]["params"]
+    assert params["cc0"] == 1 and params["has_image"] == 1 and params["type"] == "Painting"
+    assert params["skip"] == 24 and params["q"] == "renoir"
+    assert [item["id"] for item in page["results"]] == ["1"]
+    assert page["hidden"] == 1  # the portrait
+    assert page["results"][0]["artist"] == "Pierre-Auguste Renoir"  # the bracket is dropped
+    assert page["results"][0]["width"] == 3400 and page["has_more"] is True
+
+
+def test_cleveland_looks_up_an_accession_number_from_a_page_link(net):
+    net.add("openaccess-api", lambda url, params, *_: FakeResponse(
+        {"data": [cleveland_record(136510)]} if params.get("accession_number") == "1958.39" else {"data": []}
+    ))
+
+    assert cleveland.from_url("https://www.clevelandart.org/art/1958.39") == "1958.39"
+    assert cleveland.get("1958.39")["id"] == "136510"
+
+
+# --- The Met -----------------------------------------------------------------------
+
+
+def met_object(object_id, public=True, image=True, height=50.0, width=100.0):
+    return {
+        "objectID": object_id,
+        "title": f"Object {object_id}",
+        "artistDisplayName": "Vincent van Gogh",
+        "objectDate": "1889",
+        "isPublicDomain": public,
+        "primaryImage": f"https://images.metmuseum.org/{object_id}.jpg" if image else "",
+        "primaryImageSmall": f"https://images.metmuseum.org/{object_id}-small.jpg" if image else "",
+        "objectURL": f"https://www.metmuseum.org/art/collection/search/{object_id}",
+        "measurements": [{"elementName": "Overall", "elementMeasurements": {"Height": height, "Width": width}}],
+    }
+
+
+def met_routes(net, objects, ids=None, total=None):
+    net.add("v1.1/search", FakeResponse({"total": total or len(ids or objects), "objectIDs": ids or list(objects)}))
+
+    def obj(url, *_):
+        object_id = int(url.rsplit("/", 1)[1])
+        if object_id not in objects:
+            return FakeResponse(status=404)
+        return FakeResponse(objects[object_id])
+
+    net.add("v1/objects/", obj)
+
+
+def test_met_keeps_only_open_access_works_because_search_cannot_filter(net):
+    met_routes(net, {
+        1: met_object(1),
+        2: met_object(2, public=False),
+        3: met_object(3, image=False),
+        4: met_object(4, height=90, width=60),   # a portrait
+    }, ids=[1, 2, 3, 4, 5], total=500)  # 5 does not exist: skipped, not fatal
+
+    page = met.search("van gogh", 1, paintings_only=True, wide_only=True)
+
+    assert [item["id"] for item in page["results"]] == ["1"]
+    assert page["hidden"] == 1
+    assert page["total"] is None  # the raw total counts works we cannot use
+    assert page["has_more"] is True
+    assert net.calls[0]["params"]["medium"] == "Paintings"
+    assert page["results"][0]["aspect"] == 2.0  # from the physical size, as images are not measured
+
+
+def test_met_reuses_cached_objects(net):
+    met_routes(net, {1: met_object(1)})
+
+    met.search("sunflowers", 1, paintings_only=False, wide_only=False)
+    met.search("sunflowers", 1, paintings_only=False, wide_only=False)
+
+    object_calls = [call for call in net.calls if "v1/objects/" in call["url"]]
+    assert len(object_calls) == 1  # the second search came from the cache
+
+
+def test_met_blocking_us_is_reported_not_swallowed(net):
+    net.add("v1.1/search", FakeResponse({"total": 1, "objectIDs": [1]}))
+    net.add("v1/objects/", FakeResponse(status=403))
+
+    with pytest.raises(DiscoverError) as raised:
+        met.search("monet", 1, paintings_only=True, wide_only=True)
+
+    assert raised.value.status == 429 and "limiting requests" in str(raised.value)
+
+
+def test_met_plan_uses_the_original_image(net):
+    met_routes(net, {7: met_object(7)})
+
+    plan = met.plan("7", "fill")
+
+    assert plan.url == "https://images.metmuseum.org/7.jpg"
+    assert plan.artist == "Vincent van Gogh"
+
+
+# --- Reframed ----------------------------------------------------------------------
+
+SITEMAP = """<urlset>
+<url><loc>https://www.reframed.gallery</loc></url>
+<url><loc>https://www.reframed.gallery/recent</loc></url>
+<url><loc>https://www.reframed.gallery/claude-monet</loc></url>
+<url><loc>https://www.reframed.gallery/claude-monet/impression-sunrise</loc></url>
+<url><loc>https://www.reframed.gallery/claude-monet/wheatstacks</loc></url>
+<url><loc>https://www.reframed.gallery/vincent-van-gogh/starry-night</loc></url>
+<url><loc>https://www.reframed.gallery/collections/new-world</loc></url>
+</urlset>"""
+
+
+def reframed_record(artist, title, slug_artist, slug_title, orientation="landscape"):
+    # Mirrors how the site embeds its data: JSON inside a JS string, quotes escaped.
+    return (
+        '{\\"id\\":\\"123e4567-e89b-12d3-a456-426614174000\\",'
+        f'\\"r2Key\\":\\"originals/{artist} - {title} - reframed.jpg\\",\\"cfImageId\\":\\"x\\",'
+        f'\\"alt\\":\\"{title}\\",\\"href\\":\\"/{slug_artist}/{slug_title}\\",\\"orientation\\":\\"{orientation}\\"}}'
+    )
+
+
+def listing_page(*records):
+    return FakeResponse(text="<script>self.__next_f.push([1,\"" + ",".join(records) + "\"])</script>")
+
+
+def reframed_routes(net):
+    net.add("sitemap.xml", FakeResponse(text=SITEMAP))
+    net.add("/claude-monet", listing_page(
+        reframed_record("Claude Monet", "Impression, Sunrise", "claude-monet", "impression-sunrise"),
+        reframed_record("Claude Monet", "Wheatstacks", "claude-monet", "wheatstacks"),
+        reframed_record("Claude Monet", "Portrait Study", "claude-monet", "portrait-study", orientation="portrait"),
+    ))
+    net.add("/vincent-van-gogh", listing_page(
+        reframed_record("Vincent van Gogh", "Starry Night", "vincent-van-gogh", "starry-night"),
+    ))
+    net.add("/recent", listing_page(
+        reframed_record("Vincent van Gogh", "Starry Night", "vincent-van-gogh", "starry-night"),
+    ))
+
+
+def test_reframed_searches_the_sitemap_and_reads_thumbnails_from_artist_pages(net):
+    reframed_routes(net)
+
+    page = reframed.search("monet", 1, paintings_only=True, wide_only=True)
+
+    assert [item["title"] for item in page["results"]] == ["Impression, Sunrise", "Wheatstacks"]
+    first = page["results"][0]
+    assert first["id"] == "claude-monet/impression-sunrise"
+    assert first["artist"] == "Claude Monet" and first["tv_ready"] is True
+    assert first["thumb_url"].startswith("https://cdn.reframed.gallery/cdn-cgi/image/width=480")
+    assert "Claude%20Monet%20-%20Impression%2C%20Sunrise%20-%20reframed.jpg" in first["thumb_url"]
+    assert page["total"] == 2 and page["has_more"] is False
+    # Collections and the home page are not artworks.
+    assert not any("collections" in item["id"] for item in reframed.search("new world", 1, True, True)["results"])
+
+
+def test_reframed_with_no_search_shows_what_is_new(net):
+    reframed_routes(net)
+
+    page = reframed.search("", 1, paintings_only=True, wide_only=True)
+
+    assert [item["title"] for item in page["results"]] == ["Starry Night"]
+
+
+def test_reframed_hides_portrait_works_unless_asked(net):
+    net.add("sitemap.xml", FakeResponse(text=SITEMAP.replace("wheatstacks", "portrait-study")))
+    reframed_routes(net)
+
+    wide = reframed.search("portrait", 1, paintings_only=True, wide_only=True)
+    everything = reframed.search("portrait", 1, paintings_only=True, wide_only=False)
+
+    assert wide["results"] == [] and wide["hidden"] == 1
+    assert [item["title"] for item in everything["results"]] == ["Portrait Study"]
+
+
+def test_reframed_plan_points_at_the_original_file(net):
+    reframed_routes(net)
+
+    plan = reframed.plan("claude-monet/wheatstacks", "fill")
+
+    assert plan.url == "https://cdn.reframed.gallery/originals/Claude%20Monet%20-%20Wheatstacks%20-%20reframed.jpg"
+    assert plan.page_url == "https://www.reframed.gallery/claude-monet/wheatstacks"
+
+
+def test_reframed_notices_when_its_layout_changes(net):
+    net.add("sitemap.xml", FakeResponse(text=SITEMAP))
+    net.add("/claude-monet", FakeResponse(text="<html>a redesigned page</html>"))
+    net.add("impression-sunrise", FakeResponse(text="<html>a redesigned page</html>"))
+
+    with pytest.raises(DiscoverError):
+        reframed.plan("claude-monet/impression-sunrise", "fill")
+
+
+# --- Pasted page links -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        ("https://www.reframed.gallery/claude-monet/impression-sunrise", ("reframed", "claude-monet/impression-sunrise")),
+        ("https://reframed.gallery/claude-monet/impression-sunrise?ref=x", ("reframed", "claude-monet/impression-sunrise")),
+        ("https://www.artic.edu/artworks/64818/stacks-of-wheat-end-of-summer", ("artic", "64818")),
+        ("https://www.metmuseum.org/art/collection/search/436535", ("met", "436535")),
+        ("https://www.clevelandart.org/art/1958.39", ("cleveland", "1958.39")),
+    ],
+)
+def test_page_links_resolve_to_a_source_and_id(url, expected):
+    assert resolve_url(url) == expected
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://www.reframed.gallery/collections/new-world",
+        "https://www.reframed.gallery/artists",
+        "https://example.com/art/1",
+        "https://evil.test/https://www.metmuseum.org/art/collection/search/1",
+        "javascript:alert(1)",
+        "ftp://www.metmuseum.org/art/collection/search/1",
+        "",
+        None,
+    ],
+)
+def test_links_that_are_not_supported_artwork_pages_are_refused(url):
+    with pytest.raises(DiscoverError):
+        resolve_url(url)
+
+
+def test_every_source_describes_where_to_send_thanks():
+    for source in SOURCES.values():
+        assert source.support_url.startswith("https://")
+        assert source.support_label and source.icon_url.startswith("https://")
+
+
+def test_stale_cache_files_are_pruned_and_fresh_ones_kept(tmp_path):
+    import os
+    import time
+
+    old, fresh = tmp_path / "old.json", tmp_path / "sub" / "fresh.json"
+    fresh.parent.mkdir()
+    old.write_text("{}")
+    fresh.write_text("{}")
+    long_ago = time.time() - 30 * 24 * 3600
+    os.utime(old, (long_ago, long_ago))
+
+    prune_old_files(str(tmp_path), 14 * 24 * 3600)
+
+    assert not old.exists() and fresh.exists()

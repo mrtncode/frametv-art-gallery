@@ -37,7 +37,7 @@ frametv-art-gallery is an independent, open-source, self-hosted gallery manager 
 - **Open Source**: Fully open-source and community-driven, with no hidden tracking or telemetry.
 - **Docker Support**: Easy deployment with Docker and Docker Compose.
 - **Desktop App**: Frametv-art-gallery is also available as a desktop app for Windows, MacOS, and Linux. Download it under the [releases](https://github.com/mrtncode/frametv-art-gallery/releases)
-- **Reframed Gallery Integration**: Import real artworks directly from [Reframed Gallery](https://www.reframed.gallery/).
+- **Discover**: Search free, high-resolution art from Reframed Gallery, the Met, the Art Institute of Chicago and the Cleveland Museum of Art, and add it to your gallery at the right size for your Frame, with no manual resizing.
 
 
 ## Images
@@ -59,10 +59,24 @@ Gallery example images from https://pixabay.com/
 ### Immich
 Integrate your immich library with Frame TV Gallery.
 
-### Reframed Gallery
-Automatic import via URL for art from https://www.reframed.gallery/.
-Thanks to the creator of Reframed for this great tool! Visit his page :)
+### Discover (free art)
 
+The **Discover** tab searches free, high-resolution art and imports it straight into your gallery, framed for a 16:9 Frame TV (3840 x 2160, sRGB JPEG).
+
+| Source | License | Notes |
+| --- | --- | --- |
+| [Reframed Gallery](https://www.reframed.gallery/) | Free for TV use | Files are already cropped to 3840 x 2160, so nothing is processed. Found by reading the site's public sitemap and pages (it has no API), cached for a day. |
+| [Art Institute of Chicago](https://www.artic.edu/collection) | Public domain (CC0) | The museum's own image server crops to 16:9, so only the finished file is downloaded. |
+| [The Met](https://www.metmuseum.org/art/collection/search) | Public domain (CC0) | Search cannot filter to open-access works, so each page keeps the open-access ones. Requests are kept gentle because the Met's firewall blocks bursts. |
+| [Cleveland Museum of Art](https://www.clevelandart.org/art/collection/search) | Public domain (CC0) | Print-quality JPEGs up to 3400 px, so fills are slightly upscaled. |
+
+- **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. *Wide works only* hides works that would lose a lot to a crop.
+- **Albums**: choose an album before adding, or create one.
+- **From a link**: paste an artwork page link, or drag the **Send to Frame Gallery** bookmarklet to your bookmarks bar and click it on any supported artwork page to skip the copy and paste. The app asks before adding.
+- **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.
+- **No keys or accounts** are needed for any source.
+
+Set `DISCOVER_CONTACT` (an email or URL) to tell the Art Institute who is making requests, as its API documentation asks. Thanks to the creator of Reframed for the great tool. Please tip them!
 
 # Installation
 
@@ -102,6 +116,7 @@ All optional, with sensible defaults. Set them as environment variables on the c
 | `FRAME_TV_DOWN_COOLDOWN` | `30` | Seconds a TV is skipped after it failed to answer. |
 | `FRAME_TV_BUSY_WAIT` | `90` | How long a deliberate action queues behind another operation on the same TV. |
 | `FRAME_TV_MAX_PARALLEL_CALLS` | `8` | Concurrent TV requests per worker. |
+| `DISCOVER_CONTACT` | the project URL | An email or URL sent to the Art Institute of Chicago with Discover requests, so it can reach whoever runs this instance. |
 
 ## Disclaimer (important!)
 

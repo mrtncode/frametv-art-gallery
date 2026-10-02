@@ -13,6 +13,7 @@ from typing import Optional
 
 import requests
 from const import CONNECTION_NAME
+from discover_routes import discover_routes
 from flask import (
     Flask,
     Response,
@@ -108,6 +109,7 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app = Flask(__name__, static_folder="../frontend/build/client")
 app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['INSTANCE_FOLDER'] = INSTANCE_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_SIZE_BYTES', str(20 * 1024 * 1024)))
 
 # allow cross-origin requests from the dev server or any other origin when
@@ -139,6 +141,7 @@ db.init_app(app)
 
 # Import blueprints
 app.register_blueprint(media_provider_routes)
+app.register_blueprint(discover_routes)
 app.register_blueprint(provider_config_routes)
 
 # ...models are now imported from models.py...
