@@ -17,16 +17,16 @@ const ICONS: Record<FitStatus, typeof CheckIcon> = {
 };
 
 const DISC: Record<FitStatus, string> = {
-  ok: "bg-green-700 text-white",
-  warn: "bg-amber-400 text-amber-950",
-  bad: "bg-red-600 text-white",
-  unknown: "bg-neutral-600 text-white",
+  ok: "bg-success text-background",
+  warn: "bg-warning text-background",
+  bad: "bg-destructive text-destructive-foreground",
+  unknown: "bg-muted-foreground text-background",
 };
 
 const GLYPH: Record<FitStatus, string> = {
-  ok: "text-green-700 dark:text-green-400",
-  warn: "text-amber-700 dark:text-amber-400",
-  bad: "text-red-600 dark:text-red-400",
+  ok: "text-success",
+  warn: "text-warning",
+  bad: "text-destructive",
   unknown: "text-muted-foreground",
 };
 

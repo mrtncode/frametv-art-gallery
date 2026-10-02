@@ -152,7 +152,7 @@ export default function ImageUploadModal({
         {/* Header */}
         <div className="flex items-center justify-between mb-4 border-b border-border pb-3">
           <div className="flex items-center gap-2">
-            <ArrowUpTrayIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            <ArrowUpTrayIcon className="w-5 h-5 text-primary" />
             <h3 className="text-lg font-semibold">Upload Images</h3>
           </div>
           <button
@@ -178,8 +178,8 @@ export default function ImageUploadModal({
             onClick={() => fileInputRef.current?.click()}
             className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
               isDragOver
-                ? "border-blue-500 bg-blue-50/50 dark:bg-blue-950/30"
-                : "border-border hover:border-blue-400 bg-muted/30"
+                ? "border-primary bg-selection/50"
+                : "border-border hover:border-primary/60 bg-muted/30"
             }`}
           >
             <input
@@ -201,7 +201,7 @@ export default function ImageUploadModal({
                 <p className="text-xs text-muted-foreground mt-1 truncate max-w-xs mx-auto">
                   {files.map((f) => f.name).join(", ")}
                 </p>
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
+                <p className="text-xs text-primary mt-2">
                   Click or drag to change selection
                 </p>
               </div>
@@ -225,7 +225,7 @@ export default function ImageUploadModal({
             <select
               value={uploadAlbumId}
               onChange={(e) => setUploadAlbumId(e.target.value)}
-              className="border border-border bg-background px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="border border-input bg-background px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
               disabled={uploading}
             >
               <option value="">No album</option>
@@ -249,14 +249,14 @@ export default function ImageUploadModal({
                 value={uploadNewAlbumName}
                 onChange={(e) => setUploadNewAlbumName(e.target.value)}
                 placeholder="Enter new album name"
-                className="border border-border bg-background px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-input bg-background px-3 py-2 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                 disabled={uploading}
                 autoFocus
               />
             </div>
           )}
 
-          {error && <div className="text-red-500 text-sm">{error}</div>}
+          {error && <div className="text-destructive text-sm">{error}</div>}
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-2 pt-2">

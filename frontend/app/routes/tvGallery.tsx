@@ -258,8 +258,8 @@ export default function TVGallery() {
           </div>
 
           {!selectedTvIp ? (
-            <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 px-6 py-10 text-center dark:border-blue-900 dark:bg-blue-950/30">
-              <SparklesIcon className="mx-auto mb-3 h-10 w-10 text-blue-600 dark:text-blue-400" />
+            <div className="rounded-xl border border-dashed border-primary/30 bg-selection/50 px-6 py-10 text-center">
+              <SparklesIcon className="mx-auto mb-3 h-10 w-10 text-primary" />
               <h2 className="text-lg font-semibold text-foreground">Select a TV to view its gallery</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Choose a TV above to load its artwork.
@@ -288,12 +288,12 @@ export default function TVGallery() {
                       }
                     >
                       <Popover.Trigger
-                        className={`${iconButton} ${filterActive ? "border-blue-600/60 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300" : ""}`}
+                        className={`${iconButton} ${filterActive ? "border-primary/60 bg-selection text-selection-foreground" : ""}`}
                         aria-label={filterActive ? "Filter images, 1 filter applied" : "Filter images"}
                       >
                         <FunnelIcon className="size-5" aria-hidden="true" />
                         {filterActive && (
-                          <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-blue-600" aria-hidden="true" />
+                          <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-primary" aria-hidden="true" />
                         )}
                       </Popover.Trigger>
                     </Tooltip>
@@ -307,7 +307,7 @@ export default function TVGallery() {
                         <label className="flex items-start gap-2">
                           <input
                             type="checkbox"
-                            className="mt-0.5 size-4 accent-blue-600"
+                            className="mt-0.5 size-4 accent-primary"
                             checked={showSamsung}
                             onChange={(e) => changeShowSamsung(e.target.checked)}
                           />
@@ -342,7 +342,7 @@ export default function TVGallery() {
                       }}
                     >
                       {allSelected ? (
-                        <CheckCircleSolidIcon className="size-5 text-blue-600 dark:text-blue-400" aria-hidden="true" />
+                        <CheckCircleSolidIcon className="size-5 text-primary" aria-hidden="true" />
                       ) : (
                         <CheckCircleIcon className="size-5" aria-hidden="true" />
                       )}
@@ -356,7 +356,7 @@ export default function TVGallery() {
                   <p>Only Samsung Art Store images are on this TV.</p>
                   <button
                     type="button"
-                    className="mt-2 text-blue-600 hover:underline dark:text-blue-400"
+                    className="mt-2 text-primary hover:underline"
                     onClick={() => changeShowSamsung(true)}
                   >
                     Show them
@@ -387,7 +387,7 @@ export default function TVGallery() {
                     type="button"
                     onClick={handleDeleteSelected}
                     disabled={deleting}
-                    className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium py-2 px-4 rounded-lg"
+                    className="bg-destructive hover:bg-destructive/90 disabled:opacity-50 text-destructive-foreground text-sm font-medium py-2 px-4 rounded-lg"
                   >
                     {deleting ? "Deleting…" : "Delete from TV"}
                   </button>

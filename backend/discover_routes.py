@@ -49,6 +49,7 @@ THUMB_HOSTS = {
     "openaccess-cdn.clevelandart.org", "www.clevelandart.org",
     "api.smk.dk", "iip.smk.dk", "iip-thumb.smk.dk", "open.smk.dk", "www.smk.dk",
     "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "www.louvre.fr",
+    "images-assets.nasa.gov", "images.nasa.gov",
 }
 THUMB_MAX_BYTES = 8 * 1024 * 1024
 THUMB_TTL_SECONDS = 7 * 24 * 3600

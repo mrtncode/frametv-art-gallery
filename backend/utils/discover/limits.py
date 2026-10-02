@@ -37,6 +37,7 @@ BUDGETS = {
     "openaccess-api.clevelandart.org": (60, 60, 60),
     "api.smk.dk": (60, 60, 60),
     "commons.wikimedia.org": (60, 60, 120),
+    "images-api.nasa.gov": (60, 60, 120),
     "www.reframed.gallery": (30, 60, 300),         # no API: a polite reader of public pages
 }
 MAX_COOLDOWN = 1800

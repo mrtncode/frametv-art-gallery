@@ -132,14 +132,14 @@ export default function AlbumPage() {
       <div className="flex items-center justify-between mb-6">
         <button
           type="button"
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm text-primary hover:underline"
           onClick={() => navigate('/gallery')}
         >
           ← Back to Gallery
         </button>
         <button
           type="button"
-          className="text-sm text-red-600 hover:text-red-800"
+          className="text-sm text-destructive hover:text-destructive/80"
           onClick={handleDeleteAlbum}
           disabled={busy || !album}
         >
@@ -150,7 +150,7 @@ export default function AlbumPage() {
       {loading ? (
         <div>Loading album…</div>
       ) : !album ? (
-        <div className={error ? 'text-red-600' : 'text-muted-foreground'}>{error || 'Album not found.'}</div>
+        <div className={error ? 'text-destructive' : 'text-muted-foreground'}>{error || 'Album not found.'}</div>
       ) : (
         <>
           <div className="bg-card rounded-lg shadow p-6 mb-8">
@@ -165,7 +165,7 @@ export default function AlbumPage() {
                   <select
                     value={selectedTvIp}
                     onChange={e => setSelectedTvIp(e.target.value)}
-                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                     disabled={busy || tvs.length === 0}
                   >
                     {tvs.length === 0 && <option value="">No TV configured</option>}
@@ -181,15 +181,15 @@ export default function AlbumPage() {
                   </Button>
                 </div>
                 {selectedTv?.delete_other_images_on_upload && (
-                  <p className="text-xs text-amber-600 md:text-right max-w-xs">
+                  <p className="text-xs text-warning md:text-right max-w-xs">
                     This TV deletes its other images on every upload, so only the last image of the
                     album would remain. Turn that option off in TV settings first.
                   </p>
                 )}
               </div>
             </div>
-            {error && <div className="text-red-600 text-sm mt-4">{error}</div>}
-            {successMessage && <div className="text-green-700 text-sm mt-2">{successMessage}</div>}
+            {error && <div className="text-destructive text-sm mt-4">{error}</div>}
+            {successMessage && <div className="text-success text-sm mt-2">{successMessage}</div>}
           </div>
 
 

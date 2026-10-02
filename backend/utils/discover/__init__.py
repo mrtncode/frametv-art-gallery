@@ -8,14 +8,15 @@ from .cleveland import cleveland
 from .common import DiscoverError, DiskCache
 from .limits import Limiter
 from .met import met
+from .nasa import nasa
 from .reframed import reframed
 from .smk import smk
-from .wikimedia import louvre, world_museums
+from .wikimedia import holidays, louvre, posters, world_museums
 
 # Reframed first: its files are already 3840x2160.
 SOURCES = {
     source.id: source
-    for source in (reframed, artic, met, cleveland, smk, louvre, world_museums)
+    for source in (reframed, artic, met, cleveland, smk, louvre, world_museums, holidays, posters, nasa)
 }
 
 
@@ -41,6 +42,8 @@ def source_info(source):
         "support_icon_url": getattr(source, "support_icon_url", source.icon_url),
         "license": source.license_note,
         "default_query": source.default_query,
+        # Set when the usual "wide" starting filter would hide most of what it has.
+        "default_shape": getattr(source, "default_shape", None),
         "tv_ready": source.id == "reframed",
         "has_type_filter": getattr(source, "has_type_filter", source.id != "reframed"),
         # How eagerly it may be searched: heavy sources wait until typing has settled.

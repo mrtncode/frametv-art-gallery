@@ -29,7 +29,7 @@ export default function ImageSource({ provenance, className = "" }: { provenance
           href={provenance.source_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-0.5 inline-flex items-center gap-1 text-blue-600 underline-offset-2 hover:underline dark:text-blue-400"
+          className="mt-0.5 inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
         >
           View the original
           <ArrowTopRightOnSquareIcon className="size-3.5" aria-hidden="true" />

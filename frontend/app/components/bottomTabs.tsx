@@ -27,7 +27,7 @@ export default function BottomTabs() {
 
   return (
     <div className={`fixed z-50 w-full max-w-lg -translate-x-1/2 ${isIOS ? 'bottom-0' : 'bottom-4'} left-1/2`} >
-      <div className="grid h-16 grid-cols-5 mx-auto bg-card border border-border rounded-full">
+      <div className="grid h-16 grid-cols-5 mx-auto bg-card border border-border rounded-full overflow-hidden shadow-[var(--shadow-card)]">
         <style>{`
           .bottom-tab-icon {
             transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.2s;
@@ -36,12 +36,11 @@ export default function BottomTabs() {
             transform: scale(1.2) rotate(-6deg);
           }
           .bottom-tab-active {
-            transform: scale(1.3);
-            color: #2563eb; /* blue-600 */
+            color: var(--selection-foreground);
+            background: var(--selection);
           }
-          /* blue-600 only reaches 3.5:1 on the dark surface, so lift it to blue-400. */
-          :where(.dark) .bottom-tab-active {
-            color: #60a5fa;
+          .bottom-tab-active .bottom-tab-icon {
+            transform: scale(1.2);
           }
         `}</style>
 
@@ -50,8 +49,8 @@ export default function BottomTabs() {
             key={item.id}
             to={item.href}
             className={({ isActive }) =>
-              `inline-flex flex-col items-center justify-center px-5 h-full group ${
-                isActive ? "bottom-tab-active" : "hover:bg-neutral-secondary-medium"
+              `inline-flex flex-col items-center justify-center px-5 h-full group focus-visible:outline-none focus-visible:ring-inset focus-visible:ring-[3px] focus-visible:ring-ring/60 ${
+                isActive ? "bottom-tab-active" : "text-muted-foreground hover:bg-accent hover:text-foreground"
               }`
             }
           >

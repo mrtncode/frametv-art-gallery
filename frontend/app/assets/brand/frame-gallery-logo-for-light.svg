@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="90" height="70" viewBox="0 0 90 70" role="img" aria-labelledby="fg-title fg-desc">
+<title id="fg-title">Frame Gallery — logo — for-light</title>
+<desc id="fg-desc">Subtle Signature, the selected option D. Thin asymmetrically softened frame, terracotta quarter-arch and ochre disc. Transparent outside and inside the frame. Lettering is outlined, with no font dependency.</desc>
+<g id="art-window">
+<path id="delicate-frame" d="M7.825 16 Q7.825 8.825 15 8.825 H82.175 V56.5 Q82.175 61.175 77.5 61.175 H7.825 Z" fill="none" stroke="#30332F" stroke-width="1.65" stroke-linejoin="miter"/>
+<path id="clay-form" d="M17 54 C17 32.95 30.9 16 48 16 V54 Z" fill="#C9725D"/>
+<circle id="ochre-disc" cx="63.5" cy="25" r="8.75" fill="#D69D41"/>
+</g>
+</svg>

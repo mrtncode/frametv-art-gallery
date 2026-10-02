@@ -352,7 +352,7 @@ export default function Gallery() {
             {images.length > 0 && (
               <button
                 type="button"
-                className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-sm text-primary hover:underline"
                 onClick={() => {
                   setSelected(selected.length === images.length ? [] : images.map(img => img.filename));
                   lastClickedIndex.current = null;
@@ -369,13 +369,13 @@ export default function Gallery() {
               onChange={e => setSearch(e.target.value)}
               placeholder="Search by name…"
               aria-label="Search images by name"
-              className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 flex-1 min-w-48"
+              className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60 flex-1 min-w-48"
             />
             <select
               value={sort}
               onChange={e => setSort(e.target.value as ImageSort)}
               aria-label="Sort images"
-              className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -407,7 +407,7 @@ export default function Gallery() {
               <select
                 value={bulkAlbum}
                 onChange={e => setBulkAlbum(e.target.value)}
-                className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                 disabled={bulkBusy}
               >
                 <option value="">Move to album…</option>
@@ -421,7 +421,7 @@ export default function Gallery() {
               <Button
                 onClick={handleBulkDelete}
                 disabled={bulkBusy}
-                className="bg-red-600 text-white hover:bg-red-700"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Delete
               </Button>
@@ -459,7 +459,7 @@ export default function Gallery() {
                   <select
                     value={dropAlbumId}
                     onChange={e => setDropAlbumId(e.target.value)}
-                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                     autoFocus
                   >
                     <option value="">No album</option>
@@ -474,7 +474,7 @@ export default function Gallery() {
                       value={dropNewAlbumName}
                       onChange={e => setDropNewAlbumName(e.target.value)}
                       placeholder="New album name"
-                      className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                     />
                   )}
                   <Button
@@ -484,7 +484,7 @@ export default function Gallery() {
                   >
                     Upload
                   </Button>
-                  {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+                  {error && <div className="text-destructive text-sm mt-1">{error}</div>}
                 </form>
               </div>
             </div>
@@ -514,7 +514,7 @@ export default function Gallery() {
                     value={albumName}
                     onChange={e => setAlbumName(e.target.value)}
                     placeholder="Album name"
-                    className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                    className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                   />
                   <Button
                     type="submit"
@@ -523,7 +523,7 @@ export default function Gallery() {
                   >
                     {creating ? "Creating…" : "Create"}
                   </Button>
-                  {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+                  {error && <div className="text-destructive text-sm mt-1">{error}</div>}
                 </form>
               </div>
             </div>
@@ -553,7 +553,7 @@ export default function Gallery() {
                   <div className="font-bold mb-2 flex items-center justify-between">
                     <span>{album.name}</span>
                     <button
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-2"
+                      className="text-xs text-primary hover:underline ml-2"
                       onClick={() => handleProviderAlbumSelect(album.id)}
                     >Load Images</button>
                   </div>
@@ -577,7 +577,7 @@ export default function Gallery() {
               {providerImagesHasMore && (
                 <div className="flex justify-center mt-4">
                   <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    className="bg-primary text-primary-foreground px-4 py-2 rounded"
                     onClick={handleProviderImagesLoadMore}
                     disabled={loading}
                   >
@@ -594,7 +594,7 @@ export default function Gallery() {
           to="/discover"
           aria-label="Discover art"
           title="Discover art"
-          className="flex items-center justify-center w-16 h-16 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+          className="flex items-center justify-center w-16 h-16 bg-primary hover:bg-primary-hover active:scale-95 text-primary-foreground rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
         >
           <SparklesIcon className="w-7 h-7" strokeWidth={2} />
         </Link>
@@ -603,7 +603,7 @@ export default function Gallery() {
           onClick={() => setShowUploadModal(true)}
           aria-label="Upload Image"
           title="Upload Image"
-          className=" flex items-center justify-center w-16 h-16 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
+          className=" flex items-center justify-center w-16 h-16 bg-primary hover:bg-primary-hover active:scale-95 text-primary-foreground rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
         >
           <ArrowUpTrayIcon className="w-7 h-7" strokeWidth={2} />
         </button>

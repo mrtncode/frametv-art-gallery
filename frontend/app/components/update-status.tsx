@@ -327,10 +327,10 @@ export default function UpdateStatus() {
         aria-label={`Update available${appStatus?.latest_version ? `: ${appStatus.latest_version}` : ""}`}
         title={hasUpdate ? "Update available" : loading ? "Checking for updates..." : "No update available"}
         disabled={!hasUpdate}
-        className="relative border-blue-500/40 text-blue-700 hover:bg-blue-500/10 hover:text-blue-800 disabled:opacity-100 dark:text-blue-300 dark:hover:text-blue-200"
+        className="relative border-primary/40 text-primary hover:bg-selection hover:text-selection-foreground disabled:opacity-100"
       >
         <BellAlertIcon className="h-4 w-4" />
-        {hasUpdate && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-500" />}
+        {hasUpdate && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />}
       </Button>
 
       {hasUpdate && showPopup && (
@@ -345,7 +345,7 @@ export default function UpdateStatus() {
                 openModal();
               }
             }}
-            className="relative cursor-pointer rounded-2xl border border-blue-500/30 bg-background/95 p-4 pr-11 shadow-2xl backdrop-blur transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:shadow-3xl"
+            className="relative cursor-pointer rounded-2xl border border-primary/30 bg-background/95 p-4 pr-11 shadow-2xl backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-3xl"
           >
             <button
               type="button"
@@ -359,7 +359,7 @@ export default function UpdateStatus() {
               <XMarkIcon className="h-4 w-4" />
             </button>
             <div className="flex items-start gap-3">
-              <div className="rounded-full bg-blue-500/15 p-2 text-blue-700 dark:text-blue-300">
+              <div className="rounded-full bg-selection p-2 text-selection-foreground">
                 <SparklesIcon className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -415,7 +415,7 @@ export default function UpdateStatus() {
                 <MarkdownView content={appStatus?.changelog?.trim() || "No changelog was provided."} />
               </div>
 
-              <div className="mt-5 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-foreground">
+              <div className="mt-5 rounded-2xl border border-warning/30 bg-warning-surface p-4 text-sm text-foreground">
                 <p className="font-semibold">Update your installation</p>
                 <p className="mt-1 text-muted-foreground">
                   Update by your installation way, for example by updating the version in your Docker Compose

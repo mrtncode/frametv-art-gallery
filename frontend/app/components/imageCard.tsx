@@ -205,7 +205,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
         className={
           `group relative flex flex-col overflow-hidden rounded-xl bg-card border border-border/80 shadow-xs transition-all duration-200 hover:shadow-lg hover:border-border ` +
           (large ? "col-span-2 " : "") +
-          (selected ? "ring-2 ring-blue-500 border-blue-500" : "")
+          (selected ? "ring-2 ring-primary border-primary" : "")
         }
       >
         {onToggleSelect && (
@@ -216,7 +216,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
           >
             <input
               type="checkbox"
-              className="h-4 w-4 accent-blue-600 rounded cursor-pointer"
+              className="h-4 w-4 accent-primary rounded cursor-pointer"
               checked={!!selected}
               onClick={(event) => event.stopPropagation()}
               onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}

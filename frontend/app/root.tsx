@@ -15,6 +15,9 @@ import LoadingScreen from "./components/loading-screen";
 import { Toaster } from "./components/ui/sonner";
 
 export const links: Route.LinksFunction = () => [
+  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
+  { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
+  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
   {
     rel: "preconnect",
@@ -34,6 +37,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="theme-color" content="#FAF8F4" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#1E211F" media="(prefers-color-scheme: dark)" />
         <Meta />
         <Links />
       </head>

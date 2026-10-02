@@ -4,6 +4,11 @@ import { useLocation } from "react-router";
 import { useTheme } from "next-themes";
 import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 
+import lockupForLight from "~/assets/brand/frame-gallery-logo-wordmark-for-light.svg";
+import lockupForDark from "~/assets/brand/frame-gallery-logo-wordmark-for-dark.svg";
+import symbolForLight from "~/assets/brand/frame-gallery-logo-for-light.svg";
+import symbolForDark from "~/assets/brand/frame-gallery-logo-for-dark.svg";
+
 const VERSION = import.meta.env.VITE_APP_VERSION || "dev";
 
 const pageNames: { [key: string]: string } = {
@@ -27,7 +32,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="rounded-full p-2 text-gray-900 dark:text-white hover:bg-gray-700 hover:text-white transition-colors"
+      className="rounded-full p-2 text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       aria-label="Switch between light and dark mode"
     >
@@ -42,14 +47,24 @@ export default function Header() {
   const location = useLocation();
   const pageName = pageNames[location.pathname] || "Page";
   return (
-    <header className="sticky top-0 z-40 w-[95%] self-center rounded-4xl mt-2 bg-white/95 dark:bg-gray-900/70 text-gray-900 dark:text-white border border-gray-200/60 dark:border-gray-800 backdrop-blur-md ">
+    <header className="sticky top-0 z-40 w-[95%] self-center rounded-4xl mt-2 bg-card/95 text-foreground border border-border shadow-[var(--shadow-card)] backdrop-blur-md">
       <div className="flex items-center justify-between px-6 py-3">
-        <div className="flex items-baseline gap-2">
-          <h1 className="text-xl font-bold">FrameTV Art Gallery</h1>
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{VERSION}</span>
+        <div className="flex items-center gap-3">
+          <h1 className="m-0 flex items-center">
+            {/* for-light art has a dark frame/text, for-dark has ivory; swap on the theme class. */}
+            <img src={lockupForLight} alt="Frame Gallery" width={240} height={48}
+              className="hidden h-auto w-[240px] sm:block dark:sm:hidden" />
+            <img src={lockupForDark} alt="Frame Gallery" width={240} height={48}
+              className="hidden h-auto w-[240px] dark:sm:block" />
+            <img src={symbolForLight} alt="Frame Gallery" width={42} height={33}
+              className="block h-auto w-[42px] sm:hidden dark:hidden" />
+            <img src={symbolForDark} alt="Frame Gallery" width={42} height={33}
+              className="hidden h-auto w-[42px] dark:block dark:sm:hidden" />
+          </h1>
+          <span className="hidden text-xs font-medium text-muted-foreground sm:inline">{VERSION}</span>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-base font-semibold text-gray-700 dark:text-gray-200">{pageName}</span>
+          <span className="text-base font-semibold text-muted-foreground">{pageName}</span>
           <ThemeToggle />
         </div>
       </div>

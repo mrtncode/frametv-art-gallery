@@ -1,28 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
 import { toast } from "sonner";
-import {
-  BookmarkIcon,
-  LinkIcon,
-  MagnifyingGlassIcon,
-  XCircleIcon,
-} from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import AddToGalleryDialog, { NEW_ALBUM, type AddChoice } from "~/components/AddToGalleryDialog";
 import AllResults, { type Group } from "~/components/AllResults";
 import ArtworkCard from "~/components/ArtworkCard";
 import DiscoverFilters, { DEFAULT_FILTERS, NO_FILTERS, type Filters } from "~/components/DiscoverFilters";
 import DiscoverHero from "~/components/DiscoverHero";
+import ExploreGrid from "~/components/ExploreGrid";
 import SourcePicker, { ALL_SOURCES } from "~/components/SourcePicker";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Skeleton } from "~/components/ui/skeleton";
+import { exploreTiles, type ExploreTile } from "~/lib/explore";
 import { createAlbum, fetchAlbums } from "~/utils/galleryApi";
 import {
   DiscoverApiError,
   fetchHighlights,
   fetchImportJob,
   fetchSources,
-  resolveLink,
   searchArt,
   startImport,
   type Artwork,
@@ -73,8 +68,6 @@ function remember(key: string, value: string) {
 }
 
 export default function Discover() {
-  const [searchParams, setSearchParams] = useSearchParams();
-
   const [sources, setSources] = useState<DiscoverSource[]>([]);
   // Which sources are resting or busy, kept apart so refreshing it never restarts a search.
   const [statuses, setStatuses] = useState<Record<string, SourceStatus>>({});
@@ -82,6 +75,9 @@ export default function Discover() {
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  // Until the filters are touched, a source whose works are mostly upright (postcards,
+  // posters) starts without the "wide" filter rather than looking empty.
+  const [filtersTouched, setFiltersTouched] = useState(false);
   const [focused, setFocused] = useState(false);
   const [popoversOpen, setPopoversOpen] = useState(0);
 
@@ -116,10 +112,6 @@ export default function Discover() {
   activeRef.current = active;
   const [added, setAdded] = useState<Set<string>>(new Set());
 
-  const [linkInput, setLinkInput] = useState("");
-  const [linkBusy, setLinkBusy] = useState(false);
-  const [linkError, setLinkError] = useState("");
-  const bookmarklet = useRef<HTMLAnchorElement>(null);
   const searchBar = useRef<HTMLFormElement>(null);
 
   const inAll = scope === ALL_SOURCES;
@@ -130,6 +122,17 @@ export default function Discover() {
     () => sources.map((s) => ({ ...s, status: statuses[s.id] ?? s.status })),
     [sources, statuses]
   );
+  const tiles = useMemo(() => exploreTiles(sources.map((s) => s.id)), [sources]);
+  const shapeFor = useCallback(
+    (sourceId: string) =>
+      filtersTouched ? filters.shape : (sources.find((s) => s.id === sourceId)?.default_shape ?? filters.shape),
+    [filters.shape, filtersTouched, sources]
+  );
+  const changeFilters = (next: Filters) => {
+    // Putting the filters back to how they began also puts the sources' own starting shapes back.
+    setFiltersTouched(JSON.stringify(next) !== JSON.stringify(DEFAULT_FILTERS));
+    setFilters(next);
+  };
   const heroCollapsed = !inAll || focused || trimmed !== "" || popoversOpen > 0;
   const popoverToggled = (open: boolean) => setPopoversOpen((n) => Math.max(0, n + (open ? 1 : -1)));
 
@@ -166,16 +169,6 @@ export default function Discover() {
     loadAlbums();
   }, [loadAlbums]);
 
-  // The bookmarklet is built in the browser so it points at wherever this app is served
-  // from. React refuses javascript: URLs in JSX, hence setting it directly.
-  useEffect(() => {
-    const target = `${window.location.origin}/discover?import=`;
-    bookmarklet.current?.setAttribute(
-      "href",
-      `javascript:(function(){window.open(${JSON.stringify(target)}+encodeURIComponent(location.href),"_blank")})()`
-    );
-  }, [sources.length]);
-
   // --- One source: results update as you type, after a pause that depends on the source ---
 
   useEffect(() => {
@@ -195,7 +188,7 @@ export default function Discover() {
           source: src,
           q,
           page,
-          shape: filters.shape,
+          shape: shapeFor(src),
           paintings: filters.paintings,
           sharp: filters.sharp,
         });
@@ -207,7 +200,7 @@ export default function Discover() {
       }
       return { found, hiddenCount, more, lastPage: page - 1 };
     },
-    [filters]
+    [filters, shapeFor]
   );
 
   useEffect(() => {
@@ -271,7 +264,7 @@ export default function Discover() {
           source: s.id,
           q,
           page: 1,
-          shape: filters.shape,
+          shape: shapeFor(s.id),
           paintings: filters.paintings,
           sharp: filters.sharp,
           limit: ALL_PER_SOURCE,
@@ -305,7 +298,7 @@ export default function Discover() {
         }));
       }
     },
-    [filters]
+    [filters, shapeFor]
   );
 
   useEffect(() => {
@@ -363,6 +356,15 @@ export default function Discover() {
     runSearch(text);
     // The hero folds away over half a second; scroll once it has settled, or the page
     // would land wherever the shifting layout left it.
+    window.setTimeout(() => searchBar.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 560);
+  }
+
+  /** An Explore tile: some live in one source (space is NASA's), most search every source. */
+  function pickTile(tile: ExploreTile) {
+    flushNext.current = true;
+    if (tile.scope) setScope(tile.scope);
+    setQueryInput(tile.query);
+    setQuery(tile.query);
     window.setTimeout(() => searchBar.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 560);
   }
 
@@ -473,37 +475,12 @@ export default function Discover() {
     }
   }
 
-  // --- Adding from a link (typed in, or sent by the bookmarklet from the source's own site) ---
-
-  const lookUpLink = useCallback(async (url: string) => {
-    setLinkBusy(true);
-    setLinkError("");
-    try {
-      const found = await resolveLink(url.trim());
-      setActive((current) => (current && current.job?.state !== "running" ? null : current));
-      setDialogArt(found.artwork);
-    } catch (e: any) {
-      setLinkError(e.message || "Could not read that link");
-    } finally {
-      setLinkBusy(false);
-    }
-  }, []);
-
-  // Arriving from the bookmarklet: look the artwork up and ask before adding, so a link
-  // someone else sends cannot quietly fill the gallery.
-  const importParam = searchParams.get("import");
-  useEffect(() => {
-    if (!importParam) return;
-    setLinkInput(importParam);
-    lookUpLink(importParam);
-    setSearchParams({}, { replace: true });
-  }, [importParam, lookUpLink, setSearchParams]);
-
   // --- Rendering ----------------------------------------------------------------
 
   const dialogSource = dialogArt ? (sources.find((s) => s.id === dialogArt.source) ?? null) : null;
   const defaultFraming: Framing = remembered(FRAMING_KEY) === "whole" ? "whole" : "fill";
-  const filtersNarrow = filters.shape !== "any" || filters.sharp || Boolean(source?.has_type_filter && filters.paintings);
+  const shownFilters: Filters = { ...filters, shape: source ? shapeFor(source.id) : filters.shape };
+  const filtersNarrow = shownFilters.shape !== "any" || filters.sharp || Boolean(source?.has_type_filter && filters.paintings);
   // The segment on the left of the bar already says what is searched.
   const searchPlaceholder = "An artist, a place, a mood";
 
@@ -570,8 +547,8 @@ export default function Discover() {
           </div>
         </div>
         <DiscoverFilters
-          filters={filters}
-          onChange={setFilters}
+          filters={shownFilters}
+          onChange={changeFilters}
           source={source}
           onOpenChange={popoverToggled}
           onSwitchToTvReady={() => {
@@ -581,25 +558,30 @@ export default function Discover() {
         />
       </form>
 
-      <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Suggested searches">
-        <span className="mr-0.5 text-sm font-medium text-muted-foreground">Explore:</span>
-        {QUICK_PICKS.map((pick) => (
-          <button
-            key={pick}
-            type="button"
-            onClick={() => pickSuggestion(pick)}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
-              query.toLowerCase() === pick.toLowerCase() || trimmed.toLowerCase() === pick.toLowerCase()
-                ? "border-primary bg-primary/10 text-primary"
-                : "border-border bg-card hover:bg-accent"
-            }`}
-          >
-            {pick}
-          </button>
-        ))}
-      </div>
+      {/* Nothing typed: topics to start from. Once searching, they fold into a row of chips. */}
+      {inAll && trimmed === "" ? (
+        <ExploreGrid tiles={tiles} onPick={pickTile} />
+      ) : (
+        <div className="mb-3 flex flex-wrap items-center gap-2" role="group" aria-label="Suggested searches">
+          <span className="mr-0.5 text-sm font-medium text-muted-foreground">Explore:</span>
+          {QUICK_PICKS.map((pick) => (
+            <button
+              key={pick}
+              type="button"
+              onClick={() => pickSuggestion(pick)}
+              className={`rounded-full border px-3 py-1 text-xs transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none ${
+                query.toLowerCase() === pick.toLowerCase() || trimmed.toLowerCase() === pick.toLowerCase()
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-card hover:bg-accent"
+              }`}
+            >
+              {pick}
+            </button>
+          ))}
+        </div>
+      )}
       {source && <p className="mb-4 text-xs text-muted-foreground">{source.tagline}</p>}
-      {!source && <div className="mb-4" />}
+      {!source && trimmed !== "" && <div className="mb-4" />}
 
       {/* All sources */}
       {inAll && trimmed !== "" && (
@@ -620,7 +602,7 @@ export default function Discover() {
       {error && (!inAll || sources.length === 0) && (
         <div
           role="alert"
-          className="mb-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900 dark:border-red-800 dark:bg-red-950 dark:text-red-100"
+          className="mb-4 rounded-lg border border-destructive/40 bg-danger-surface p-4 text-sm text-foreground"
         >
           <p>{error}</p>
           <Button variant="outline" size="sm" className="mt-2" onClick={() => runSearch(queryInput)}>
@@ -639,7 +621,7 @@ export default function Discover() {
               <button
                 type="button"
                 className="text-primary underline underline-offset-2"
-                onClick={() => setFilters(NO_FILTERS)}
+                onClick={() => changeFilters(NO_FILTERS)}
               >
                 Show everything
               </button>
@@ -668,7 +650,7 @@ export default function Discover() {
                 <p>Nothing matched{query ? ` “${query}”` : ""}.</p>
                 <p className="mt-1">Try another word{filtersNarrow ? ", or loosen the filters" : ""}.</p>
                 {filtersNarrow && (
-                  <Button variant="outline" size="sm" className="mt-3" onClick={() => setFilters(NO_FILTERS)}>
+                  <Button variant="outline" size="sm" className="mt-3" onClick={() => changeFilters(NO_FILTERS)}>
                     Show everything
                   </Button>
                 )}
@@ -697,62 +679,6 @@ export default function Discover() {
             )}
           </>
         ))}
-
-      {/* From a link */}
-      <section className="mt-10 rounded-lg border border-border bg-card p-4" aria-labelledby="discover-link-heading">
-        <h2 id="discover-link-heading" className="mb-1 flex items-center gap-2 text-base font-semibold">
-          <LinkIcon className="size-5 text-primary" aria-hidden="true" />
-          Found something on another site?
-        </h2>
-        <p className="mb-3 text-sm text-muted-foreground">
-          Paste a link to an artwork page from Reframed, the Met, the Art Institute of Chicago, the Cleveland Museum of
-          Art, SMK, or a file on Wikimedia Commons.
-        </p>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (linkInput.trim()) lookUpLink(linkInput);
-          }}
-        >
-          <Input
-            type="url"
-            value={linkInput}
-            onChange={(e) => setLinkInput(e.target.value)}
-            placeholder="https://www.reframed.gallery/claude-monet/…"
-            aria-label="Link to an artwork page"
-            disabled={linkBusy}
-          />
-          <Button type="submit" disabled={linkBusy || !linkInput.trim()}>
-            {linkBusy ? "Looking…" : "Look up"}
-          </Button>
-        </form>
-        {linkError && (
-          <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
-            {linkError}
-          </p>
-        )}
-
-        <details className="mt-4 text-sm">
-          <summary className="cursor-pointer font-medium">Skip the copy and paste</summary>
-          <div className="mt-2 space-y-2 text-muted-foreground">
-            <p>
-              Drag this button to your bookmarks bar. On any artwork page from the sites above, click it and the artwork
-              opens here, ready to add.
-            </p>
-            <a
-              ref={bookmarklet}
-              draggable
-              onClick={(e) => e.preventDefault()}
-              className="inline-flex cursor-grab items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium text-foreground shadow-xs"
-            >
-              <BookmarkIcon className="size-4" aria-hidden="true" />
-              Send to Frame Gallery
-            </a>
-            <p className="text-xs">If a site blocks bookmarks like this, copy its link and paste it above instead.</p>
-          </div>
-        </details>
-      </section>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
         Artwork comes from museums and galleries that share it openly. Please check each source&apos;s terms before using

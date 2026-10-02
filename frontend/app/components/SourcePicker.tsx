@@ -14,7 +14,7 @@ function StatusNote({ source }: { source: DiscoverSource }) {
   const { state, retry_after } = source.status;
   if (state === "ok") return null;
   return (
-    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-900/50 dark:text-amber-100">
+    <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning">
       {state === "resting" ? "Resting" : "Busy"}, back in about {minutes(retry_after)}
     </span>
   );

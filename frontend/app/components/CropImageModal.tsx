@@ -184,8 +184,8 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
               <button
                 className={`flex-1 rounded px-4 py-2 text-white ${
                   cropperReady
-                    ? 'bg-indigo-600 hover:bg-indigo-700'
-                    : 'bg-gray-400 cursor-not-allowed'
+                    ? 'bg-primary hover:bg-primary-hover'
+                    : 'bg-muted text-muted-foreground cursor-not-allowed'
                 }`}
                 onClick={handleCrop}
                 disabled={!cropperReady || cropActionLoading}
@@ -207,7 +207,7 @@ const CropImageModal: React.FC<CropImageModalProps> = ({
             </div>
 
             {cropMessage && (
-              <div className={`text-sm ${cropMessage.includes('successfully') ? 'text-green-600' : 'text-red-600'}`}>
+              <div className={`text-sm ${cropMessage.includes('successfully') ? 'text-success' : 'text-destructive'}`}>
                 {cropMessage}
               </div>
             )}

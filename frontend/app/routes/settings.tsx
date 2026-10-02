@@ -305,12 +305,12 @@ export default function Settings() {
                     key={`${tv.ip}-${tv.name || tv.mac || 'tv'}`}
                     type="button"
                     onClick={() => handleSelectDiscoveredTv(tv)}
-                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-blue-400 hover:bg-blue-50/5"
+                    className="w-full rounded-lg border border-border bg-card px-3 py-2 text-left transition hover:border-primary/60 hover:bg-selection/40"
                   >
                     <div className="flex items-center justify-between gap-3">
                       <span className="font-medium text-foreground">{tv.name || 'Samsung TV'}</span>
                       {tv.is_frame && (
-                        <span className="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                        <span className="rounded bg-selection px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-selection-foreground">
                           Frame
                         </span>
                       )}
@@ -327,11 +327,11 @@ export default function Settings() {
             <Input type="text" value={ip} onChange={e => setIp(e.target.value)} placeholder="IP address" required />
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" />
             <Input type="text" value={mac} onChange={e => setMac(e.target.value)} placeholder="MAC (optional)" />
-            <Button className="bg-blue-600 text-white hover:bg-blue-900 disabled:opacity-50 sm:w-auto" disabled={adding}>
+            <Button className="bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 sm:w-auto" disabled={adding}>
               {adding ? 'Adding…' : 'Add TV'}
             </Button>
           </form>
-          {error && <div className="text-red-500 text-sm mt-1">{error}</div>}
+          {error && <div className="text-destructive text-sm mt-1">{error}</div>}
         </div>
 
         {/* TVs List */}
@@ -347,7 +347,7 @@ export default function Settings() {
                 <div key={tv.ip} className="bg-card shadow-md rounded-xl p-5 border border-border">
                   <div className="mb-4">
                     {tv.name && <div className="font-semibold text-foreground">{tv.name}</div>}
-                    <div className="font-mono text-blue-700 dark:text-blue-400">{tv.ip}</div>
+                    <div className="font-mono text-primary">{tv.ip}</div>
                     {tv.mac && <div className="text-xs bg-muted text-foreground px-2 py-1 rounded inline-block mt-2">{tv.mac}</div>}
                   </div>
 
@@ -356,7 +356,7 @@ export default function Settings() {
                       type="checkbox"
                       checked={!!tv.delete_other_images_on_upload}
                       onChange={e => handleToggleDeleteOthers(tv.ip, e.target.checked)}
-                      className="accent-blue-600"
+                      className="accent-primary"
                     />
                     <span>Delete other images on upload</span>
                   </label>
@@ -366,19 +366,19 @@ export default function Settings() {
                       type="checkbox"
                       checked={!!tv.one_slot_mode}
                       onChange={e => handleToggleOneSlotMode(tv.ip, e.target.checked)}
-                      className="mt-0.5 accent-blue-600"
+                      className="mt-0.5 accent-primary"
                     />
                     <span>
                       1-slot mode (auto overwrite managed image)
-                      <span className="block text-xs text-gray-500">
+                      <span className="block text-xs text-muted-foreground">
                         Keeps only one image uploaded by this app on the TV. Other TV images are left untouched.
                       </span>
                     </span>
                   </label>
 
-                  <fieldset className="mb-4 border border-gray-200 rounded-lg p-3">
+                  <fieldset className="mb-4 border border-border rounded-lg p-3">
                     <legend className="text-sm font-medium px-1">Slideshow</legend>
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">
                       Rotates through images of an album that are already on this TV. It only
                       moves art that is already on screen, so it never interrupts what you are
                       watching.
@@ -388,7 +388,7 @@ export default function Settings() {
                         value={tv.slideshow_album_id ?? ''}
                         onChange={e => handleSlideshow(tv.ip, { slideshow_album_id: e.target.value || null })}
                         aria-label="Slideshow album"
-                        className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                       >
                         <option value="">No album</option>
                         {albums.map(album => (
@@ -404,23 +404,23 @@ export default function Settings() {
                           placeholder="Every … minutes"
                           aria-label="Slideshow interval in minutes"
                         />
-                        <span className="text-sm text-gray-500 whitespace-nowrap">min</span>
+                        <span className="text-sm text-muted-foreground whitespace-nowrap">min</span>
                       </div>
                       <label className="flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
                           checked={!!tv.slideshow_enabled}
                           onChange={e => handleSlideshow(tv.ip, { slideshow_enabled: e.target.checked })}
-                          className="accent-blue-600"
+                          className="accent-primary"
                         />
                         <span>Enabled</span>
                       </label>
                     </div>
                   </fieldset>
 
-                  <fieldset className="mb-4 border border-gray-200 rounded-lg p-3">
+                  <fieldset className="mb-4 border border-border rounded-lg p-3">
                     <legend className="text-sm font-medium px-1">Default matte</legend>
-                    <p className="text-xs text-gray-500 mb-2">
+                    <p className="text-xs text-muted-foreground mb-2">
                       Used for anything sent to this TV without a matte of its own.
                     </p>
                     <div className="grid grid-cols-2 gap-2">
@@ -428,7 +428,7 @@ export default function Settings() {
                         value={matteStyle}
                         onChange={e => handleDefaultMatte(tv.ip, combineMatte(e.target.value, matteColor))}
                         aria-label="Default matte style"
-                        className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
                       >
                         {MATTE_STYLES.map(style => (
                           <option key={style} value={style}>{style === 'none' ? 'No matte' : style}</option>
@@ -439,7 +439,7 @@ export default function Settings() {
                         onChange={e => handleDefaultMatte(tv.ip, combineMatte(matteStyle, e.target.value))}
                         disabled={matteStyle === 'none'}
                         aria-label="Default matte color"
-                        className="border px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50"
+                        className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60 disabled:opacity-50"
                       >
                         {MATTE_COLORS.map(color => (
                           <option key={color} value={color}>{color}</option>
@@ -449,13 +449,13 @@ export default function Settings() {
                   </fieldset>
 
                   <div className="flex flex-col gap-2">
-                    <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium py-2 px-4 rounded-lg text-center">
+                    <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="bg-primary hover:bg-primary-hover text-primary-foreground text-sm font-medium py-2 px-4 rounded-lg text-center">
                       View Gallery
                     </Link>
-                    <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-red-500 hover:text-red-700 text-sm font-medium">
+                    <button onClick={() => handleRemoveAllImages(tv.ip)} className="text-destructive hover:text-destructive/80 text-sm font-medium">
                       Delete all Images from TV
                     </button>
-                    <Button onClick={() => handleRemoveTv(tv.ip)} className="bg-red-500 text-white hover:bg-red-600 w-full">
+                    <Button onClick={() => handleRemoveTv(tv.ip)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full">
                       Remove TV
                     </Button>
                   </div>
@@ -472,7 +472,7 @@ export default function Settings() {
           <div className="flex flex-col sm:flex-row gap-3">
             <a
               href={getBackupUrl()}
-              className="bg-blue-600 text-white hover:bg-blue-900 text-sm font-medium py-2 px-4 rounded-lg text-center"
+              className="bg-primary text-primary-foreground hover:bg-primary-hover text-sm font-medium py-2 px-4 rounded-lg text-center"
             >
               Download a backup
             </a>
@@ -518,19 +518,19 @@ export default function Settings() {
                 type="checkbox"
                 checked={immichEnabled}
                 onChange={e => setImmichEnabled(e.target.checked)}
-                className="accent-blue-600"
+                className="accent-primary"
               />
               <span>Enable Immich</span>
             </label>
             <div className="flex flex-col sm:flex-row gap-2 mt-2">
-              <Button type="submit" className="bg-blue-600 text-white hover:bg-blue-900" disabled={providerSaving}>
+              <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary-hover" disabled={providerSaving}>
                 {providerSaving ? 'Saving…' : 'Save Immich Config'}
               </Button>
               <Button type="button" className="bg-secondary text-secondary-foreground hover:bg-secondary/80" onClick={handleDeleteImmich} disabled={providerSaving}>
                 Delete Config
               </Button>
             </div>
-            {providerError && <div className="text-red-500 text-sm mt-1">{providerError}</div>}
+            {providerError && <div className="text-destructive text-sm mt-1">{providerError}</div>}
           </form>
         </div>
       </div>

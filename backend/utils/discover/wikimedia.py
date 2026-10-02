@@ -9,8 +9,9 @@ scaled to the panel's width instead of the original.
 
 import html
 import re
-from urllib.parse import urlsplit, unquote
+from urllib.parse import quote, urlsplit, unquote
 
+from .seasons import seasonal_word
 from .common import (
     PAGE_SIZE,
     TARGET_WIDTH,
@@ -24,7 +25,7 @@ from .common import (
 API = "https://commons.wikimedia.org/w/api.php"
 MIN_WIDTH = 2500
 MAX_PIXELS = 100_000_000   # beyond this Commons will not make a scaled copy
-OPEN_LICENSE = re.compile(r"^(public domain|cc0|pd\b|pdm)", re.IGNORECASE)
+OPEN_LICENSE = re.compile(r"^(public domain|cc0|pd\b|pdm|no restrictions)", re.IGNORECASE)
 _METADATA = "LicenseShortName|Artist|ObjectName|DateTimeOriginal"
 
 
@@ -55,6 +56,15 @@ def _tidy_title(title, artist):
     return title or title
 
 
+def _tidy_artist(text):
+    """Drop placeholders ("Unknown author") and a name the uploader's template printed twice."""
+    words = text.split()
+    half = len(words) // 2
+    if half and len(words) % 2 == 0 and words[:half] == words[half:]:
+        text = " ".join(words[:half])
+    return "" if re.match(r"^(unknown|anonymous|not specified|n/a)\b", text, re.IGNORECASE) else text
+
+
 def _looks_like_artist(text):
     return (
         2 <= len(text) <= 60
@@ -77,21 +87,54 @@ class CommonsCollection:
     support_icon_url = "https://commons.wikimedia.org/static/favicon/commons.ico"
     license_note = "Public domain"
     download_hosts = {"upload.wikimedia.org", "thumb.wikimedia.org"}
-    default_query = "landscape"
     has_type_filter = False
     # Only one collection claims pasted Commons links, so a link has one obvious home.
     accepts_links = False
 
-    def __init__(self, id, name, short_name, tagline, category, icon_url, accepts_links=False, trust_artist_field=True):
+    def __init__(
+        self,
+        id,
+        name,
+        short_name,
+        tagline,
+        icon_url,
+        category=None,
+        keywords="",
+        default_query=None,
+        min_width=MIN_WIDTH,
+        default_shape=None,
+        accepts_links=False,
+        trust_artist_field=True,
+    ):
+        """A slice of Commons: everything under a category, or files matching some keywords.
+
+        ``keywords`` are always added to the search (a "postcard" collection searches for
+        "<what you typed> postcard"). ``default_query`` may be a function, so a collection can
+        suggest something fitting for the time of year.
+        """
         self.id = id
         self.name = name
         self.short_name = short_name
         self.tagline = tagline
         self.category = category
+        self.keywords = keywords
         self.icon_url = icon_url
-        self.site_url = f"https://commons.wikimedia.org/wiki/Category:{category.replace(' ', '_')}"
+        self.min_width = min_width
+        self.default_shape = default_shape
+        if default_query is not None:
+            self._default_query = default_query
+        if category:
+            self.site_url = f"https://commons.wikimedia.org/wiki/Category:{category.replace(' ', '_')}"
+        else:
+            self.site_url = f"https://commons.wikimedia.org/w/index.php?ns6=1&search={quote(keywords)}"
         self.accepts_links = accepts_links
         self.trust_artist_field = trust_artist_field
+
+    _default_query = "landscape"
+
+    @property
+    def default_query(self):
+        return self._default_query() if callable(self._default_query) else self._default_query
 
     # --- talking to Commons -----------------------------------------------------
 
@@ -130,7 +173,7 @@ class CommonsCollection:
             artist = parts[0]
             title = _tidy_title(_usable_title(meta.get("ObjectName")), artist) or " - ".join(parts[1:])
         else:
-            artist = _text(meta.get("Artist")) if self.trust_artist_field else ""
+            artist = _tidy_artist(_text(meta.get("Artist"))) if self.trust_artist_field else ""
             title = _tidy_title(_usable_title(meta.get("ObjectName")) or from_file, "") or from_file
         return artwork(
             self.id,
@@ -153,7 +196,8 @@ class CommonsCollection:
 
     def search(self, query, page, paintings_only, shape):
         words = self._words(query) or self.default_query
-        search = f'deepcategory:"{self.category}" {words} filew:>{MIN_WIDTH} filetype:bitmap'
+        scope = f'deepcategory:"{self.category}" ' if self.category else ""
+        search = f"{scope}{words} {self.keywords} filew:>{self.min_width} filetype:bitmap"
         data = self._request(
             {
                 "generator": "search",
@@ -221,8 +265,8 @@ louvre = CommonsCollection(
     name="The Louvre",
     short_name="the Louvre",
     tagline="Louvre paintings in the public domain, high-resolution scans via Wikimedia Commons",
-    category="Paintings in the Louvre",
     icon_url="https://www.louvre.fr/favicon.ico",
+    category="Paintings in the Louvre",
     # In this category the "artist" field is often the photographer of the file.
     trust_artist_field=False,
 )
@@ -232,7 +276,35 @@ world_museums = CommonsCollection(
     name="Museums of the world",
     short_name="Wikimedia Commons",
     tagline="High-resolution scans from hundreds of museums (Google Art Project), via Wikimedia Commons",
-    category="Google Art Project works by artist",
     icon_url="https://commons.wikimedia.org/static/favicon/commons.ico",
+    category="Google Art Project works by artist",
     accepts_links=True,
+)
+
+COMMONS_ICON = "https://commons.wikimedia.org/static/favicon/commons.ico"
+
+# Fun collections: no category covers them, so they search by keyword. Only files whose
+# own license says public domain or CC0 get through, which in practice means old prints.
+holidays = CommonsCollection(
+    id="holidays",
+    name="Holiday postcards",
+    short_name="Wikimedia Commons",
+    tagline="Vintage Halloween, Christmas, Easter and other holiday postcards, via Wikimedia Commons",
+    icon_url=COMMONS_ICON,
+    keywords="postcard",
+    default_query=seasonal_word,
+    min_width=1500,
+    default_shape="any",   # cards and posters are mostly upright: do not hide them by default
+)
+
+posters = CommonsCollection(
+    id="posters",
+    name="Vintage posters",
+    short_name="Wikimedia Commons",
+    tagline="Travel posters, advertising and Art Nouveau prints in the public domain, via Wikimedia Commons",
+    icon_url=COMMONS_ICON,
+    keywords="poster",
+    default_query="travel",
+    min_width=2000,
+    default_shape="any",
 )

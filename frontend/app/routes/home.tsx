@@ -20,8 +20,8 @@ const ALBUM_SLIDES = 2;
 
 export function meta({}: Route.MetaArgs) {
   return [
-    { title: "FrameTV Art Gallery" },
-    { name: "description", content: "Start dashboard for FrameTV Art Gallery" },
+    { title: "Frame Gallery" },
+    { name: "description", content: "Start dashboard for Frame Gallery" },
   ];
 }
 
@@ -107,7 +107,7 @@ function PrintStack({ filenames }: { filenames: string[] }) {
           src={getUploadUrl(name, 160)}
           alt=""
           draggable={false}
-          className={`absolute h-14 w-20 rounded-md border-2 border-white object-cover shadow-md dark:border-neutral-800 ${tilt[(i + (3 - shown.length)) % 3]}`}
+          className={`absolute h-14 w-20 rounded-md border-2 border-card object-cover shadow-md ${tilt[(i + (3 - shown.length)) % 3]}`}
         />
       ))}
     </div>
@@ -143,7 +143,7 @@ function AlbumFan({ albums }: { albums: AlbumSummary[] }) {
       {covers.map((album, i) => (
         <div
           key={album.id}
-          className={`absolute h-16 w-14 overflow-hidden rounded-lg border-2 border-white shadow-md dark:border-neutral-800 ${place[(i + (3 - covers.length)) % 3]}`}
+          className={`absolute h-16 w-14 overflow-hidden rounded-lg border-2 border-card shadow-md ${place[(i + (3 - covers.length)) % 3]}`}
         >
           <img src={getUploadUrl(album.images[0], 160)} alt="" draggable={false} className="size-full object-cover" />
         </div>
@@ -174,7 +174,7 @@ function MonthBars({ months }: { months: MonthlyCount[] }) {
             width={bar}
             height={h}
             rx="3"
-            className={current ? "fill-emerald-500" : "fill-emerald-500/30"}
+            className={current ? "fill-chart-2" : "fill-chart-2/30"}
           />
         );
       })}
@@ -193,7 +193,7 @@ function StatCard({
   value: string;
   note: React.ReactNode;
   visual: React.ReactNode;
-  /** Tailwind classes for the soft gradient wash behind the card */
+  /** Tailwind classes for the surface class for the card */
   tint: string;
 }) {
   return (
@@ -273,21 +273,21 @@ export default function Home() {
           value={loading ? "-" : images.length.toString()}
           note={loading ? "Loading..." : `${images.length === 1 ? "Picture" : "Pictures"} in your library`}
           visual={<PrintStack filenames={images} />}
-          tint="bg-gradient-to-br from-sky-500/10 via-transparent to-transparent"
+          tint="bg-card"
         />
         <StatCard
           label="Total albums"
           value={loading ? "-" : albums.length.toString()}
           note={loading ? "Loading..." : albums.length === 0 ? "None yet" : `${filled} with pictures in`}
           visual={<AlbumFan albums={albums} />}
-          tint="bg-gradient-to-br from-violet-500/10 via-transparent to-transparent"
+          tint="bg-card"
         />
         <StatCard
           label="Added this month"
           value={loading ? "-" : thisMonth.toString()}
           note={loading ? "Loading..." : monthNote}
           visual={<MonthBars months={months} />}
-          tint="bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent"
+          tint="bg-card"
         />
       </div>
     </div>

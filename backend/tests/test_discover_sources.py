@@ -20,7 +20,11 @@ from utils.discover.common import (
 from utils.discover.met import met
 from utils.discover.reframed import reframed
 from utils.discover.smk import smk
-from utils.discover.wikimedia import louvre, world_museums
+import datetime
+
+from utils.discover.nasa import nasa
+from utils.discover.seasons import seasonal_word
+from utils.discover.wikimedia import holidays, louvre, posters, world_museums
 
 
 @pytest.fixture
@@ -598,3 +602,106 @@ def test_commons_dates_lose_the_markup_that_follows_them(net):
     net.add("w/api.php", FakeResponse({"query": {"pages": {"1": page}}}))
 
     assert world_museums.search("x", 1, True, "any")["results"][0]["date"] == "1872"
+
+
+def test_a_keyword_collection_searches_commons_for_its_keyword_without_a_category(net):
+    net.add("w/api.php", FakeResponse({"query": {"pages": {}}}))
+
+    holidays.search('witch" OR deepcategory:"x', 1, True, "any")
+    posters.search("", 1, True, "any")
+
+    witch, travel = (call["params"]["gsrsearch"] for call in net.calls)
+    assert "deepcategory:" not in witch and witch.endswith(" postcard filew:>1500 filetype:bitmap")
+    assert witch.startswith("witch") and '"' not in witch
+    # With nothing typed, a poster collection shows travel posters.
+    assert travel.startswith("travel poster ") and "filew:>2000" in travel
+
+
+def test_commons_also_accepts_files_marked_as_having_no_restrictions(net):
+    pages = {
+        "1": commons_page(1, "File:Halloween card.jpg", license_name="No restrictions"),
+        "2": commons_page(2, "File:Halloween photo.jpg", license_name="CC BY 2.0"),
+    }
+    net.add("w/api.php", FakeResponse({"query": {"pages": pages}}))
+
+    assert [item["id"] for item in holidays.search("halloween", 1, True, "any")["results"]] == ["1"]
+
+
+def test_the_holiday_collection_suggests_what_is_in_season():
+    assert seasonal_word(datetime.date(2026, 10, 2)) == "halloween"
+    assert seasonal_word(datetime.date(2026, 12, 25)) == "christmas"
+    assert {seasonal_word(datetime.date(2026, month, 1)) for month in range(1, 13)} >= {"winter", "easter", "summer"}
+    assert holidays.default_query == seasonal_word()
+    assert posters.default_query == "travel"
+
+
+def nasa_record(nasa_id="PIA1", width=4000, height=2500, size=900_000, title="Pillars"):
+    base = f"http://images-assets.nasa.gov/image/{nasa_id}/{nasa_id}"
+    return {
+        "data": [{"nasa_id": nasa_id, "title": title, "secondary_creator": "NASA/ESA", "date_created": "2015-04-10T00:00:00Z"}],
+        "links": [
+            {"href": base + "~thumb.jpg", "rel": "preview", "width": 640, "height": 400},
+            {"href": base + "~orig.jpg", "rel": "canonical", "width": width, "height": height, "size": size},
+        ],
+    }
+
+
+def test_nasa_offers_only_images_big_enough_for_a_tv_and_small_enough_to_download(net):
+    records = [
+        nasa_record("PIA1"),
+        nasa_record("PIA2", width=800, height=600),
+        nasa_record("PIA3", size=500 * 1024 * 1024),
+        {"data": [{"nasa_id": "PIA4"}], "links": []},
+    ]
+    net.add("images-api.nasa.gov/search", FakeResponse({"collection": {
+        "items": records,
+        "metadata": {"total_hits": 805},
+        "links": [{"rel": "next", "href": "http://images-api.nasa.gov/search?page=2"}],
+    }}))
+
+    page = nasa.search("nebula", 2, paintings_only=True, shape="any")
+
+    assert [item["id"] for item in page["results"]] == ["PIA1"]
+    assert page["has_more"] is True and page["total"] == 805
+    params = net.calls[0]["params"]
+    assert params["q"] == "nebula" and params["media_type"] == "image" and params["page"] == 2
+    item = page["results"][0]
+    assert item["thumb_url"] == "https://images-assets.nasa.gov/image/PIA1/PIA1~thumb.jpg"
+    assert (item["title"], item["artist"], item["date"]) == ("Pillars", "NASA/ESA", "2015")
+    assert (item["width"], item["height"]) == (4000, 2500)
+    assert item["page_url"] == "https://images.nasa.gov/details/PIA1"
+
+
+def test_nasa_downloads_the_original_and_reads_its_own_links():
+    assert nasa.from_url("https://images.nasa.gov/details/PIA14417") == "PIA14417"
+    assert nasa.from_url("https://images.nasa.gov/search?q=x") is None
+    assert nasa.from_url("https://example.com/details/PIA14417") is None
+
+
+def test_nasa_plan_uses_the_original_file_over_https(net):
+    net.add("images-api.nasa.gov/search", FakeResponse({"collection": {"items": [nasa_record("PIA9")]}}))
+
+    plan = nasa.plan("PIA9", "fill")
+
+    assert net.calls[0]["params"]["nasa_id"] == "PIA9"
+    assert plan.url == "https://images-assets.nasa.gov/image/PIA9/PIA9~orig.jpg"
+    assert (plan.width, plan.height) == (4000, 2500)
+
+
+def test_nasa_reports_a_missing_image(net):
+    net.add("images-api.nasa.gov/search", FakeResponse({"collection": {"items": []}}))
+
+    with pytest.raises(DiscoverError):
+        nasa.get("nope")
+
+
+def test_commons_drops_placeholder_artists_and_names_printed_twice(net):
+    pages = {
+        "1": commons_page(1, "File:Halloween card.jpg", artist="Unknown author Unknown author"),
+        "2": commons_page(2, "File:Pumpkin card.jpg", artist="Ellen Clapsaddle Ellen Clapsaddle"),
+    }
+    net.add("w/api.php", FakeResponse({"query": {"pages": pages}}))
+
+    artists = [item["artist"] for item in holidays.search("halloween", 1, True, "any")["results"]]
+
+    assert artists == ["Unknown artist", "Ellen Clapsaddle"]

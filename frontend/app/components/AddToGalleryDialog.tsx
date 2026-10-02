@@ -234,13 +234,13 @@ export default function AddToGalleryDialog({
               <div aria-live="polite" className="mb-5">
                 {finished && (
                   <div className="flex items-start gap-2 text-sm">
-                    <CheckCircleIcon className="mt-0.5 size-5 shrink-0 text-green-600 dark:text-green-400" />
+                    <CheckCircleIcon className="mt-0.5 size-5 shrink-0 text-success" />
                     <p>{status}</p>
                   </div>
                 )}
                 {failed && (
                   <div className="flex items-start gap-2 text-sm">
-                    <ExclamationTriangleIcon className="mt-0.5 size-5 shrink-0 text-red-600 dark:text-red-400" />
+                    <ExclamationTriangleIcon className="mt-0.5 size-5 shrink-0 text-destructive" />
                     <p>{status}</p>
                   </div>
                 )}
@@ -276,7 +276,7 @@ export default function AddToGalleryDialog({
                   <div className="min-w-0">
                     <h4 className="flex items-center gap-1.5 font-semibold">
                       Please support {source.support_name}
-                      <HeartIcon className="size-4 text-rose-500" aria-hidden="true" />
+                      <HeartIcon className="size-4 text-primary" aria-hidden="true" />
                     </h4>
                     <p className="mt-1 text-sm text-muted-foreground">
                       This high-resolution file is free because {source.support_name} makes it available to everyone. A

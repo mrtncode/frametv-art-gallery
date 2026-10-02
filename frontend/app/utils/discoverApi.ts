@@ -16,6 +16,8 @@ export type DiscoverSource = {
   support_icon_url: string;
   license: string;
   default_query: string;
+  /** Set when the usual "wide" starting filter would hide most of what the source has. */
+  default_shape: Shape | null;
   /** Files come pre-cropped to 3840x2160, so there is nothing to choose about framing. */
   tv_ready: boolean;
   has_type_filter: boolean;

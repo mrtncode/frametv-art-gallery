@@ -37,7 +37,7 @@ frametv-art-gallery is an independent, open-source, self-hosted gallery manager 
 - **Open Source**: Fully open-source and community-driven, with no hidden tracking or telemetry.
 - **Docker Support**: Easy deployment with Docker and Docker Compose.
 - **Desktop App**: Frametv-art-gallery is also available as a desktop app for Windows, MacOS, and Linux. Download it under the [releases](https://github.com/mrtncode/frametv-art-gallery/releases)
-- **Discover**: Search free, high-resolution art from Reframed Gallery, the Met, the Art Institute of Chicago and the Cleveland Museum of Art, and add it to your gallery at the right size for your Frame, with no manual resizing.
+- **Discover**: Search free, high-resolution art from Reframed Gallery, the Met, the Art Institute of Chicago, the Cleveland Museum of Art and more (including seasonal postcards, vintage posters and NASA), and add it to your gallery at the right size for your Frame, with no manual resizing.
 
 
 ## Images
@@ -69,10 +69,12 @@ The **Discover** tab searches free, high-resolution art and imports it straight 
 | [Art Institute of Chicago](https://www.artic.edu/collection) | Public domain (CC0) | The museum's own image server crops to 16:9, so only the finished file is downloaded. |
 | [The Met](https://www.metmuseum.org/art/collection/search) | Public domain (CC0) | Search cannot filter to open-access works, so each page keeps the open-access ones. Requests are kept gentle because the Met's firewall blocks bursts. |
 | [Cleveland Museum of Art](https://www.clevelandart.org/art/collection/search) | Public domain (CC0) | Print-quality JPEGs up to 3400 px, so fills are slightly upscaled. |
+| [Holiday postcards](https://commons.wikimedia.org/) (Wikimedia Commons) | Public domain / CC0 only | Vintage Halloween, Christmas, Easter and other postcards. With nothing typed it shows whatever is in season. Mostly upright, so it starts without the Wide filter. |
+| [Vintage posters](https://commons.wikimedia.org/) (Wikimedia Commons) | Public domain / CC0 only | Travel posters, advertising and Art Nouveau prints. |
+| [NASA Image Library](https://images.nasa.gov/) | NASA, free to use | Nebulae, planets and Earth from orbit. Originals are used, and anything under 1600 px wide is left out. |
 
 - **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. The **Shape** filter narrows results to *Landscape* (wider than tall), *Wide* (close to 16:9, the default) or *No matte needed* (already 16:9 within 3%, so nothing is cropped or padded).
 - **Albums**: choose an album before adding, or create one.
-- **From a link**: paste an artwork page link, or drag the **Send to Frame Gallery** bookmarklet to your bookmarks bar and click it on any supported artwork page to skip the copy and paste. The app asks before adding.
 - **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.
 - **No keys or accounts** are needed for any source.
 

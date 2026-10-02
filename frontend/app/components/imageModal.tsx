@@ -98,7 +98,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {/* Header */}
         <div className="flex justify-between items-center pb-2 border-b border-border">
           <div className="flex items-center gap-2">
-            <TvIcon className="h-5 w-5 text-blue-500" />
+            <TvIcon className="h-5 w-5 text-primary" />
             <h2 className="text-base font-semibold truncate max-w-[260px]" title={filename || alt}>
               {filename || "Image Actions"}
             </h2>
@@ -127,7 +127,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {isLocalImage && (
           <div className={`flex gap-2 ${availableAlbums.length > 0 ? '' : 'flex-col'}`}>
             <button
-              className={`${availableAlbums.length > 0 ? 'flex-1' : 'w-full'} bg-indigo-600 text-white text-xs font-medium py-2 px-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-xs`}
+              className={`${availableAlbums.length > 0 ? 'flex-1' : 'w-full'} bg-primary text-primary-foreground text-xs font-medium py-2 px-3 rounded-lg hover:bg-primary-hover transition-colors shadow-xs`}
               onClick={() => {
                 setShowCropModal(true);
                 onClose();
@@ -138,7 +138,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
             {availableAlbums.length > 0 && (
               <button
-                className="flex-1 bg-indigo-600 text-white text-xs font-medium py-2 px-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-xs"
+                className="flex-1 bg-primary text-primary-foreground text-xs font-medium py-2 px-3 rounded-lg hover:bg-primary-hover transition-colors shadow-xs"
                 onClick={() => setShowAlbumAssign(!showAlbumAssign)}
               >
                 {showAlbumAssign ? "Hide Albums" : "Assign to Album"}
@@ -152,7 +152,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
           <div className="space-y-2 pt-2 border-t border-border/60 bg-muted/30 p-3 rounded-lg">
             <label className="text-xs font-medium text-muted-foreground">Select Destination Album</label>
             <select
-              className="w-full border border-border bg-background px-3 py-2 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              className="w-full border border-input bg-background px-3 py-2 rounded-lg text-xs focus:ring-2 focus:ring-ring/60 focus:outline-none"
               value={selectedAlbum}
               onChange={(e) => setSelectedAlbum(e.target.value)}
             >
@@ -170,7 +170,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
             >
               {assigning ? 'Assigning…' : 'Assign to Album'}
             </Button>
-            {assignMessage && <div className="text-xs text-green-600 dark:text-green-400 font-medium text-center">{assignMessage}</div>}
+            {assignMessage && <div className="text-xs text-success font-medium text-center">{assignMessage}</div>}
           </div>
         )}
 
@@ -180,7 +180,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Target Frame TV</label>
               <select
-                className="w-full border border-border bg-background px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full border border-input bg-background px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-ring/60 focus:outline-none"
                 value={selectedTvIp}
                 onChange={(e) => setSelectedTvIp(e.target.value)}
                 disabled={tvLoading}
@@ -196,8 +196,8 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
             {/* 1-Slot Mode status badge */}
             {selectedTvIp && isOneSlotMode && (
-              <div className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800/50 flex items-start gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mt-1 flex-shrink-0 animate-pulse" />
+              <div className="text-xs text-warning bg-warning-surface p-2.5 rounded-lg border border-warning/30 flex items-start gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-warning mt-1 flex-shrink-0 animate-pulse" />
                 <span>
                   <strong>1-Slot Mode active:</strong> Uploading will display the image and auto-replace existing artwork on TV.
                 </span>
@@ -209,7 +209,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
               <label className="text-xs font-medium text-muted-foreground">Matte / Frame Options</label>
               <div className="grid grid-cols-2 gap-2">
                 <select
-                  className="border border-border bg-background px-2.5 py-2 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="border border-input bg-background px-2.5 py-2 rounded-lg text-xs focus:ring-2 focus:ring-ring/60 focus:outline-none"
                   value={matteStyle}
                   onChange={(e) => setMatteStyle(e.target.value)}
                   aria-label="Matte style"
@@ -221,7 +221,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
                   ))}
                 </select>
                 <select
-                  className="border border-border bg-background px-2.5 py-2 rounded-lg text-xs disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="border border-input bg-background px-2.5 py-2 rounded-lg text-xs disabled:opacity-50 focus:ring-2 focus:ring-ring/60 focus:outline-none"
                   value={matteColor}
                   onChange={(e) => setMatteColor(e.target.value)}
                   disabled={matteStyle === 'none'}
@@ -240,7 +240,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
             {isOneSlotMode ? (
               <div className="space-y-2 pt-1">
                 <button
-                  className="w-full bg-blue-600 text-white text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  className="w-full bg-primary text-primary-foreground text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-primary-hover flex items-center justify-center gap-2 transition-colors shadow-sm"
                   onClick={() => handleSendToTV()}
                   disabled={tvLoading || !selectedTvIp}
                 >
@@ -249,7 +249,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
                 </button>
 
                 <button
-                  className="w-full bg-gray-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-gray-700 transition-colors"
+                  className="w-full bg-secondary text-secondary-foreground text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-accent transition-colors"
                   onClick={handleTvPowerOn}
                   disabled={tvLoading || !selectedTvIp}
                 >
@@ -259,7 +259,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
             ) : (
               <div className="space-y-2 pt-1">
                 <button
-                  className="w-full bg-blue-600 text-white text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-sm"
+                  className="w-full bg-primary text-primary-foreground text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-primary-hover flex items-center justify-center gap-2 transition-colors shadow-sm"
                   onClick={() => handleSendToTV()}
                   disabled={tvLoading || !selectedTvIp}
                 >
@@ -269,7 +269,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
                 <div className="flex gap-2">
                   <button
-                    className="flex-1 bg-emerald-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-emerald-700 transition-colors shadow-xs"
+                    className="flex-1 bg-primary text-primary-foreground text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-primary-hover transition-colors shadow-xs"
                     onClick={handlePlayUploadedImage}
                     disabled={tvLoading || !selectedTvIp}
                   >
@@ -277,7 +277,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
                   </button>
 
                   <button
-                    className="flex-1 bg-gray-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-gray-700 transition-colors shadow-xs"
+                    className="flex-1 bg-secondary text-secondary-foreground text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-accent transition-colors shadow-xs"
                     onClick={handleTvPowerOn}
                     disabled={tvLoading || !selectedTvIp}
                   >
@@ -292,14 +292,14 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {/* No TVs Warning */}
         {tvs.length === 0 && (
           <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg flex items-center gap-2 border border-border">
-            <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0 text-amber-500" strokeWidth={1.8} />
+            <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0 text-warning" strokeWidth={1.8} />
             <span>No TVs configured. Go to Settings to add one.</span>
           </div>
         )}
 
         {/* Error Message */}
         {error && (
-          <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-3 rounded-lg border border-red-200 dark:border-red-800">
+          <div className="text-xs text-destructive bg-danger-surface p-3 rounded-lg border border-destructive/30">
             {error}
           </div>
         )}
@@ -308,7 +308,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
         {onDelete && isLocalImage && (
           <div className="pt-2 border-t border-border/60">
             <button
-              className="w-full bg-red-600 text-white text-xs font-medium py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-red-700 flex items-center justify-center gap-2 transition-colors shadow-xs"
+              className="w-full bg-destructive text-destructive-foreground text-xs font-medium py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-destructive/90 flex items-center justify-center gap-2 transition-colors shadow-xs"
               onClick={onDelete}
               disabled={deleteLoading}
             >

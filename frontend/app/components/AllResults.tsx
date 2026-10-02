@@ -88,7 +88,7 @@ export default function AllResults({ sources, groups, added, onAdd, onSeeAll, on
             {(group.status === "error" || group.status === "resting") && (
               <div
                 role="alert"
-                className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+                className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning-surface p-4 text-sm text-foreground"
               >
                 <ExclamationTriangleIcon className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
