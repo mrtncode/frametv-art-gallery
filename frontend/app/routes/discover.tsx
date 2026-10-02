@@ -69,6 +69,7 @@ function remember(key: string, value: string) {
 
 export default function Discover() {
   const [sources, setSources] = useState<DiscoverSource[]>([]);
+  const [season, setSeason] = useState("");
   // Which sources are resting or busy, kept apart so refreshing it never restarts a search.
   const [statuses, setStatuses] = useState<Record<string, SourceStatus>>({});
   const [scope, setScope] = useState<string>(ALL_SOURCES);
@@ -122,16 +123,20 @@ export default function Discover() {
     () => sources.map((s) => ({ ...s, status: statuses[s.id] ?? s.status })),
     [sources, statuses]
   );
-  const tiles = useMemo(() => exploreTiles(sources.map((s) => s.id)), [sources]);
+  const tiles = useMemo(() => exploreTiles(sources.map((s) => s.id), season), [sources, season]);
   const shapeFor = useCallback(
     (sourceId: string) =>
       filtersTouched ? filters.shape : (sources.find((s) => s.id === sourceId)?.default_shape ?? filters.shape),
     [filters.shape, filtersTouched, sources]
   );
   const changeFilters = (next: Filters) => {
-    // Putting the filters back to how they began also puts the sources' own starting shapes back.
-    setFiltersTouched(JSON.stringify(next) !== JSON.stringify(DEFAULT_FILTERS));
+    setFiltersTouched(true);
     setFilters(next);
+  };
+  // Back to how the page began, including each source's own starting shape.
+  const resetFilters = () => {
+    setFiltersTouched(false);
+    setFilters(DEFAULT_FILTERS);
   };
   const heroCollapsed = !inAll || focused || trimmed !== "" || popoversOpen > 0;
   const popoverToggled = (open: boolean) => setPopoversOpen((n) => Math.max(0, n + (open ? 1 : -1)));
@@ -149,14 +154,15 @@ export default function Discover() {
 
   const refreshStatuses = useCallback(() => {
     fetchSources()
-      .then((list) => setStatuses(Object.fromEntries(list.map((s) => [s.id, s.status]))))
+      .then(({ sources: list }) => setStatuses(Object.fromEntries(list.map((s) => [s.id, s.status]))))
       .catch(() => {});
   }, []);
 
   useEffect(() => {
     fetchSources()
-      .then((list) => {
+      .then(({ sources: list, season: current }) => {
         setSources(list);
+        setSeason(current);
         setStatuses(Object.fromEntries(list.map((s) => [s.id, s.status])));
       })
       .catch((e) => {
@@ -486,10 +492,7 @@ export default function Discover() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 pb-28 [overflow-anchor:none]">
-      <h1 className="mb-1 mt-3 text-center text-2xl font-bold text-foreground">Discover</h1>
-      <p className="mb-5 text-center text-sm text-muted-foreground">
-        Free, high-resolution art, imported at the right size for your Frame.
-      </p>
+      <h1 className="sr-only">Discover</h1>
 
       <DiscoverHero
         items={highlights}
@@ -549,6 +552,7 @@ export default function Discover() {
         <DiscoverFilters
           filters={shownFilters}
           onChange={changeFilters}
+          onReset={resetFilters}
           source={source}
           onOpenChange={popoverToggled}
           onSwitchToTvReady={() => {

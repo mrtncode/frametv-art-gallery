@@ -116,8 +116,9 @@ async function readJson(res: Response) {
   return data;
 }
 
-export async function fetchSources(): Promise<DiscoverSource[]> {
-  return (await readJson(await fetch(`${API_BASE}/api/discover/sources`))).sources;
+/** The sources, and what is in season (the server works that out, so Easter and the like are always right). */
+export async function fetchSources(): Promise<{ sources: DiscoverSource[]; season: string }> {
+  return await readJson(await fetch(`${API_BASE}/api/discover/sources`));
 }
 
 export async function searchArt(options: {

@@ -5,8 +5,8 @@ import type { DiscoverSource, Shape } from "~/utils/discoverApi";
 
 export type Filters = { shape: Shape; paintings: boolean; sharp: boolean };
 
-/** Wide works only, paintings only: a sensible start for a Frame. */
-export const DEFAULT_FILTERS: Filters = { shape: "wide", paintings: true, sharp: false };
+/** Works that fill the screen with nothing cropped or padded, paintings only: the best start for a Frame. */
+export const DEFAULT_FILTERS: Filters = { shape: "fits", paintings: true, sharp: false };
 export const NO_FILTERS: Filters = { shape: "any", paintings: false, sharp: false };
 
 // "Landscape" used to sit between these. Every Wide work is already landscape, and every
@@ -33,13 +33,15 @@ export function activeFilterCount(filters: Filters, source: DiscoverSource | nul
 interface DiscoverFiltersProps {
   filters: Filters;
   onChange: (filters: Filters) => void;
+  /** Back to how the page started (which can differ by source, so it is not just onChange(DEFAULT_FILTERS)). */
+  onReset: () => void;
   source: DiscoverSource | null;
   /** When the source offers it, a quick route to art that is already 16:9 */
   onSwitchToTvReady?: () => void;
   onOpenChange?: (open: boolean) => void;
 }
 
-export default function DiscoverFilters({ filters, onChange, source, onSwitchToTvReady, onOpenChange }: DiscoverFiltersProps) {
+export default function DiscoverFilters({ filters, onChange, onReset, source, onSwitchToTvReady, onOpenChange }: DiscoverFiltersProps) {
   const count = activeFilterCount(filters, source);
 
   return (
@@ -134,7 +136,7 @@ export default function DiscoverFilters({ filters, onChange, source, onSwitchToT
           </fieldset>
 
           <div className="mt-4 flex justify-between gap-2 border-t border-border pt-3">
-            <Button type="button" variant="ghost" size="sm" onClick={() => onChange(DEFAULT_FILTERS)}>
+            <Button type="button" variant="ghost" size="sm" onClick={onReset}>
               Reset
             </Button>
             <Button type="button" variant="outline" size="sm" onClick={() => onChange(NO_FILTERS)}>

@@ -97,37 +97,29 @@ const TOPICS: ExploreTile[] = [
   },
 ];
 
-/** Holidays have postcards to match; the other months get a season across every source. */
-const BY_MONTH: Record<number, Omit<ExploreTile, "id">> = {
-  0: season("Winter", "Snow, frost and quiet light", "winter", "❄️", "from-cyan-600 to-sky-900"),
-  1: holiday("Valentine’s Day", "Vintage valentines", "valentine", "💘", "from-rose-500 to-pink-900"),
-  2: holiday("Easter", "Spring postcards, chicks and blossom", "easter", "🐣", "from-lime-600 to-emerald-800"),
-  3: holiday("Easter", "Spring postcards, chicks and blossom", "easter", "🐣", "from-lime-600 to-emerald-800"),
-  4: season("Spring", "Blossom, orchards and new green", "spring", "🌷", "from-lime-600 to-green-800"),
-  5: season("Summer", "Beaches, meadows and long days", "summer", "☀️", "from-yellow-500 to-orange-700"),
-  6: season("Summer", "Beaches, meadows and long days", "summer", "☀️", "from-yellow-500 to-orange-700"),
-  7: season("Summer", "Beaches, meadows and long days", "summer", "☀️", "from-yellow-500 to-orange-700"),
-  8: season("Autumn", "Harvest colours and falling leaves", "autumn", "🍂", "from-orange-600 to-amber-900"),
-  9: holiday("Halloween", "Vintage Halloween postcards", "halloween", "🎃", "from-orange-500 to-purple-900"),
-  10: holiday("Thanksgiving", "Harvest and gratitude, vintage cards", "thanksgiving", "🦃", "from-amber-600 to-red-900"),
-  11: holiday("Christmas", "Vintage Christmas postcards", "christmas", "🎄", "from-red-600 to-green-900"),
+/**
+ * How each season the server can name is shown. The server picks which one it is (it works
+ * out Easter and Thanksgiving for the year); the holiday postcards source answers all of them.
+ */
+const SEASONS: Record<string, Omit<ExploreTile, "id">> = {
+  winter: season("Winter", "Snow, frost and quiet light", "winter", "❄️", "from-cyan-600 to-sky-900"),
+  valentine: season("Valentine’s Day", "Hearts, roses and vintage valentines", "valentine", "💘", "from-rose-500 to-pink-900"),
+  easter: season("Easter", "Spring, blossom and vintage cards", "easter", "🐣", "from-lime-600 to-emerald-800"),
+  spring: season("Spring", "Blossom, orchards and new green", "spring", "🌷", "from-lime-600 to-green-800"),
+  summer: season("Summer", "Beaches, meadows and long days", "summer", "☀️", "from-yellow-500 to-orange-700"),
+  autumn: season("Autumn", "Harvest colours and falling leaves", "autumn", "🍂", "from-orange-600 to-amber-900"),
+  halloween: season("Halloween", "Spooky art and vintage postcards", "halloween", "🎃", "from-orange-500 to-purple-900"),
+  thanksgiving: season("Thanksgiving", "Harvest scenes and vintage cards", "thanksgiving", "🦃", "from-amber-600 to-red-900"),
+  christmas: season("Christmas", "Winter scenes and vintage cards", "christmas", "🎄", "from-red-600 to-green-900"),
 };
-
-function holiday(label: string, blurb: string, query: string, emoji: string, gradient: string) {
-  return { label, blurb, query, scope: "holidays", emoji, gradient };
-}
 
 function season(label: string, blurb: string, query: string, emoji: string, gradient: string) {
   return { label, blurb, query, emoji, gradient };
 }
 
-/** The tile for this time of year, which leads the others. */
-export function seasonalTile(today = new Date()): ExploreTile {
-  return { id: "season", ...BY_MONTH[today.getMonth()] };
-}
-
 /** Every tile to show, the seasonal one first. Tiles for a source that is not running are left out. */
-export function exploreTiles(sourceIds: string[], today = new Date()): ExploreTile[] {
+export function exploreTiles(sourceIds: string[], currentSeason: string): ExploreTile[] {
   const has = (tile: ExploreTile) => !tile.scope || sourceIds.includes(tile.scope);
-  return [seasonalTile(today), ...TOPICS].filter(has);
+  const lead = SEASONS[currentSeason];
+  return [...(lead ? [{ id: "season", ...lead }] : []), ...TOPICS].filter(has);
 }

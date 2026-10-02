@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { ArrowUpRightIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "@heroicons/react/24/outline";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
+import { Tooltip } from "./ui/tooltip";
 import { getUploadUrl } from "~/utils/galleryApi";
 
 const ROTATE_MS = 7000;
@@ -110,9 +111,13 @@ export default function HomeHero({ slides }: HomeHeroProps) {
                   <h2 className="line-clamp-2 text-xl font-semibold leading-tight text-balance sm:text-3xl">{slide.title}</h2>
                   {slide.subtitle && <p className="mt-0.5 line-clamp-1 text-sm text-white/85">{slide.subtitle}</p>}
                 </div>
-                <Button asChild size="sm" className="bg-white text-neutral-950 hover:bg-white/90">
-                  <Link to={slide.to}>{slide.action}</Link>
-                </Button>
+                <Tooltip label={slide.action}>
+                  <Button asChild size="icon" className="rounded-full bg-white text-neutral-950 hover:bg-white/90">
+                    <Link to={slide.to} aria-label={slide.action}>
+                      <ArrowUpRightIcon className="size-5" aria-hidden="true" />
+                    </Link>
+                  </Button>
+                </Tooltip>
               </div>
             </div>
           </div>
@@ -120,15 +125,19 @@ export default function HomeHero({ slides }: HomeHeroProps) {
       </div>
 
       {/* Which collection this is, and a way to jump between them */}
-      <div className="absolute left-3 top-3 flex max-w-[calc(100%-7rem)] flex-wrap gap-1.5" role="group" aria-label="Collections">
+      <div
+        className="no-scrollbar absolute left-3 top-3 flex h-8 max-w-[calc(100%-5.5rem)] items-center gap-0.5 overflow-x-auto rounded-full bg-black/55 p-0.5 backdrop-blur sm:max-w-[calc(100%-12rem)]"
+        role="group"
+        aria-label="Collections"
+      >
         {topics.map((topic) => (
           <button
             key={topic.name}
             type="button"
             onClick={() => go(topic.first)}
             aria-pressed={topic.name === currentTopic}
-            className={`rounded-full px-2.5 py-1 text-xs font-medium backdrop-blur transition-colors focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none ${
-              topic.name === currentTopic ? "bg-white text-neutral-950" : "bg-black/50 text-white hover:bg-black/70"
+            className={`h-7 shrink-0 whitespace-nowrap rounded-full px-3 text-xs font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none ${
+              topic.name === currentTopic ? "bg-white text-neutral-950" : "text-white/90 hover:bg-white/15 hover:text-white"
             }`}
           >
             {topic.name}
@@ -155,7 +164,7 @@ export default function HomeHero({ slides }: HomeHeroProps) {
             <ChevronRightIcon className="size-5" aria-hidden="true" />
           </button>
 
-          <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-black/55 px-2 py-1.5">
+          <div className="absolute right-3 top-3 flex h-8 items-center gap-2 rounded-full bg-black/55 px-2.5 backdrop-blur">
             <button
               type="button"
               onClick={() => setUserPaused((paused) => !paused)}

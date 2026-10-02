@@ -178,6 +178,13 @@ body {
   --shadow-card: 0 3px 16px rgb(0 0 0 / 14%);
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from "@heroicons/react/24/outline";
+import { ArrowUpRightIcon, ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { Button } from "./ui/button";
 import { Skeleton } from "./ui/skeleton";
+import { Tooltip } from "./ui/tooltip";
 import SourceLogo from "./SourceLogo";
 import { proxiedImageUrl, type Artwork, type DiscoverSource } from "~/utils/discoverApi";
 
@@ -143,18 +144,28 @@ export default function DiscoverHero({ items, sources, collapsed, onAdd, onBrows
                           </p>
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" className="bg-white text-neutral-950 hover:bg-white/90" onClick={() => onAdd(art)}>
-                            Add to gallery
-                          </Button>
-                          {source && (
+                          <Tooltip label="Add to gallery">
                             <Button
-                              size="sm"
-                              variant="outline"
-                              className="border-white/60 bg-transparent text-white hover:bg-white/15 hover:text-white"
-                              onClick={() => onBrowse(source.id)}
+                              size="icon"
+                              className="rounded-full bg-white text-neutral-950 hover:bg-white/90"
+                              aria-label="Add to gallery"
+                              onClick={() => onAdd(art)}
                             >
-                              More from {source.short_name.replace(/^the /i, "")}
+                              <PlusIcon className="size-5" aria-hidden="true" />
                             </Button>
+                          </Tooltip>
+                          {source && (
+                            <Tooltip label={`More from ${source.short_name.replace(/^the /i, "")}`}>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="rounded-full border-white/60 bg-transparent text-white hover:bg-white/15 hover:text-white"
+                                aria-label={`More from ${source.short_name.replace(/^the /i, "")}`}
+                                onClick={() => onBrowse(source.id)}
+                              >
+                                <ArrowUpRightIcon className="size-5" aria-hidden="true" />
+                              </Button>
+                            </Tooltip>
                           )}
                         </div>
                       </div>
@@ -183,7 +194,7 @@ export default function DiscoverHero({ items, sources, collapsed, onAdd, onBrows
                   <ChevronRightIcon className="size-5" aria-hidden="true" />
                 </button>
 
-                <div className="absolute right-3 top-3 flex items-center gap-2 rounded-full bg-black/55 px-2 py-1.5">
+                <div className="absolute right-3 top-3 flex h-8 items-center gap-2 rounded-full bg-black/55 px-2.5 backdrop-blur">
                   <button
                     type="button"
                     onClick={() => setUserPaused((paused) => !paused)}

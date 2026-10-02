@@ -34,6 +34,7 @@ from utils.discover.crop import (
     quality_label_whole,
 )
 from utils.discover.jobs import JobStore
+from utils.discover.seasons import seasonal_word
 from werkzeug.utils import secure_filename
 
 log = logging.getLogger(__name__)
@@ -95,7 +96,7 @@ def _int_arg(name, default, low, high):
 
 @discover_routes.route("/api/discover/sources", methods=["GET"])
 def api_discover_sources():
-    return jsonify(sources=[source_info(source) for source in SOURCES.values()])
+    return jsonify(sources=[source_info(source) for source in SOURCES.values()], season=seasonal_word())
 
 
 @discover_routes.route("/api/discover/search", methods=["GET"])

@@ -23,7 +23,7 @@ from utils.discover.smk import smk
 import datetime
 
 from utils.discover.nasa import nasa
-from utils.discover.seasons import seasonal_word
+from utils.discover.seasons import easter, seasonal_word, thanksgiving
 from utils.discover.wikimedia import holidays, louvre, posters, world_museums
 
 
@@ -627,10 +627,32 @@ def test_commons_also_accepts_files_marked_as_having_no_restrictions(net):
     assert [item["id"] for item in holidays.search("halloween", 1, True, "any")["results"]] == ["1"]
 
 
+def test_easter_and_thanksgiving_are_worked_out_for_each_year():
+    assert [easter(y) for y in (2025, 2026, 2027, 2038)] == [
+        datetime.date(2025, 4, 20), datetime.date(2026, 4, 5), datetime.date(2027, 3, 28), datetime.date(2038, 4, 25)
+    ]
+    assert [thanksgiving(y) for y in (2025, 2026, 2027)] == [
+        datetime.date(2025, 11, 27), datetime.date(2026, 11, 26), datetime.date(2027, 11, 25)
+    ]
+
+
+def test_the_season_follows_the_calendar_including_moving_holidays():
+    day = datetime.date
+    expected = {
+        day(2026, 1, 3): "christmas", day(2026, 1, 10): "winter", day(2026, 2, 1): "valentine",
+        day(2026, 2, 20): "winter", day(2026, 3, 8): "easter", day(2026, 3, 7): "spring",
+        day(2026, 4, 5): "easter", day(2026, 4, 6): "spring", day(2026, 6, 1): "summer",
+        day(2026, 9, 15): "autumn", day(2026, 10, 2): "halloween", day(2026, 10, 31): "halloween",
+        day(2026, 11, 1): "thanksgiving", day(2026, 11, 26): "thanksgiving", day(2026, 11, 27): "christmas",
+        day(2026, 12, 25): "christmas",
+        # Easter moves: late in 2038, early in 2027.
+        day(2038, 4, 20): "easter", day(2027, 3, 1): "easter", day(2027, 2, 20): "winter", day(2027, 3, 10): "easter",
+    }
+    for date, word in expected.items():
+        assert seasonal_word(date) == word, date
+
+
 def test_the_holiday_collection_suggests_what_is_in_season():
-    assert seasonal_word(datetime.date(2026, 10, 2)) == "halloween"
-    assert seasonal_word(datetime.date(2026, 12, 25)) == "christmas"
-    assert {seasonal_word(datetime.date(2026, month, 1)) for month in range(1, 13)} >= {"winter", "easter", "summer"}
     assert holidays.default_query == seasonal_word()
     assert posters.default_query == "travel"
 
