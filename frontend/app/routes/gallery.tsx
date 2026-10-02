@@ -1,19 +1,23 @@
 
 
-import React, { useEffect, useRef, useState } from "react";
-import { deleteImage, fetchImages, fetchImageDetails, fetchAlbums, uploadImage, createAlbum, addImagesToAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, type ImageProvenance, type ImageSort } from "../utils/galleryApi";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { deleteAlbum, deleteImage, fetchImages, fetchImageDetails, fetchAlbums, uploadImage, createAlbum, renameAlbum, addImagesToAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, type ImageProvenance, type ImageSort } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
-import AlbumCard from "~/components/AlbumCard";
+import AlbumStrip, { AlbumNameDialog, type Album } from "~/components/AlbumStrip";
+import AlbumPicker, { ALL_ALBUMS, UNSORTED } from "~/components/AlbumPicker";
 import ImageGrid from "~/components/imageGrid";
 import { getTvs } from "~/utils/tvApi";
 import ImageDropZone from "~/components/ImageDropZone";
 import { Button } from "~/components/ui/button";
-import { Link } from "react-router";
+import { Input } from "~/components/ui/input";
+import { Skeleton } from "~/components/ui/skeleton";
+import { Link, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import ImageUploadModal from "~/components/imageUploadModal";
-import { ArrowUpTrayIcon, SparklesIcon } from "@heroicons/react/24/outline";
-
-type Album = { id:string, name: string; images: string[] };
+import { Popover } from "radix-ui";
+import { Tooltip } from "~/components/ui/tooltip";
+import { ArrowRightIcon, ArrowUpTrayIcon, ArrowsUpDownIcon, CheckCircleIcon, CheckIcon, MagnifyingGlassIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon as CheckCircleSolidIcon } from "@heroicons/react/24/solid";
 type ProviderAlbum = { id: string; name: string; asset_count: number };
 type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
 
@@ -29,6 +33,30 @@ type GalleryImage = {
 
 const NEW_ALBUM = "__new__";
 
+const SORT_OPTIONS: { value: ImageSort; label: string }[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "name", label: "By name" },
+];
+
+// The same square icon button as the TV gallery's filter and select-all.
+const iconButton =
+  "relative inline-flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-accent disabled:opacity-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
+
+/** Placeholder tiles shaped like ImageCard while the first list of images loads. */
+function ImageGridSkeleton() {
+  return (
+    <div className="w-full py-3" role="status" aria-busy="true">
+      <span className="sr-only">Loading your images</span>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4" aria-hidden="true">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-video w-full rounded-xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Gallery() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [images, setImages] = useState<GalleryImage[]>([]);
@@ -38,12 +66,13 @@ export default function Gallery() {
   const [providerImagesHasMore, setProviderImagesHasMore] = useState(false);
   const [providerImagesAlbumId, setProviderImagesAlbumId] = useState<string | null>(null);
   const [providerEnabled, setProviderEnabled] = useState<boolean>(false); // dynamically set
-  const [albumName, setAlbumName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  // False until the first list of images arrives: the grid shows skeletons until then.
+  const [imagesLoaded, setImagesLoaded] = useState(false);
   const [tvs, setTvs] = useState<any[]>([]);
-  const [creating, setCreating] = useState(false);
-  const [showCreateAlbumModal, setShowCreateAlbumModal] = useState(false);
+  // The album being named: "new" to create one, an album to rename it.
+  const [nameTarget, setNameTarget] = useState<Album | "new" | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   // Multi-select: filenames, plus the last clicked row so shift-click can span a range.
@@ -57,6 +86,35 @@ export default function Gallery() {
   const [dropNewAlbumName, setDropNewAlbumName] = useState("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<ImageSort>("newest");
+  // Which album the gallery shows, kept in the URL so coming back from an album page keeps it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const scope = searchParams.get("album") || ALL_ALBUMS;
+
+  function chooseScope(next: string) {
+    setSearchParams(
+      prev => {
+        const params = new URLSearchParams(prev);
+        if (next === ALL_ALBUMS) params.delete("album");
+        else params.set("album", next);
+        return params;
+      },
+      { replace: true }
+    );
+    // Never leave something selected that cannot be seen.
+    setSelected([]);
+    lastClickedIndex.current = null;
+  }
+
+  const scopeAlbum = albums.find(album => String(album.id) === scope) ?? null;
+  const albumedFilenames = useMemo(() => new Set(albums.flatMap(album => album.images)), [albums]);
+  const unsortedCount = images.filter(img => !albumedFilenames.has(img.filename)).length;
+  const visibleImages = useMemo(() => {
+    if (scope === ALL_ALBUMS) return images;
+    if (scope === UNSORTED) return images.filter(img => !albumedFilenames.has(img.filename));
+    const inAlbum = new Set(scopeAlbum?.images ?? []);
+    return images.filter(img => inAlbum.has(img.filename));
+  }, [images, albumedFilenames, scope, scopeAlbum]);
+  const allSelected = visibleImages.length > 0 && visibleImages.every(img => selected.includes(img.filename));
 
   async function loadLocalGallery() {
     setLoading(true);
@@ -79,6 +137,7 @@ export default function Gallery() {
       setError(e.message || "Failed to load gallery");
     } finally {
       setLoading(false);
+      setImagesLoaded(true);
     }
   }
 
@@ -167,19 +226,25 @@ export default function Gallery() {
   }
 
 
-  async function handleCreateAlbum(e: React.FormEvent) {
-    e.preventDefault();
-    if (!albumName.trim()) return;
-    setCreating(true);
+  /** Create or rename, from the album name dialog. Throws so the dialog can show why. */
+  async function handleNameAlbum(name: string) {
+    if (nameTarget === "new") {
+      setAlbums(await createAlbum(name));
+      toast.success(`Created ${name}`, { position: "top-center" });
+    } else if (nameTarget) {
+      setAlbums(await renameAlbum(nameTarget.id, name));
+      toast.success(`Renamed to ${name}`, { position: "top-center" });
+    }
+  }
+
+  async function handleDeleteAlbum(album: Album) {
+    if (!window.confirm(`Delete the album "${album.name}"? Its images stay in the gallery.`)) return;
     try {
-      await createAlbum(albumName.trim());
-      setAlbumName("");
-      setError("");
-      await loadLocalGallery();
+      setAlbums(await deleteAlbum(album.name));
+      if (scope === String(album.id)) chooseScope(ALL_ALBUMS);
+      toast.success(`Deleted ${album.name}`, { position: "top-center" });
     } catch (e: any) {
-      setError(e.message || "Failed to create album");
-    } finally {
-      setCreating(false);
+      toast.error(e.message || "Failed to delete album", { position: "top-center" });
     }
   }
 
@@ -279,7 +344,7 @@ export default function Gallery() {
       const anchor = lastClickedIndex.current;
       if (shiftKey && anchor !== null) {
         const [from, to] = anchor <= index ? [anchor, index] : [index, anchor];
-        const range = images.slice(from, to + 1).map(img => img.filename);
+        const range = visibleImages.slice(from, to + 1).map(img => img.filename);
         const next = new Set(prev);
         const selecting = !prev.includes(filename);
         range.forEach(name => (selecting ? next.add(name) : next.delete(name)));
@@ -345,59 +410,148 @@ export default function Gallery() {
         disabled={loading}
       onFilesDropped={handleFilesDropped}
     >
-      <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">Gallery</h1>
+      <h1 className="sr-only">Gallery</h1>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <h3 className="text-xl font-semibold">Uploaded Images</h3>
-            {images.length > 0 && (
-              <button
-                type="button"
-                className="text-sm text-primary hover:underline"
-                onClick={() => {
-                  setSelected(selected.length === images.length ? [] : images.map(img => img.filename));
-                  lastClickedIndex.current = null;
-                }}
-              >
-                {selected.length === images.length ? "Clear selection" : "Select all"}
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2 mb-2">
-            <input
+      <AlbumStrip
+        albums={albums}
+        activeId={scopeAlbum ? String(scopeAlbum.id) : null}
+        onSelect={id => chooseScope(id ?? ALL_ALBUMS)}
+        onCreate={() => setNameTarget("new")}
+        onRename={album => setNameTarget(album)}
+        onDelete={handleDeleteAlbum}
+        loading={!imagesLoaded}
+      />
+
+      {/* Search: which album, then what to look for; results update as you type. */}
+      <div role="search" className="mb-3 flex gap-2">
+        <div className="flex h-11 min-w-0 flex-1 items-stretch rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
+          <AlbumPicker albums={albums} scope={scopeAlbum || scope === UNSORTED ? scope : ALL_ALBUMS} onSelect={chooseScope} unsortedCount={unsortedCount} />
+          <div className="relative min-w-0 flex-1">
+            <MagnifyingGlassIcon
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
               type="search"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Search by name…"
+              placeholder={scopeAlbum ? `Search ${scopeAlbum.name}` : scope === UNSORTED ? "Search unsorted images" : "Search by name"}
               aria-label="Search images by name"
-              className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60 flex-1 min-w-48"
+              className="h-full rounded-l-none rounded-r-md border-0 bg-transparent pl-9 pr-9 text-base shadow-none focus-visible:ring-0 dark:bg-transparent [&::-webkit-search-cancel-button]:hidden"
             />
-            <select
-              value={sort}
-              onChange={e => setSort(e.target.value as ImageSort)}
-              aria-label="Sort images"
-              className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
-            >
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="name">By name</option>
-            </select>
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear search"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-muted-foreground hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+              >
+                <XCircleIcon className="size-5" aria-hidden="true" />
+              </button>
+            )}
           </div>
-          <p className="text-sm text-muted-foreground mb-2">Tick the boxes, or shift-click, to move or delete several images at once.</p>
-          {loading ? (
-            <div>Loading...</div>
-          ) : (
-            <div className="mb-8">
-              <ImageGrid
-                images={images}
-                albums={albums}
-                tvs={tvs}
-                onDeleteImage={handleDeleteImage}
-                onAssignSuccess={loadLocalGallery}
-                selectedFilenames={selected}
-                onToggleSelect={toggleSelect}
-              />
-            </div>
+        </div>
+      </div>
+
+      <div className="mb-1 flex items-center justify-between gap-2 px-1 text-sm">
+        <p className="min-w-0 text-muted-foreground" aria-live="polite">
+          {!imagesLoaded
+            ? "Loading…"
+            : `${visibleImages.length} image${visibleImages.length === 1 ? "" : "s"}${scopeAlbum ? ` in ${scopeAlbum.name}` : scope === UNSORTED ? " not in an album" : ""}`}
+          {scopeAlbum && (
+            <Link to={`/album/${encodeURIComponent(scopeAlbum.id)}`} className="ml-3 inline-flex items-center gap-1 text-primary hover:underline">
+              Open album to send it to a TV
+              <ArrowRightIcon className="size-3.5" aria-hidden="true" />
+            </Link>
           )}
+        </p>
+        <div className="flex items-center gap-2">
+          <Popover.Root>
+            <Tooltip label={`Sort images: ${SORT_OPTIONS.find(o => o.value === sort)?.label}`}>
+              <Popover.Trigger className={iconButton} aria-label={`Sort images, ${SORT_OPTIONS.find(o => o.value === sort)?.label}`}>
+                <ArrowsUpDownIcon className="size-5" aria-hidden="true" />
+              </Popover.Trigger>
+            </Tooltip>
+            <Popover.Portal>
+              <Popover.Content
+                align="end"
+                sideOffset={6}
+                collisionPadding={12}
+                className="z-50 w-48 rounded-lg border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-lg focus:outline-none"
+              >
+                <div role="radiogroup" aria-label="Sort images">
+                  {SORT_OPTIONS.map(option => (
+                    <Popover.Close asChild key={option.value}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={sort === option.value}
+                        onClick={() => setSort(option.value)}
+                        className="flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+                      >
+                        {option.label}
+                        {sort === option.value && <CheckIcon className="size-4 text-primary" aria-hidden="true" />}
+                      </button>
+                    </Popover.Close>
+                  ))}
+                </div>
+                <Popover.Arrow className="fill-popover" />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          <Tooltip label={allSelected ? "Clear selection" : `Select all ${visibleImages.length} image${visibleImages.length === 1 ? "" : "s"} shown`}>
+            <button
+              type="button"
+              className={iconButton}
+              aria-label={allSelected ? "Clear selection" : `Select all ${visibleImages.length}`}
+              aria-pressed={allSelected}
+              disabled={visibleImages.length === 0}
+              onClick={() => {
+                setSelected(allSelected ? [] : visibleImages.map(img => img.filename));
+                lastClickedIndex.current = null;
+              }}
+            >
+              {allSelected ? (
+                <CheckCircleSolidIcon className="size-5 text-primary" aria-hidden="true" />
+              ) : (
+                <CheckCircleIcon className="size-5" aria-hidden="true" />
+              )}
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+
+      {!imagesLoaded ? (
+        <ImageGridSkeleton />
+      ) : visibleImages.length === 0 ? (
+        <div className="my-4 rounded-xl border border-dashed border-border px-6 py-10 text-center text-sm text-muted-foreground">
+          {search ? (
+            <p>Nothing here matches “{search}”.</p>
+          ) : scopeAlbum ? (
+            <p>{scopeAlbum.name} is empty. In All albums, tick some images and use “Move to album”.</p>
+          ) : scope === UNSORTED ? (
+            <p>Every image is in an album.</p>
+          ) : (
+            <p>
+              No images yet. Drop pictures anywhere on this page, upload them, or{" "}
+              <Link to="/discover" className="text-primary hover:underline">find art in Discover</Link>.
+            </p>
+          )}
+        </div>
+      ) : (
+        // Refetching for a new search keeps the old results in view, dimmed, rather than flashing skeletons.
+        <div className={`mb-8 transition-opacity ${loading ? "opacity-60" : ""}`}>
+          <ImageGrid
+            images={visibleImages}
+            albums={albums}
+            tvs={tvs}
+            onDeleteImage={handleDeleteImage}
+            onAssignSuccess={loadLocalGallery}
+            selectedFilenames={selected}
+            onToggleSelect={toggleSelect}
+          />
+        </div>
+      )}
 
           {selected.length > 0 && (
             <div className="sticky bottom-4 z-30 mb-8 flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 shadow-lg">
@@ -434,11 +588,6 @@ export default function Gallery() {
               </button>
             </div>
           )}
-
-          <div className="flex-row flex justify-between items-center py-2 mb-3">
-            <h3 className="text-xl font-semibold align-middle">Albums</h3>
-            <Button onClick={() => setShowCreateAlbumModal(true)}>Create album</Button>
-          </div>
 
           {/* Dropped files: pick where they land before anything is uploaded */}
           {pendingFiles && (
@@ -490,57 +639,7 @@ export default function Gallery() {
             </div>
           )}
 
-          {/* Modal for Create Album */}
-          {showCreateAlbumModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-              <div className="bg-card rounded-lg shadow-lg p-6 w-full max-w-sm relative">
-                <button
-                  className="absolute top-2 right-2 text-muted-foreground hover:text-muted-foreground text-xl font-bold"
-                  onClick={() => setShowCreateAlbumModal(false)}
-                  aria-label="Close"
-                >
-                  ×
-                </button>
-                <h4 className="text-base font-semibold mb-3">Create album</h4>
-                <form
-                  onSubmit={async (e) => {
-                    await handleCreateAlbum(e);
-                    if (!error) setShowCreateAlbumModal(false);
-                  }}
-                  className="flex flex-col gap-2"
-                >
-                  <input
-                    type="text"
-                    value={albumName}
-                    onChange={e => setAlbumName(e.target.value)}
-                    placeholder="Album name"
-                    className="border border-input bg-background px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
-                  />
-                  <Button
-                    type="submit"
-                    className="transition px-4 py-2 text-sm"
-                    disabled={creating || !albumName.trim()}
-                  >
-                    {creating ? "Creating…" : "Create"}
-                  </Button>
-                  {error && <div className="text-destructive text-sm mt-1">{error}</div>}
-                </form>
-              </div>
-            </div>
-          )}
-          
-          <div className="space-y-4">
-            {albums.length === 0 && <div className="text-muted-foreground">No albums yet.</div>}
-            {albums.map(album => (
-              <AlbumCard
-                key={album.id}
-                album={album}
-                loadLocalGallery={loadLocalGallery}
-                setError={setError}
-                onImageClick={_img => undefined}
-              />
-            ))}
-          </div>
+          <AlbumNameDialog target={nameTarget} onClose={() => setNameTarget(null)} onSubmit={handleNameAlbum} />
 
           {/* Provider Albums/Images Section (additional, not replacing local) */}
           {providerEnabled && (
@@ -590,14 +689,6 @@ export default function Gallery() {
 
       {/* Floating Action Buttons */}
       <div className="fixed bottom-24 flex-row right-6 md:bottom-8 md:right-8 z-40 flex gap-2">
-        <Link
-          to="/discover"
-          aria-label="Discover art"
-          title="Discover art"
-          className="flex items-center justify-center w-16 h-16 bg-primary hover:bg-primary-hover active:scale-95 text-primary-foreground rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300"
-        >
-          <SparklesIcon className="w-7 h-7" strokeWidth={2} />
-        </Link>
         <button
           type="button"
           onClick={() => setShowUploadModal(true)}

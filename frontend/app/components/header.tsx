@@ -13,7 +13,7 @@ const pageNames: { [key: string]: string } = {
   "/": "Home",
   "/gallery": "Gallery",
   "/discover": "Discover",
-  "/tv-gallery": "TV Settings",
+  "/tv-gallery": "TV Gallery",
   "/settings": "Settings"
 };
 

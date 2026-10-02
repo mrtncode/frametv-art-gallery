@@ -26,8 +26,8 @@ export default function ImageGrid({
 }: ImageGridProps) {
   const selected = new Set(selectedFilenames || []);
   return (
-    <div className="w-full p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="w-full py-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {images.map((img: any, index: number) => (
           <ImageCard
             key={img.id}
@@ -42,6 +42,7 @@ export default function ImageGrid({
             onClick={() => onImageClick?.(img)}
             onDelete={onDeleteImage ? () => onDeleteImage(img) : undefined}
             selected={selected.has(img.filename)}
+            selecting={selected.size > 0}
             onToggleSelect={
               onToggleSelect ? (shiftKey) => onToggleSelect(img.filename, index, shiftKey) : undefined
             }

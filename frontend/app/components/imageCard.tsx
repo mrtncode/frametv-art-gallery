@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { getTvs, sendToTV, playUploadedImage, tvPowerOn, type TVInfo } from "../utils/tvApi";
 import { addImageToAlbum } from "../utils/galleryApi";
 import CropImageModal from "./CropImageModal";
 import ImageModal, { type TV, type AlbumOption } from "./imageModal";
 import { MATTE_COLORS, splitMatte, combineMatte } from "../utils/matte";
+import { CheckIcon } from "@heroicons/react/24/outline";
 
 export interface ImageCardProps {
   /** what the grid tile shows — may be a downscaled copy */
@@ -30,6 +31,8 @@ export interface ImageCardProps {
   selected?: boolean;
   /** passing this shows the selection checkbox */
   onToggleSelect?: (shiftKey: boolean) => void;
+  /** Something in the grid is selected: checkboxes stay visible and a click selects */
+  selecting?: boolean;
 }
 
 const ImageCard: React.FC<ImageCardProps> = ({
@@ -48,6 +51,7 @@ const ImageCard: React.FC<ImageCardProps> = ({
   tvs: tvsProp,
   selected,
   onToggleSelect,
+  selecting,
 }) => {
   const [selectedTvIp, setSelectedTvIp] = useState("");
   const [error, setError] = useState("");
@@ -57,6 +61,9 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const [showCropModal, setShowCropModal] = useState(false);
   const [showControlsModal, setShowControlsModal] = useState(false);
   const [tileURL, setTileURL] = useState(src);
+  // The tile pulses as a skeleton until its picture has arrived (or failed to).
+  const [tileLoaded, setTileLoaded] = useState(false);
+  const tileRef = useRef<HTMLImageElement>(null);
   const [imageURL, setImageURL] = useState(fullSrc ?? src);
   const [selectedAlbum, setSelectedAlbum] = useState("");
   const [assigning, setAssigning] = useState(false);
@@ -68,6 +75,13 @@ const ImageCard: React.FC<ImageCardProps> = ({
   const [matteTouched, setMatteTouched] = useState(false);
 
   const isLocalImage = image?.type === "local" || !image?.type;
+  // A picture added from a museum has a real title; an upload falls back to its file name.
+  const provenance = image?.provenance;
+  const title = provenance?.title || (filename || alt).replace(/\.[^.]+$/, "");
+  const albumName = filename ? albums?.find((album) => album.images.includes(filename))?.name : undefined;
+  const subtitle = provenance?.title
+    ? [provenance.artist, provenance.source_label].filter(Boolean).join(" · ")
+    : albumName;
   const availableAlbums = (albums || []).filter(
     (album) => filename && !album.images.includes(filename)
   );
@@ -96,6 +110,11 @@ const ImageCard: React.FC<ImageCardProps> = ({
     setTileURL(src);
     setImageURL(fullSrc ?? src);
   }, [src, fullSrc]);
+
+  // A cached picture can finish before React attaches onLoad, so check once it is in place.
+  useEffect(() => {
+    setTileLoaded(!!tileRef.current?.complete && tileRef.current.naturalWidth > 0);
+  }, [tileURL]);
 
   // Sync default matte for selected TV
   const selectedTvDefaultMatte = tvs.find((t) => t.ip === selectedTvIp)?.default_matte ?? null;
@@ -201,60 +220,80 @@ const ImageCard: React.FC<ImageCardProps> = ({
 
   return (
     <>
+      {/* The tile is the shape of the TV. The whole picture sits over a blurred fill of itself,
+          so portraits and squares are shown complete without plain bars beside them. */}
       <div
         className={
-          `group relative flex flex-col overflow-hidden rounded-xl bg-card border border-border/80 shadow-xs transition-all duration-200 hover:shadow-lg hover:border-border ` +
+          `group relative aspect-video overflow-hidden rounded-xl bg-neutral-900 shadow-xs transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-within:shadow-lg ` +
           (large ? "col-span-2 " : "") +
-          (selected ? "ring-2 ring-primary border-primary" : "")
+          (selected ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "")
         }
       >
-        {onToggleSelect && (
-          <label
-            className="absolute top-2 left-2 z-10 flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg bg-card/90 backdrop-blur-xs border border-border shadow-xs hover:bg-card transition-colors"
-            title="Select image"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <input
-              type="checkbox"
-              className="h-4 w-4 accent-primary rounded cursor-pointer"
-              checked={!!selected}
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}
-            />
-          </label>
-        )}
-
-        <div
+        {!tileLoaded && <span className="absolute inset-0 animate-pulse bg-accent" aria-hidden="true" />}
+        <img
+          src={tileURL}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
           className={
-            `w-full bg-muted/60 flex items-center justify-center overflow-hidden ` +
-            (large ? "h-72" : "h-52")
+            "absolute inset-0 size-full scale-110 object-cover blur-xl brightness-75 transition-opacity duration-300 " +
+            (tileLoaded ? "opacity-100" : "opacity-0")
           }
+        />
+        <button
+          type="button"
+          className="absolute inset-0 cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/70"
+          aria-label={`Open ${title}`}
+          onClick={(event) => {
+            // While selecting, a click (or shift/ctrl-click) picks the image instead of opening it.
+            if (onToggleSelect && (selecting || event.shiftKey || event.ctrlKey || event.metaKey)) {
+              onToggleSelect(event.shiftKey);
+              return;
+            }
+            setShowControlsModal(true);
+            onClick?.();
+          }}
         >
           <img
+            ref={tileRef}
             src={tileURL}
             alt={alt}
             loading="lazy"
-            className="max-h-full max-w-full object-contain transition-transform duration-300 ease-out group-hover:scale-105 cursor-pointer"
-            onClick={(event) => {
-              // While selecting, clicking the image extends selection instead of opening modal
-              if (onToggleSelect && (event.shiftKey || event.ctrlKey || event.metaKey)) {
-                event.preventDefault();
-                onToggleSelect(event.shiftKey);
-                return;
-              }
-              setShowControlsModal(true);
-              onClick?.();
-            }}
+            onLoad={() => setTileLoaded(true)}
+            onError={() => setTileLoaded(true)}
+            className={
+              "relative size-full object-contain drop-shadow-lg transition-[transform,opacity] duration-500 ease-out group-hover:scale-[1.03] " +
+              (tileLoaded ? "opacity-100" : "opacity-0")
+            }
           />
+        </button>
+
+        {/* Name on a soft gradient, as on the home hero */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent px-2.5 pb-2 pt-6 text-white sm:px-3 sm:pb-2.5 sm:pt-8">
+          <p className="truncate text-xs font-semibold sm:text-sm leading-tight drop-shadow-sm" title={title}>{title}</p>
+          {subtitle && <p className="hidden truncate text-xs text-white/75 sm:block">{subtitle}</p>}
         </div>
 
-        {filename && (
-          <div
-            className="px-3 py-2 text-xs font-medium text-muted-foreground truncate border-t border-border/40 bg-card"
-            title={filename}
+        {onToggleSelect && (
+          <label
+            className={
+              "absolute left-2 top-2 z-10 flex size-7 cursor-pointer items-center justify-center rounded-full border shadow-sm backdrop-blur-sm transition-opacity has-[:focus-visible]:opacity-100 has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/60 " +
+              (selected
+                ? "border-primary bg-primary text-primary-foreground opacity-100"
+                : "border-white/70 bg-black/30 text-transparent hover:bg-black/45 " +
+                  (selecting ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"))
+            }
+            title="Select image"
           >
-            {filename}
-          </div>
+            <input
+              type="checkbox"
+              className="peer sr-only"
+              checked={!!selected}
+              aria-label={`Select ${title}`}
+              onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}
+            />
+            <CheckIcon className="size-4" strokeWidth={3} aria-hidden="true" />
+          </label>
         )}
       </div>
 

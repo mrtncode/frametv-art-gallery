@@ -720,6 +720,21 @@ def api_get_album(album_id):
         }
     }
 
+@app.route('/api/albums/<int:album_id>', methods=['PATCH'])
+def api_rename_album(album_id):
+    album = Album.query.get(album_id)
+    if not album:
+        return {'error': 'Album not found'}, 404
+    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
+    if not name:
+        return {'error': 'Album name required'}, 400
+    clash = Album.query.filter_by(name=name).first()
+    if clash and clash.id != album.id:
+        return {'error': 'Album already exists'}, 400
+    album.name = name
+    db.session.commit()
+    return api_list_albums()
+
 @app.route('/api/albums/<int:album_id>/images/<int:image_id>', methods=['DELETE'])
 def api_remove_image_from_album(album_id, image_id):
     album = Album.query.get(album_id)

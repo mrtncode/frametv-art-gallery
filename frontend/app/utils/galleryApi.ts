@@ -181,6 +181,16 @@ export async function removeImageFromAlbum(albumId: string | number, imageId: st
   return (await res.json()).album;
 }
 
+export async function renameAlbum(albumId: string | number, name: string) {
+  const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(String(albumId))}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to rename album');
+  return (await res.json()).albums;
+}
+
 export async function deleteAlbum(album: string) {
   const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(album)}`, {
     method: 'DELETE',

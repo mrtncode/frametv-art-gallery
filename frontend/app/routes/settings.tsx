@@ -9,7 +9,7 @@ import { getBackupUrl, reconcileImages } from '~/utils/galleryApi';
 import { toast } from 'sonner';
 
 import type { ProviderConfig } from '~/utils/providerApi';
-import { SparkleIcon, SparklesIcon } from 'lucide-react';
+import { SparklesIcon, PencilIcon, ImagesIcon, PlusIcon } from 'lucide-react';
 import { splitMatte } from '~/utils/matte';
 import { Switch } from '~/components/ui/switch';
 import { TvEditModal, type TV } from '~/components/TvEditModal';
@@ -240,8 +240,8 @@ export default function Settings() {
         </div>
       )}
 
-      <div className="w-full px-4 mx-auto sm:max-w-2xl lg:max-w-4xl">
-        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">TV Settings</h1>
+      <div className="w-full px-4 pt-6 mx-auto sm:max-w-2xl lg:max-w-4xl">
+        <h1 className="sr-only">Settings</h1>
 
         {/* Add TV Section */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
@@ -289,8 +289,8 @@ export default function Settings() {
             <Input type="text" value={ip} onChange={e => setIp(e.target.value)} placeholder="IP address" required />
             <Input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Name (optional)" />
             <Input type="text" value={mac} onChange={e => setMac(e.target.value)} placeholder="MAC (optional)" />
-            <Button className="bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 sm:w-auto" disabled={adding}>
-              {adding ? 'Adding…' : 'Add TV'}
+            <Button size="icon" aria-label="Add TV" title="Add TV" className="bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 sm:shrink-0" disabled={adding}>
+              <PlusIcon className="h-4 w-4" />
             </Button>
           </form>
           {error && <div className="text-destructive text-sm mt-1">{error}</div>}
@@ -330,11 +330,11 @@ export default function Settings() {
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-2">
-                      <Button type="button" onClick={() => setEditingIp(tv.ip)} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                        Edit
+                      <Button type="button" size="icon" onClick={() => setEditingIp(tv.ip)} aria-label={`Edit ${tv.name || tv.ip}`} title="Edit" className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
+                        <PencilIcon className="h-4 w-4" />
                       </Button>
-                      <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary-hover">
-                        View Gallery
+                      <Link to={`/tv-gallery?ip=${encodeURIComponent(tv.ip)}`} aria-label={`View gallery for ${tv.name || tv.ip}`} title="View gallery" className="inline-flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground hover:bg-primary-hover">
+                        <ImagesIcon className="h-4 w-4" />
                       </Link>
                     </div>
                   </li>
@@ -379,7 +379,12 @@ export default function Settings() {
         <div className="bg-card rounded-2xl border border-border p-5">
           <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
           <form onSubmit={handleSaveImmich} className="flex flex-col gap-3 max-w-lg">
-            <div className="font-semibold text-foreground">Immich</div>
+            <label className="flex items-center justify-between gap-4">
+              <span className="font-semibold text-foreground">Enable Immich</span>
+              <Switch checked={immichEnabled} onCheckedChange={setImmichEnabled} aria-label="Enable Immich" />
+            </label>
+            {immichEnabled && (
+              <>
             <Input
               type="text"
               value={immichHost}
@@ -400,10 +405,8 @@ export default function Settings() {
               placeholder="Immich API Key"
               required={immichEnabled}
             />
-            <label className="flex items-center justify-between gap-4">
-              <span>Enable Immich</span>
-              <Switch checked={immichEnabled} onCheckedChange={setImmichEnabled} aria-label="Enable Immich" />
-            </label>
+              </>
+            )}
             <div className="flex flex-col sm:flex-row gap-2 mt-2">
               <Button type="submit" className="bg-primary text-primary-foreground hover:bg-primary-hover" disabled={providerSaving}>
                 {providerSaving ? 'Saving…' : 'Save Immich Config'}
