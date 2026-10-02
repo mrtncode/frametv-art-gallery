@@ -633,3 +633,17 @@ def test_the_highlights_endpoint_returns_the_days_picks(client, monkeypatch):
     monkeypatch.setattr(discover_routes, "highlights", lambda sources: {"mood": "winter", "items": [{"id": "1"}]})
 
     assert client.get("/api/discover/highlights").get_json() == {"mood": "winter", "items": [{"id": "1"}]}
+
+
+def test_highlights_do_not_repeat_a_title_from_the_same_source():
+    import datetime
+
+    from utils.discover.aggregate import highlights
+
+    pair = [art("artic", "left", 6000, 3400), art("artic", "right", 6000, 3400)]  # both "Work left"? give them one title
+    pair[1] = {**pair[1], "title": pair[0]["title"]}
+    sources = {"artic": StubSource("artic", pair + [art("artic", "other", 6000, 3400)])}
+
+    ids = [i["id"] for i in highlights(sources, today=datetime.date(2026, 11, 1))["items"]]
+
+    assert ids == ["left", "other"]

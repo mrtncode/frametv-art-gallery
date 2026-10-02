@@ -8,6 +8,7 @@ afterwards, which is why changing them never needs a new request.
 
 import datetime
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 from .common import (
     DiscoverError,
@@ -84,17 +85,28 @@ def highlights(sources, today=None):
         return hit
 
     mood = MOODS[today.toordinal() % len(MOODS)]
-    columns = []
-    for source_id in HERO_SOURCES:
+
+    def column(source_id):
         source = sources.get(source_id)
         if source is None:
-            continue
+            return []
         try:
             raw, _ = cached_search(source, mood, 1, True)
         except DiscoverError:
-            continue
-        picks = [art for art in raw["results"] if matches_shape(art, "wide") and matches_sharp(art)]
-        columns.append([{**art, "hero_url": hero_url(art)} for art in picks[:PER_SOURCE]])
+            return []
+        picks, seen = [], set()
+        for art in raw["results"]:
+            title = art["title"].strip().lower()
+            # Pairs and series share a title; one of each is plenty for a hero.
+            if title in seen or not (matches_shape(art, "wide") and matches_sharp(art)):
+                continue
+            seen.add(title)
+            picks.append({**art, "hero_url": hero_url(art)})
+        return picks[:PER_SOURCE]
+
+    # Each source is asked once, all at the same time, so a new day costs one round trip.
+    with ThreadPoolExecutor(max_workers=len(HERO_SOURCES)) as pool:
+        columns = list(pool.map(column, HERO_SOURCES))
 
     items = []
     for rank in range(PER_SOURCE):
