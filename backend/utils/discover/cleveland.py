@@ -3,7 +3,7 @@
 import re
 from urllib.parse import unquote, urlsplit
 
-from .common import PAGE_SIZE, DiscoverError, DownloadPlan, artwork, http_get, apply_wide
+from .common import PAGE_SIZE, DiscoverError, DownloadPlan, artwork, http_get, apply_shape
 
 API = "https://openaccess-api.clevelandart.org/api/artworks"
 FIELDS = "id,accession_number,title,creators,creation_date,type,share_license_status,url,images"
@@ -57,7 +57,7 @@ class Cleveland:
             height=_to_int(print_image.get("height")),
         )
 
-    def search(self, query, page, paintings_only, wide_only):
+    def search(self, query, page, paintings_only, shape):
         params = {
             "q": query or self.default_query,
             "has_image": 1,
@@ -70,7 +70,7 @@ class Cleveland:
             params["type"] = "Painting"
         data = http_get(API + "/", params=params).json()
         items = [item for item in map(self._normalise, data.get("data", [])) if item]
-        items, hidden = apply_wide(items, wide_only)
+        items, hidden = apply_shape(items, shape)
         total = (data.get("info") or {}).get("total", 0)
         return {
             "results": items,

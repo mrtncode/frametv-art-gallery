@@ -17,8 +17,12 @@ TARGET_HEIGHT = 2160
 TARGET_RATIO = TARGET_WIDTH / TARGET_HEIGHT
 
 PAGE_SIZE = 24
-# A work counts as "wide" for the Frame when it crops to 16:9 with little loss.
-WIDE_MIN_ASPECT = 1.6
+# Shape filters, from loosest to strictest. Aspect is width / height.
+SHAPES = ("any", "landscape", "wide", "fits")
+DEFAULT_SHAPE = "wide"
+LANDSCAPE_MIN_ASPECT = 1.2   # clearly wider than tall
+WIDE_MIN_ASPECT = 1.6        # a 16:9 crop loses roughly a tenth or less
+FITS_MAX_CROP_LOSS = 0.03    # 16:9 within a hair: no matte, nothing cropped
 
 CONNECT_TIMEOUT = 10
 READ_TIMEOUT = 30
@@ -129,17 +133,26 @@ def artwork(
     }
 
 
-def is_wide(item):
-    """Unknown shapes are kept: better a maybe than hiding a work we cannot judge."""
+def matches_shape(item, shape):
+    """Whether a work passes a shape filter.
+
+    Landscape and wide give works of unknown shape the benefit of the doubt, as the Met
+    does not measure its images. "fits" promises no matte, so it needs a known shape.
+    """
+    if shape == "any":
+        return True
+    if shape == "fits":
+        loss = item.get("crop_loss")
+        return loss is not None and loss <= FITS_MAX_CROP_LOSS
     aspect = item.get("aspect")
-    return aspect is None or aspect >= WIDE_MIN_ASPECT
+    if aspect is None:
+        return True
+    return aspect >= (LANDSCAPE_MIN_ASPECT if shape == "landscape" else WIDE_MIN_ASPECT)
 
 
-def apply_wide(items, wide_only):
-    """Drop works that would lose too much to a 16:9 crop; say how many were hidden."""
-    if not wide_only:
-        return items, 0
-    kept = [item for item in items if is_wide(item)]
+def apply_shape(items, shape):
+    """Drop works that do not match the shape filter; say how many were hidden."""
+    kept = [item for item in items if matches_shape(item, shape)]
     return kept, len(items) - len(kept)
 
 

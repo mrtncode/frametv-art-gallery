@@ -70,7 +70,7 @@ The **Discover** tab searches free, high-resolution art and imports it straight 
 | [The Met](https://www.metmuseum.org/art/collection/search) | Public domain (CC0) | Search cannot filter to open-access works, so each page keeps the open-access ones. Requests are kept gentle because the Met's firewall blocks bursts. |
 | [Cleveland Museum of Art](https://www.clevelandart.org/art/collection/search) | Public domain (CC0) | Print-quality JPEGs up to 3400 px, so fills are slightly upscaled. |
 
-- **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. *Wide works only* hides works that would lose a lot to a crop.
+- **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. The **Shape** filter narrows results to *Landscape* (wider than tall), *Wide* (close to 16:9, the default) or *No matte needed* (already 16:9 within 3%, so nothing is cropped or padded).
 - **Albums**: choose an album before adding, or create one.
 - **From a link**: paste an artwork page link, or drag the **Send to Frame Gallery** bookmarklet to your bookmarks bar and click it on any supported artwork page to skip the copy and paste. The app asks before adding.
 - **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.

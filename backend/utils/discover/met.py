@@ -20,7 +20,7 @@ from .common import (
     DownloadPlan,
     artwork,
     http_get,
-    apply_wide,
+    apply_shape,
 )
 
 log = logging.getLogger(__name__)
@@ -93,7 +93,7 @@ class Met:
             aspect=summary["aspect"],
         )
 
-    def search(self, query, page, paintings_only, wide_only):
+    def search(self, query, page, paintings_only, shape):
         params = {"q": query or self.default_query, "limit": RAW_WINDOW, "offset": (page - 1) * RAW_WINDOW}
         if paintings_only:
             params["medium"] = "Paintings"
@@ -114,7 +114,7 @@ class Met:
 
         with ThreadPoolExecutor(max_workers=3) as pool:
             items = [item for item in pool.map(load, ids) if item]
-        items, hidden = apply_wide(items, wide_only)
+        items, hidden = apply_shape(items, shape)
         return {
             "results": items,
             "page": page,

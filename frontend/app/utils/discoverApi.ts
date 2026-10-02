@@ -47,6 +47,9 @@ export type SearchPage = {
 
 export type Framing = "fill" | "whole";
 
+/** Which shapes to show: everything, wider than tall, close to 16:9, or already 16:9 (no matte). */
+export type Shape = "any" | "landscape" | "wide" | "fits";
+
 export type ImportResult = {
   filename: string;
   duplicate_of: string | null;
@@ -90,14 +93,14 @@ export async function searchArt(options: {
   source: string;
   q: string;
   page: number;
-  wide: boolean;
+  shape: Shape;
   paintings: boolean;
 }): Promise<SearchPage> {
   const params = new URLSearchParams({
     source: options.source,
     q: options.q,
     page: String(options.page),
-    wide: options.wide ? "1" : "0",
+    shape: options.shape,
     paintings: options.paintings ? "1" : "0",
   });
   return readJson(await fetch(`${API_BASE}/api/discover/search?${params}`));

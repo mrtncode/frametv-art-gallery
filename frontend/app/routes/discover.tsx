@@ -25,11 +25,22 @@ import {
   type DiscoverSource,
   type Framing,
   type ImportJob,
+  type Shape,
 } from "~/utils/discoverApi";
 
 const QUICK_PICKS = ["Landscape", "Seascape", "Winter", "Flowers", "Mountains", "Impressionism"];
+const SHAPE_OPTIONS: { value: Shape; label: string; hint: string }[] = [
+  { value: "any", label: "Any shape", hint: "Everything, including portraits and squares." },
+  { value: "landscape", label: "Landscape", hint: "Wider than tall." },
+  { value: "wide", label: "Wide", hint: "Close to 16:9, so a crop to fill the screen loses little." },
+  {
+    value: "fits",
+    label: "No matte needed",
+    hint: "Already 16:9 (within 3%): fills the whole screen with nothing cropped or padded.",
+  },
+];
 const NEW_ALBUM = "__new__";
-// Some sources hide a lot of works (wide-only), so a "page" can come back nearly empty.
+// Some sources hide a lot of works (the shape filter), so a "page" can come back nearly empty.
 // Keep fetching a few pages until there is something to look at.
 const WANT_AT_LEAST = 8;
 const MAX_PAGES_PER_LOAD = 4;
@@ -55,7 +66,7 @@ export default function Discover() {
   const [sourceId, setSourceId] = useState("");
   const [queryInput, setQueryInput] = useState("");
   const [query, setQuery] = useState("");
-  const [wide, setWide] = useState(true);
+  const [shape, setShape] = useState<Shape>("wide");
   const [paintings, setPaintings] = useState(true);
   const [framing, setFraming] = useState<Framing>("fill");
 
@@ -129,7 +140,7 @@ export default function Discover() {
       let more = true;
       let page = firstPage;
       for (let i = 0; i < MAX_PAGES_PER_LOAD && more && found.length < WANT_AT_LEAST; i++) {
-        const data = await searchArt({ source: src, q, page, wide, paintings });
+        const data = await searchArt({ source: src, q, page, shape, paintings });
         if (token !== latestSearch.current) return null;
         found = found.concat(data.results);
         hiddenCount += data.hidden;
@@ -138,7 +149,7 @@ export default function Discover() {
       }
       return { found, hiddenCount, more, lastPage: page - 1 };
     },
-    [wide, paintings]
+    [shape, paintings]
   );
 
   useEffect(() => {
@@ -391,8 +402,59 @@ export default function Discover() {
         )}
       </div>
 
+      {/* Shape */}
+      <fieldset className="mb-4">
+        <legend className="sr-only">Shape of the artwork</legend>
+        <div className="flex flex-wrap items-center gap-2">
+          <span aria-hidden="true" className="text-xs font-medium text-muted-foreground">
+            Shape
+          </span>
+          {SHAPE_OPTIONS.map((option) => (
+            <label
+              key={option.value}
+              className={`cursor-pointer rounded-full border px-3 py-1 text-xs transition-colors has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50 ${
+                shape === option.value
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card hover:bg-accent"
+              }`}
+            >
+              <input
+                type="radio"
+                name="shape"
+                value={option.value}
+                checked={shape === option.value}
+                onChange={() => setShape(option.value)}
+                className="sr-only"
+              />
+              {option.label}
+            </label>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {SHAPE_OPTIONS.find((option) => option.value === shape)?.hint}
+          {shape === "fits" && source && !source.tv_ready && (
+            <>
+              {" "}
+              Very few museum works are exactly 16:9, so expect a short list. Everything on Reframed Gallery is made
+              for it.{" "}
+              <button
+                type="button"
+                className="text-primary underline underline-offset-2"
+                onClick={() => setSourceId(sources.find((s) => s.tv_ready)?.id ?? sourceId)}
+              >
+                Switch to Reframed
+              </button>
+            </>
+          )}
+        </p>
+      </fieldset>
+
       {/* How things are imported */}
-      <div className="mb-6 grid gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-3">
+      <div
+        className={`mb-6 grid gap-4 rounded-lg border border-border bg-card p-4 ${
+          source?.has_type_filter ? "md:grid-cols-3" : "md:grid-cols-2"
+        }`}
+      >
         <fieldset>
           <legend className="mb-1.5 text-sm font-medium text-muted-foreground">Framing</legend>
           {source?.tv_ready ? (
@@ -462,14 +524,10 @@ export default function Discover() {
           )}
         </div>
 
-        <fieldset>
-          <legend className="mb-1.5 text-sm font-medium text-muted-foreground">Show</legend>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={wide} onChange={(e) => setWide(e.target.checked)} className="size-4" />
-            Wide works only
-          </label>
-          {source?.has_type_filter && (
-            <label className="mt-1.5 flex items-center gap-2 text-sm">
+        {source?.has_type_filter && (
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-medium text-muted-foreground">Show</legend>
+            <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
                 checked={paintings}
@@ -478,11 +536,11 @@ export default function Discover() {
               />
               Paintings only
             </label>
-          )}
-          <p className="mt-1.5 text-xs text-muted-foreground">
-            Wide works lose little when cropped to 16:9.
-          </p>
-        </fieldset>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Leave off to include prints, drawings and photographs.
+            </p>
+          </fieldset>
+        )}
       </div>
 
       {/* Results */}
@@ -500,11 +558,11 @@ export default function Discover() {
           {loading
             ? "Searching…"
             : `${results.length} work${results.length === 1 ? "" : "s"} shown`}
-          {!loading && hidden > 0 && wide && (
+          {!loading && hidden > 0 && shape !== "any" && (
             <>
               {" · "}
-              {hidden} hidden because they would lose a lot when cropped.{" "}
-              <button type="button" className="text-primary underline underline-offset-2" onClick={() => setWide(false)}>
+              {hidden} hidden by the shape filter.{" "}
+              <button type="button" className="text-primary underline underline-offset-2" onClick={() => setShape("any")}>
                 Show them
               </button>
             </>
@@ -529,10 +587,10 @@ export default function Discover() {
           {!error && results.length === 0 && (
             <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
               <p>Nothing matched{query ? ` “${query}”` : ""}.</p>
-              <p className="mt-1">Try another word{wide ? ", or show works that are not wide" : ""}.</p>
-              {wide && (
-                <Button variant="outline" size="sm" className="mt-3" onClick={() => setWide(false)}>
-                  Include all shapes
+              <p className="mt-1">Try another word{shape !== "any" ? ", or show every shape" : ""}.</p>
+              {shape !== "any" && (
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setShape("any")}>
+                  Show every shape
                 </Button>
               )}
             </div>

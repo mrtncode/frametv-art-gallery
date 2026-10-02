@@ -15,7 +15,9 @@ from models import Album, Image, db
 from utils.discover import SOURCES, configure, get_source, resolve_url, source_info
 from utils.discover.artic import AIC_HEADERS
 from utils.discover.common import (
+    DEFAULT_SHAPE,
     MAX_DOWNLOAD_BYTES,
+    SHAPES,
     DiscoverError,
     http_get,
     prune_old_files,
@@ -94,8 +96,10 @@ def api_discover_search():
     query = request.args.get("q", "").strip()[:200]
     page = _int_arg("page", 1, 1, 200)
     paintings_only = request.args.get("paintings", "1") != "0"
-    wide_only = request.args.get("wide", "1") != "0"
-    result = source.search(query, page, paintings_only, wide_only)
+    shape = request.args.get("shape", DEFAULT_SHAPE)
+    if shape not in SHAPES:
+        raise DiscoverError("shape must be one of: " + ", ".join(SHAPES))
+    result = source.search(query, page, paintings_only, shape)
     return jsonify(source=source.id, query=query, **result)
 
 

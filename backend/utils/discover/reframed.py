@@ -17,6 +17,7 @@ from .common import (
     DiscoverError,
     DiskCache,
     DownloadPlan,
+    apply_shape,
     artwork,
     http_get,
     slugify_words,
@@ -166,7 +167,7 @@ class Reframed:
 
     # --- Source interface --------------------------------------------------------
 
-    def search(self, query, page, paintings_only, wide_only):
+    def search(self, query, page, paintings_only, shape):
         words = slugify_words(query)
         if not words:
             records = self._listing("/recent")
@@ -189,12 +190,9 @@ class Reframed:
                 by_href = {r["href"]: r for records in pool.map(load, artists) for r in records}
             window = [by_href[e["href"]] for e in chosen if e["href"] in by_href]
 
-        hidden = 0
-        if wide_only:
-            kept = [r for r in window if r["orientation"] == "landscape"]
-            hidden, window = len(window) - len(kept), kept
+        items, hidden = apply_shape([self._normalise(r) for r in window], shape)
         return {
-            "results": [self._normalise(r) for r in window],
+            "results": items,
             "page": page,
             "hidden": hidden,
             "has_more": page * PAGE_SIZE < total,

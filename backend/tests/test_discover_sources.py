@@ -9,7 +9,14 @@ from discover_fakes import FakeNet, FakeResponse
 from utils.discover import SOURCES, resolve_url
 from utils.discover.artic import artic
 from utils.discover.cleveland import cleveland
-from utils.discover.common import DiscoverError, DiskCache, prune_old_files
+from utils.discover.common import (
+    SHAPES,
+    DiscoverError,
+    DiskCache,
+    apply_shape,
+    artwork,
+    prune_old_files,
+)
 from utils.discover.met import met
 from utils.discover.reframed import reframed
 
@@ -47,7 +54,7 @@ def test_aic_search_asks_for_public_domain_paintings_and_matches_the_text(net):
         ],
     }))
 
-    page = artic.search("monet", 1, paintings_only=True, wide_only=True)
+    page = artic.search("monet", 1, paintings_only=True, shape="wide")
 
     body = net.calls[0]["json"]
     must = body["query"]["bool"]["must"]
@@ -70,7 +77,7 @@ def test_aic_search_asks_for_public_domain_paintings_and_matches_the_text(net):
 def test_aic_can_include_everything_not_only_paintings(net):
     net.add("artworks/search", FakeResponse({"pagination": {"total": 0, "total_pages": 0}, "data": []}))
 
-    artic.search("", 1, paintings_only=False, wide_only=False)
+    artic.search("", 1, paintings_only=False, shape="any")
 
     must = net.calls[0]["json"]["query"]["bool"]["must"]
     assert not any("artwork_type_title.keyword" in str(clause) for clause in must)
@@ -119,7 +126,7 @@ def test_cleveland_search_only_asks_for_cc0_with_images(net):
                  cleveland_record(3, has_print=False), cleveland_record(4, width="1500", height="2000")],
     }))
 
-    page = cleveland.search("renoir", 2, paintings_only=True, wide_only=True)
+    page = cleveland.search("renoir", 2, paintings_only=True, shape="wide")
 
     params = net.calls[0]["params"]
     assert params["cc0"] == 1 and params["has_image"] == 1 and params["type"] == "Painting"
@@ -176,7 +183,7 @@ def test_met_keeps_only_open_access_works_because_search_cannot_filter(net):
         4: met_object(4, height=90, width=60),   # a portrait
     }, ids=[1, 2, 3, 4, 5], total=500)  # 5 does not exist: skipped, not fatal
 
-    page = met.search("van gogh", 1, paintings_only=True, wide_only=True)
+    page = met.search("van gogh", 1, paintings_only=True, shape="wide")
 
     assert [item["id"] for item in page["results"]] == ["1"]
     assert page["hidden"] == 1
@@ -189,8 +196,8 @@ def test_met_keeps_only_open_access_works_because_search_cannot_filter(net):
 def test_met_reuses_cached_objects(net):
     met_routes(net, {1: met_object(1)})
 
-    met.search("sunflowers", 1, paintings_only=False, wide_only=False)
-    met.search("sunflowers", 1, paintings_only=False, wide_only=False)
+    met.search("sunflowers", 1, paintings_only=False, shape="any")
+    met.search("sunflowers", 1, paintings_only=False, shape="any")
 
     object_calls = [call for call in net.calls if "v1/objects/" in call["url"]]
     assert len(object_calls) == 1  # the second search came from the cache
@@ -201,7 +208,7 @@ def test_met_blocking_us_is_reported_not_swallowed(net):
     net.add("v1/objects/", FakeResponse(status=403))
 
     with pytest.raises(DiscoverError) as raised:
-        met.search("monet", 1, paintings_only=True, wide_only=True)
+        met.search("monet", 1, paintings_only=True, shape="wide")
 
     assert raised.value.status == 429 and "limiting requests" in str(raised.value)
 
@@ -259,7 +266,7 @@ def reframed_routes(net):
 def test_reframed_searches_the_sitemap_and_reads_thumbnails_from_artist_pages(net):
     reframed_routes(net)
 
-    page = reframed.search("monet", 1, paintings_only=True, wide_only=True)
+    page = reframed.search("monet", 1, paintings_only=True, shape="wide")
 
     assert [item["title"] for item in page["results"]] == ["Impression, Sunrise", "Wheatstacks"]
     first = page["results"][0]
@@ -269,13 +276,13 @@ def test_reframed_searches_the_sitemap_and_reads_thumbnails_from_artist_pages(ne
     assert "Claude%20Monet%20-%20Impression%2C%20Sunrise%20-%20reframed.jpg" in first["thumb_url"]
     assert page["total"] == 2 and page["has_more"] is False
     # Collections and the home page are not artworks.
-    assert not any("collections" in item["id"] for item in reframed.search("new world", 1, True, True)["results"])
+    assert not any("collections" in item["id"] for item in reframed.search("new world", 1, True, "wide")["results"])
 
 
 def test_reframed_with_no_search_shows_what_is_new(net):
     reframed_routes(net)
 
-    page = reframed.search("", 1, paintings_only=True, wide_only=True)
+    page = reframed.search("", 1, paintings_only=True, shape="wide")
 
     assert [item["title"] for item in page["results"]] == ["Starry Night"]
 
@@ -284,8 +291,8 @@ def test_reframed_hides_portrait_works_unless_asked(net):
     net.add("sitemap.xml", FakeResponse(text=SITEMAP.replace("wheatstacks", "portrait-study")))
     reframed_routes(net)
 
-    wide = reframed.search("portrait", 1, paintings_only=True, wide_only=True)
-    everything = reframed.search("portrait", 1, paintings_only=True, wide_only=False)
+    wide = reframed.search("portrait", 1, paintings_only=True, shape="wide")
+    everything = reframed.search("portrait", 1, paintings_only=True, shape="any")
 
     assert wide["results"] == [] and wide["hidden"] == 1
     assert [item["title"] for item in everything["results"]] == ["Portrait Study"]
@@ -364,3 +371,58 @@ def test_stale_cache_files_are_pruned_and_fresh_ones_kept(tmp_path):
     prune_old_files(str(tmp_path), 14 * 24 * 3600)
 
     assert not old.exists() and fresh.exists()
+
+
+# --- Shape filters -----------------------------------------------------------------
+
+
+def shaped(aspect):
+    return artwork("t", str(aspect), "Work", "Artist", "", "https://t/x.jpg", "https://t/p", "CC0", aspect=aspect)
+
+
+ALL_SHAPES = [1.778, 1.75, 1.85, 1.6, 1.3, 1.0, 0.6, None]
+
+
+@pytest.mark.parametrize(
+    "shape, kept",
+    [
+        ("any", ALL_SHAPES),
+        # Clearly wider than tall; a work of unknown shape gets the benefit of the doubt.
+        ("landscape", [1.778, 1.75, 1.85, 1.6, 1.3, None]),
+        ("wide", [1.778, 1.75, 1.85, 1.6, None]),
+        # No matte needed: within 3% of 16:9, and only if the shape is actually known.
+        ("fits", [1.778, 1.75]),
+    ],
+)
+def test_shape_filters_keep_what_they_promise(shape, kept):
+    items, hidden = apply_shape([shaped(a) for a in ALL_SHAPES], shape)
+
+    assert [item["aspect"] for item in items] == kept
+    assert hidden == len(ALL_SHAPES) - len(kept)
+
+
+def test_the_fits_filter_agrees_with_the_badge_on_the_tile():
+    # 1.85 loses 3.9% to a crop, so the tile says "Crops 4%", not "Fits 16:9".
+    assert shaped(1.85)["crop_loss"] > 0.03
+    assert shaped(1.75)["crop_loss"] <= 0.03
+
+
+def test_there_are_exactly_four_shapes():
+    assert SHAPES == ("any", "landscape", "wide", "fits")
+
+
+def test_a_source_applies_the_shape_it_is_given(net):
+    net.add("openaccess-api", FakeResponse({
+        "info": {"total": 3},
+        "data": [cleveland_record(1, width="3840", height="2160"),   # 16:9
+                 cleveland_record(2, width="3400", height="2400"),   # 1.42, landscape but not wide
+                 cleveland_record(3, width="1500", height="2000")],  # portrait
+    }))
+
+    def ids(shape):
+        return [item["id"] for item in cleveland.search("x", 1, True, shape)["results"]]
+
+    assert ids("any") == ["1", "2", "3"]
+    assert ids("landscape") == ["1", "2"]
+    assert ids("wide") == ["1"]
+    assert ids("fits") == ["1"]

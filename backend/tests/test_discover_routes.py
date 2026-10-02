@@ -42,8 +42,8 @@ class FakeSource:
         self.searches = []
         self.fail_plan = None
 
-    def search(self, query, page, paintings_only, wide_only):
-        self.searches.append((query, page, paintings_only, wide_only))
+    def search(self, query, page, paintings_only, shape):
+        self.searches.append((query, page, paintings_only, shape))
         return {"results": [], "page": page, "hidden": 0, "has_more": False, "total": 0}
 
     def get(self, item_id):
@@ -117,19 +117,28 @@ def test_sources_describe_where_to_send_thanks(client):
 
 
 def test_search_passes_the_filters_to_the_source(client, fake):
-    client.get("/api/discover/search?source=fake&q=%20sunset%20&page=3&paintings=0&wide=0")
+    client.get("/api/discover/search?source=fake&q=%20sunset%20&page=3&paintings=0&shape=any")
     client.get("/api/discover/search?source=fake&q=x&page=99999")
     client.get("/api/discover/search?source=fake")
 
-    assert fake.searches == [("sunset", 3, False, False), ("x", 200, True, True), ("", 1, True, True)]
+    assert fake.searches == [("sunset", 3, False, "any"), ("x", 200, True, "wide"), ("", 1, True, "wide")]
 
 
-def test_search_rejects_unknown_sources_and_bad_pages(client, fake):
+def test_search_rejects_unknown_sources_pages_and_shapes(client, fake):
     unknown = client.get("/api/discover/search?source=nope")
     bad_page = client.get("/api/discover/search?source=fake&page=abc")
+    bad_shape = client.get("/api/discover/search?source=fake&shape=square")
 
     assert unknown.status_code == 404 and unknown.get_json()["error"]
     assert bad_page.status_code == 400
+    assert bad_shape.status_code == 400 and "shape must be one of" in bad_shape.get_json()["error"]
+
+
+@pytest.mark.parametrize("shape", ["any", "landscape", "wide", "fits"])
+def test_every_shape_is_accepted(client, fake, shape):
+    client.get(f"/api/discover/search?source=fake&shape={shape}")
+
+    assert fake.searches[-1][3] == shape
 
 
 def test_a_source_failure_is_reported_as_json(client, fake, monkeypatch):

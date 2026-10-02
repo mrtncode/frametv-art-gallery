@@ -13,7 +13,7 @@ from .common import (
     artwork,
     http_get,
     http_post_json,
-    apply_wide,
+    apply_shape,
 )
 from .crop import FIT_FILL, plan_fill
 
@@ -77,7 +77,7 @@ class ArtInstituteChicago:
             height=thumb.get("height"),
         ) | {"image_id": image_id}
 
-    def search(self, query, page, paintings_only, wide_only):
+    def search(self, query, page, paintings_only, shape):
         # `q` is ignored once a `query` is sent, so the text match goes inside it.
         must = [
             {
@@ -102,7 +102,7 @@ class ArtInstituteChicago:
             headers=AIC_HEADERS,
         )
         items = [item for item in map(self._normalise, data.get("data", [])) if item]
-        items, hidden = apply_wide(items, wide_only)
+        items, hidden = apply_shape(items, shape)
         pagination = data.get("pagination", {})
         return {
             "results": items,
