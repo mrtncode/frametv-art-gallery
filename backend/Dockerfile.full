@@ -8,6 +8,10 @@ FROM node:24-slim AS frontend
 
 ARG APP_VERSION=dev
 ENV VITE_APP_VERSION=${APP_VERSION}
+# The build prerenders the SPA shell through a temporary local server. In a container
+# without IPv6, Node can bind that server to ::1 while the client dials 127.0.0.1, which
+# fails with ECONNREFUSED. Preferring IPv4 makes both ends agree.
+ENV NODE_OPTIONS=--dns-result-order=ipv4first
 
 RUN npm install --global pnpm@11.1.0
 
