@@ -42,9 +42,11 @@ class FakeSource:
         self.searches = []
         self.fail_plan = None
 
+    results = []
+
     def search(self, query, page, paintings_only, shape):
         self.searches.append((query, page, paintings_only, shape))
-        return {"results": [], "page": page, "hidden": 0, "has_more": False, "total": 0}
+        return {"results": list(self.results), "page": page, "hidden": 0, "has_more": False, "total": 0}
 
     def get(self, item_id):
         return {"source": "fake", "id": item_id, "title": "A fake artwork"}
@@ -391,3 +393,25 @@ def test_an_image_from_before_source_tracking_reads_as_uploaded(client):
     details = client.get("/api/images/details").get_json()["details"]["old.jpg"]
 
     assert details["source"] is None and details["source_label"] == "Uploaded"
+
+
+def sized(item_id, width, height, tv_ready=False):
+    return {"source": "fake", "id": item_id, "width": width, "height": height, "tv_ready": tv_ready}
+
+
+def test_the_sharp_filter_keeps_only_works_that_will_be_crisp_on_4k(client, fake):
+    fake.results = [
+        sized("big", 8000, 4500),                 # plenty of pixels
+        sized("tall", 5000, 7000),                # portrait: the crop is only 5000 wide, still enough
+        sized("small", 3000, 2000),               # a crop would be 3000 wide: soft
+        sized("wide", 6000, 2000),                # wide: the crop is 3555 wide, just short
+        sized("unknown", None, None),             # no size listed (the Met): cannot promise
+        sized("ready", None, None, tv_ready=True),  # made for the panel
+    ]
+
+    everything = client.get("/api/discover/search?source=fake").get_json()
+    sharp = client.get("/api/discover/search?source=fake&sharp=1").get_json()
+
+    assert len(everything["results"]) == 6
+    assert [r["id"] for r in sharp["results"]] == ["big", "tall", "ready"]
+    assert sharp["hidden"] == 3

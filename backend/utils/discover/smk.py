@@ -30,6 +30,12 @@ class SMK:
         chosen = (english or [t for t in titles if t.get("title")] or [{}])[0]
         return chosen.get("title")
 
+    @staticmethod
+    def _tile(record):
+        """A tile-sized preview: the IIIF thumbnail is 1024 px wide, far more than a tile needs."""
+        thumb = record.get("image_thumbnail") or record["image_native"]
+        return thumb.replace("/!1024,/", "/!480,/") if "iip-thumb.smk.dk" in thumb else thumb
+
     def _normalise(self, record):
         if not (record.get("public_domain") and record.get("has_image") and record.get("image_native")):
             return None
@@ -40,7 +46,7 @@ class SMK:
             self._title(record),
             ", ".join(record.get("artist") or []),
             dates[0].get("period") if dates else "",
-            record.get("image_thumbnail") or record["image_native"],
+            self._tile(record),
             record.get("frontend_url") or f"https://open.smk.dk/artwork/image/{record['object_number']}",
             self.license_note,
             width=record.get("image_width"),

@@ -20,6 +20,7 @@ from utils.discover.common import (
     SHAPES,
     DiscoverError,
     http_get,
+    matches_sharp,
     prune_old_files,
 )
 from utils.discover.crop import (
@@ -45,7 +46,7 @@ THUMB_HOSTS = {
     "www.artic.edu",
     "images.metmuseum.org", "www.metmuseum.org",
     "openaccess-cdn.clevelandart.org", "www.clevelandart.org",
-    "api.smk.dk", "iip.smk.dk", "open.smk.dk", "www.smk.dk",
+    "api.smk.dk", "iip.smk.dk", "iip-thumb.smk.dk", "open.smk.dk", "www.smk.dk",
     "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "www.louvre.fr",
 }
 THUMB_MAX_BYTES = 8 * 1024 * 1024
@@ -102,6 +103,10 @@ def api_discover_search():
     if shape not in SHAPES:
         raise DiscoverError("shape must be one of: " + ", ".join(SHAPES))
     result = source.search(query, page, paintings_only, shape)
+    if request.args.get("sharp") == "1":
+        kept = [item for item in result["results"] if matches_sharp(item)]
+        result["hidden"] += len(result["results"]) - len(kept)
+        result["results"] = kept
     return jsonify(source=source.id, query=query, **result)
 
 

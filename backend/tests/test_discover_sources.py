@@ -580,3 +580,21 @@ def test_a_commons_file_link_goes_to_the_world_collection_only():
     assert louvre.from_url(link) is None
     with pytest.raises(DiscoverError):
         resolve_url("https://commons.wikimedia.org/wiki/Category:Paintings")
+
+
+def test_smk_asks_for_a_tile_sized_preview_not_the_1024px_one(net):
+    record = smk_record("KMS7")
+    record["image_thumbnail"] = "https://iip-thumb.smk.dk/iiif/jp2/x.tif.jp2/full/!1024,/0/default.jpg"
+    net.add("api.smk.dk/api/v1/art/search", FakeResponse({"found": 1, "items": [record]}))
+
+    item = smk.search("x", 1, False, "any")["results"][0]
+
+    assert item["thumb_url"].endswith("/full/!480,/0/default.jpg")
+
+
+def test_commons_dates_lose_the_markup_that_follows_them(net):
+    page = commons_page(1, "File:Claude Monet - Springtime - Google Art Project.jpg")
+    page["imageinfo"][0]["extmetadata"]["DateTimeOriginal"] = {"value": '1872 date QS:P571,+1872-00-00T00:00:00Z/9'}
+    net.add("w/api.php", FakeResponse({"query": {"pages": {"1": page}}}))
+
+    assert world_museums.search("x", 1, True, "any")["results"][0]["date"] == "1872"

@@ -32,6 +32,11 @@ def _text(value):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", value or "")).split())
 
 
+def _clean_date(value):
+    """Keep the date and drop wiki markup that follows it, such as "1872 date QS:P571,..."."""
+    return re.split(r"\s*(?:date\s+)?QS:", _text(value))[0].strip()[:40]
+
+
 def _usable_title(value):
     """Some uploads leave wiki markup (for example "QS:P1476,...") in the title field."""
     text = _text(value)
@@ -131,7 +136,7 @@ class CommonsCollection:
             page["pageid"],
             title,
             artist,
-            _text(meta.get("DateTimeOriginal"))[:40],
+            _clean_date(meta.get("DateTimeOriginal")),
             info.get("thumburl") or info.get("url"),
             info.get("descriptionurl"),
             license_name,

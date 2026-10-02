@@ -150,6 +150,20 @@ def matches_shape(item, shape):
     return aspect >= (LANDSCAPE_MIN_ASPECT if shape == "landscape" else WIDE_MIN_ASPECT)
 
 
+def matches_sharp(item):
+    """Whether the picture will be sharp on a 4K panel after being cropped to fill it.
+
+    Needs a known size, so works the source does not measure (the Met's) never pass.
+    """
+    if item.get("tv_ready"):
+        return True
+    width, height = item.get("width"), item.get("height")
+    if not width or not height:
+        return False
+    crop_width = height * TARGET_RATIO if width / height >= TARGET_RATIO else width
+    return crop_width >= TARGET_WIDTH
+
+
 def apply_shape(items, shape):
     """Drop works that do not match the shape filter; say how many were hidden."""
     kept = [item for item in items if matches_shape(item, shape)]
