@@ -25,6 +25,14 @@ class Image(db.Model):
     # Content hash, used to spot the same artwork uploaded twice under different names.
     # Null for rows that predate this column and have not been re-uploaded since.
     sha256 = db.Column(db.String(64), nullable=True, index=True)
+    # Where the image came from: "upload" for a manual upload, or the Discover source id
+    # (for example "met"). Null for rows that predate source tracking.
+    source = db.Column(db.String(32), nullable=True)
+    source_id = db.Column(db.String(255), nullable=True)
+    source_url = db.Column(db.String(1000), nullable=True)
+    title = db.Column(db.String(255), nullable=True)
+    artist = db.Column(db.String(255), nullable=True)
+    license = db.Column(db.String(120), nullable=True)
 
 class TV(db.Model):
     id = db.Column(db.Integer, primary_key=True)

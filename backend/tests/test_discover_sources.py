@@ -19,6 +19,8 @@ from utils.discover.common import (
 )
 from utils.discover.met import met
 from utils.discover.reframed import reframed
+from utils.discover.smk import smk
+from utils.discover.wikimedia import louvre, world_museums
 
 
 @pytest.fixture
@@ -426,3 +428,155 @@ def test_a_source_applies_the_shape_it_is_given(net):
     assert ids("landscape") == ["1", "2"]
     assert ids("wide") == ["1"]
     assert ids("fits") == ["1"]
+
+
+# --- SMK (Denmark) -----------------------------------------------------------------
+
+
+def smk_record(number, title="Evening Landscape", width=5760, height=3840, public=True, image=True):
+    return {
+        "object_number": number,
+        "titles": [{"title": "Aftenlandskab", "language": "dansk"}, {"title": title, "language": "engelsk"}],
+        "artist": ["Julius Paulsen", "Someone Else"],
+        "production_date": [{"period": "1886"}],
+        "image_width": width,
+        "image_height": height,
+        "image_native": f"https://api.smk.dk/api/v1/download/{number}.jpg" if image else None,
+        "image_thumbnail": f"https://api.smk.dk/api/v1/thumbnail/{number}.jpg",
+        "frontend_url": f"https://open.smk.dk/artwork/image/{number}",
+        "public_domain": public,
+        "has_image": image,
+    }
+
+
+def test_smk_searches_public_domain_paintings_with_images(net):
+    net.add("api.smk.dk/api/v1/art/search", FakeResponse({
+        "found": 100,
+        "items": [smk_record("KMS1"), smk_record("KMS2", public=False), smk_record("KMS3", image=False),
+                  smk_record("KMS4", width=1000, height=1500)],
+    }))
+
+    page = smk.search("landscape", 2, paintings_only=True, shape="landscape")
+
+    params = net.calls[0]["params"]
+    assert params["keys"] == "landscape" and params["offset"] == 24 and params["lang"] == "en"
+    assert params["filters"] == "[has_image:true],[public_domain:true],[object_names:painting]"
+    assert [item["id"] for item in page["results"]] == ["KMS1"]
+    assert page["hidden"] == 1 and page["total"] == 100 and page["has_more"] is True
+    item = page["results"][0]
+    assert item["title"] == "Evening Landscape"          # the English title, not the Danish one
+    assert item["artist"] == "Julius Paulsen, Someone Else"
+    assert (item["width"], item["height"], item["date"]) == (5760, 3840, "1886")
+    assert item["thumb_url"].endswith("/thumbnail/KMS1.jpg")
+
+
+def test_smk_plan_uses_the_native_image_and_knows_its_size(net):
+    net.add("api.smk.dk/api/v1/art/", FakeResponse({"items": [smk_record("KMS9")]}))
+
+    plan = smk.plan("KMS9", "fill")
+
+    assert plan.url == "https://api.smk.dk/api/v1/download/KMS9.jpg"
+    assert (plan.width, plan.height) == (5760, 3840)
+    assert smk.from_url("https://open.smk.dk/artwork/image/KMS9") == "KMS9"
+    assert smk.from_url("https://example.com/artwork/image/KMS9") is None
+
+
+# --- Wikimedia Commons (the Louvre and world museums) -------------------------------
+
+
+def commons_page(page_id, file_title, license_name="Public domain", width=4000, height=3000, mime="image/jpeg",
+                 object_name=None, artist="Some Photographer", thumb=True):
+    meta = {"LicenseShortName": {"value": license_name}, "Artist": {"value": f'<a href="x">{artist}</a>'}}
+    if object_name:
+        meta["ObjectName"] = {"value": object_name}
+    info = {
+        "width": width, "height": height, "mime": mime, "extmetadata": meta,
+        "url": f"https://upload.wikimedia.org/original/{page_id}.jpg",
+        "descriptionurl": f"https://commons.wikimedia.org/wiki/{file_title}",
+    }
+    if thumb:
+        info["thumburl"] = f"https://upload.wikimedia.org/thumb/{page_id}.jpg"
+    return {"pageid": page_id, "title": file_title, "index": page_id, "imageinfo": [info]}
+
+
+def test_commons_only_offers_public_domain_images_of_a_usable_size_and_type(net):
+    pages = {
+        "1": commons_page(1, "File:Claude Monet - The Magpie - Google Art Project.jpg"),
+        "2": commons_page(2, "File:Photo of a painting.jpg", license_name="CC BY-SA 4.0"),
+        "3": commons_page(3, "File:Mona Lisa.jpg", license_name="CC0"),
+        "4": commons_page(4, "File:Scan.tif", mime="image/tiff"),
+        "5": commons_page(5, "File:Gigantic.jpg", width=30000, height=40000),
+    }
+    net.add("w/api.php", FakeResponse({"query": {"pages": pages}, "continue": {"gsroffset": 24}}))
+
+    page = world_museums.search("monet", 1, paintings_only=True, shape="any")
+
+    assert [item["id"] for item in page["results"]] == ["1", "3"]
+    assert page["has_more"] is True and page["total"] is None
+    first = page["results"][0]
+    assert (first["title"], first["artist"], first["license"]) == ("The Magpie", "Claude Monet", "Public domain")
+    assert first["page_url"].startswith("https://commons.wikimedia.org/wiki/File:")
+
+
+def test_commons_search_is_limited_to_the_collection_and_cannot_be_hijacked(net):
+    net.add("w/api.php", FakeResponse({"query": {"pages": {}}}))
+
+    louvre.search('monet" OR deepcategory:"Secrets (x)', 2, True, "any")
+
+    params = net.calls[0]["params"]
+    assert params["generator"] == "search" and params["gsroffset"] == 24 and params["gsrnamespace"] == 6
+    search = params["gsrsearch"]
+    assert search.startswith('deepcategory:"Paintings in the Louvre" ')
+    assert "filew:>2500" in search and "filetype:bitmap" in search
+    # Operators the visitor typed are neutralised, so they cannot widen the search.
+    assert search.count("deepcategory:") == 1 and "OR" in search and '"Secrets' not in search
+
+
+def test_commons_trusts_the_filename_over_a_photographers_name(net):
+    pages = {
+        "1": commons_page(1, "File:Antonello da Messina - Christ at the Column.jpg", artist="Wilfredor"),
+        "2": commons_page(2, "File:(Agen) Portrait de Joseph - Musée du Louvre.jpg", artist="Didier Descouens"),
+    }
+    net.add("w/api.php", FakeResponse({"query": {"pages": pages}}))
+
+    results = louvre.search("x", 1, True, "any")["results"]
+
+    assert results[0]["artist"] == "Antonello da Messina" and results[0]["title"] == "Christ at the Column"
+    # Nothing in the name says who painted it, and the metadata names the photographer.
+    assert results[1]["artist"] == "Unknown artist"
+
+
+def test_commons_ignores_markup_left_in_the_title_field(net):
+    pages = {"1": commons_page(1, "File:Claude Monet - Nympheas - Google Art Project.jpg",
+                               object_name='label QS:Lja,"x"')}
+    net.add("w/api.php", FakeResponse({"query": {"pages": pages}}))
+
+    assert world_museums.search("x", 1, True, "any")["results"][0]["title"] == "Nympheas"
+
+
+def test_commons_asks_for_a_copy_scaled_to_the_panel_not_the_original(net):
+    net.add("w/api.php", lambda url, params, *_: FakeResponse({"query": {"pages": {"7": commons_page(
+        7, "File:Claude Monet - Big.jpg", width=8000, height=6000)}}}))
+
+    plan = world_museums.plan("7", "fill")
+
+    assert net.calls[0]["params"]["iiurlwidth"] == 3840 and net.calls[0]["params"]["pageids"] == "7"
+    assert plan.url.startswith("https://upload.wikimedia.org/thumb/")
+    assert (plan.width, plan.height) == (3840, 2880)
+
+
+def test_commons_keeps_a_small_original_as_it_is(net):
+    net.add("w/api.php", FakeResponse({"query": {"pages": {"8": commons_page(8, "File:A - B.jpg", width=3000, height=2000)}}}))
+
+    plan = world_museums.plan("8", "fill")
+
+    assert plan.url.endswith("/original/8.jpg") and (plan.width, plan.height) == (3000, 2000)
+
+
+def test_a_commons_file_link_goes_to_the_world_collection_only():
+    link = "https://commons.wikimedia.org/wiki/File:Claude_Monet_-_The_Magpie_-_Google_Art_Project.jpg"
+
+    assert resolve_url(link) == ("worldmuseums", "File:Claude_Monet_-_The_Magpie_-_Google_Art_Project.jpg")
+    assert louvre.from_url(link) is None
+    with pytest.raises(DiscoverError):
+        resolve_url("https://commons.wikimedia.org/wiki/Category:Paintings")

@@ -45,6 +45,8 @@ THUMB_HOSTS = {
     "www.artic.edu",
     "images.metmuseum.org", "www.metmuseum.org",
     "openaccess-cdn.clevelandart.org", "www.clevelandart.org",
+    "api.smk.dk", "iip.smk.dk", "open.smk.dk", "www.smk.dk",
+    "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "www.louvre.fr",
 }
 THUMB_MAX_BYTES = 8 * 1024 * 1024
 THUMB_TTL_SECONDS = 7 * 24 * 3600
@@ -299,7 +301,16 @@ def _run_import(app, job_id, source_id, item_id, fit, album_id):
             filename = _unique_name(upload_dir, stem or f"{source_id}-{item_id}", extension)
             shutil.move(final_path, os.path.join(upload_dir, filename))
 
-            image = Image(filename=filename, sha256=digest)
+            image = Image(
+                filename=filename,
+                sha256=digest,
+                source=source_id,
+                source_id=str(item_id)[:255],
+                source_url=(plan.page_url or "")[:1000] or None,
+                title=(plan.title or "")[:255] or None,
+                artist=(plan.artist or "")[:255] or None,
+                license=(plan.license or source.license_note)[:120],
+            )
             if album_id:
                 image.album = db.session.get(Album, album_id)
             db.session.add(image)

@@ -7,9 +7,14 @@ from .cleveland import cleveland
 from .common import DiscoverError, DiskCache
 from .met import met
 from .reframed import reframed
+from .smk import smk
+from .wikimedia import louvre, world_museums
 
 # Reframed first: its files are already 3840x2160.
-SOURCES = {source.id: source for source in (reframed, artic, met, cleveland)}
+SOURCES = {
+    source.id: source
+    for source in (reframed, artic, met, cleveland, smk, louvre, world_museums)
+}
 
 
 def get_source(source_id):
@@ -30,10 +35,12 @@ def source_info(source):
         "support_url": source.support_url,
         "support_label": source.support_label,
         "icon_url": source.icon_url,
+        "support_name": getattr(source, "support_name", source.short_name),
+        "support_icon_url": getattr(source, "support_icon_url", source.icon_url),
         "license": source.license_note,
         "default_query": source.default_query,
         "tv_ready": source.id == "reframed",
-        "has_type_filter": source.id != "reframed",
+        "has_type_filter": getattr(source, "has_type_filter", source.id != "reframed"),
     }
 
 

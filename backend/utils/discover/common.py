@@ -160,7 +160,7 @@ class DownloadPlan:
     """Everything the importer needs once a source has resolved an artwork."""
 
     def __init__(self, url, title, artist, source, page_url, width=None, height=None,
-                 server_cropped=False, headers=None):
+                 server_cropped=False, headers=None, license=None):
         self.url = url
         self.title = title
         self.artist = artist
@@ -170,6 +170,7 @@ class DownloadPlan:
         self.height = height
         self.server_cropped = server_cropped
         self.headers = headers or {}
+        self.license = license
 
 
 def slugify_words(text):

@@ -717,6 +717,34 @@ def api_delete_album(album_name):
 
 
 
+def _image_provenance(image) -> dict:
+    """Where an image came from, in the shape the front end shows it."""
+    from utils.discover import SOURCES
+
+    source = SOURCES.get(image.source) if image.source else None
+    return {
+        'source': image.source,
+        'source_label': source.name if source else 'Uploaded',
+        'source_id': image.source_id,
+        'source_url': image.source_url,
+        'title': image.title,
+        'artist': image.artist,
+        'license': image.license,
+    }
+
+
+def _mark_manual_upload(image) -> None:
+    """A file someone put here themselves, not one fetched from a source."""
+    image.source = 'upload'
+    image.source_id = image.source_url = image.title = image.artist = image.license = None
+
+
+@app.route('/api/images/details', methods=['GET'])
+def api_image_details():
+    """Provenance for every image, keyed by filename: manual upload, or which source it came from."""
+    return {'details': {image.filename: _image_provenance(image) for image in Image.query.all()}}
+
+
 @app.route('/api/upload', methods=['POST'])
 def upload():
     """Upload an image to the gallery, optionally straight into an album."""
@@ -763,6 +791,7 @@ def upload():
             duplicate_of = twin.filename
         img.sha256 = digest
 
+    _mark_manual_upload(img)
     if album:
         img.album = album
     db.session.commit()
@@ -805,6 +834,8 @@ def import_image_from_reframed_gallery():
             if twin and os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], twin.filename)):
                 duplicate_of = twin.filename
             image.sha256 = digest
+        image.source = 'reframed'
+        image.source_url = url.strip()[:1000]
         if album:
             image.album = album
         db.session.commit()
@@ -1174,16 +1205,19 @@ def api_get_tv_gallery(ip):
         # sent from here was recorded with its content id, which gives the real name
         # back; the rest keep the id, which at least identifies them.
         known = {
-            uploaded.content_id: image.filename
+            uploaded.content_id: image
             for uploaded, image in db.session.query(UploadedImage, Image)
             .join(Image, UploadedImage.image_id == Image.id)
             .filter(UploadedImage.tv_id == tv.id)
             .all()
         }
         for entry in images:
+            ours = known.get(entry['content_id'])
             if not entry.get('filename'):
-                entry['filename'] = known.get(entry['content_id'], entry['content_id'])
-            entry['origin'] = _tv_image_origin(entry['content_id'], entry['content_id'] in known)
+                entry['filename'] = ours.filename if ours else entry['content_id']
+            entry['origin'] = _tv_image_origin(entry['content_id'], ours is not None)
+            if ours:
+                entry['provenance'] = _image_provenance(ours)
 
         return jsonify({'images': images, 'tv_ip': ip})
     except FrameTVUnavailableError as e:

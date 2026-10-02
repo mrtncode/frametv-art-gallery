@@ -117,3 +117,27 @@ def test_tv_images_are_labelled_by_where_they_came_from(client, monkeypatch):
         ("SAM-S1110436", "samsung"),
         ("sam-s3945", "samsung"),
     ]
+
+
+def test_a_picture_sent_from_here_carries_where_it_came_from(client, monkeypatch):
+    upload(client, "found.png")
+    with backend.app.app_context():
+        tv = backend.TV(ip="192.0.2.53", name="TV", token="1")
+        backend.db.session.add(tv)
+        backend.db.session.commit()
+        image = backend.Image.query.filter_by(filename="found.png").first()
+        image.source, image.source_url, image.title, image.artist = (
+            "met", "https://www.metmuseum.org/art/collection/search/1", "Wheat Field", "Vincent van Gogh")
+        backend.db.session.add(backend.UploadedImage(image_id=image.id, tv_id=tv.id, content_id="MY_F0009"))
+        backend.db.session.commit()
+
+    monkeypatch.setattr(backend, "get_tv_gallery_images", lambda ip, token=None: [
+        {"content_id": "MY_F0009", "filename": "", "date_added": ""},
+        {"content_id": "MY_F0010", "filename": "", "date_added": ""},
+    ])
+    images = client.get("/api/tv/192.0.2.53/gallery").get_json()["images"]
+
+    assert images[0]["provenance"]["source"] == "met"
+    assert images[0]["provenance"]["source_label"] == "The Metropolitan Museum of Art"
+    assert images[0]["provenance"]["title"] == "Wheat Field"
+    assert "provenance" not in images[1]  # not ours, so nothing is known

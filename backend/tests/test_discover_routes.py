@@ -332,3 +332,62 @@ def test_a_preview_that_is_not_an_image_is_refused(client, monkeypatch, thumbs_d
     response = client.get("/api/discover/thumb", query_string={"url": url})
 
     assert response.status_code == 502 and "not return an image" in response.get_json()["error"]
+
+
+# --- Provenance --------------------------------------------------------------------
+
+
+def test_an_imported_image_remembers_where_it_came_from(client, fake, net):
+    result = wait_for(client, start_import(client, id="42")[1])["result"]
+
+    with backend.app.app_context():
+        row = backend.Image.query.filter_by(filename=result["filename"]).one()
+        assert (row.source, row.source_id) == ("fake", "42")
+        assert row.source_url == "https://fake.test/art/1"
+        assert (row.title, row.artist, row.license) == ("Work 42", "Test Artist", "Public domain")
+
+
+def test_a_manual_upload_is_marked_as_one(client):
+    buf = io.BytesIO()
+    PILImage.new("RGB", (60, 40), "red").save(buf, format="PNG")
+    buf.seek(0)
+    client.post("/api/upload", data={"file": (buf, "mine.png")}, content_type="multipart/form-data")
+
+    details = client.get("/api/images/details").get_json()["details"]
+
+    assert details["mine.png"]["source"] == "upload" and details["mine.png"]["source_label"] == "Uploaded"
+    assert details["mine.png"]["source_url"] is None
+
+
+def test_uploading_over_a_discovered_image_makes_it_a_manual_upload(client, fake, net):
+    result = wait_for(client, start_import(client)[1])["result"]
+    buf = io.BytesIO()
+    PILImage.new("RGB", (60, 40), "red").save(buf, format="JPEG")
+    buf.seek(0)
+
+    client.post("/api/upload", data={"file": (buf, result["filename"])}, content_type="multipart/form-data")
+
+    row = client.get("/api/images/details").get_json()["details"][result["filename"]]
+    assert row["source"] == "upload" and row["source_url"] is None and row["title"] is None
+
+
+def test_details_name_the_source_and_link_back_to_it(client, fake, net):
+    result = wait_for(client, start_import(client)[1])["result"]
+
+    details = client.get("/api/images/details").get_json()["details"][result["filename"]]
+
+    assert details == {
+        "source": "fake", "source_label": "Fake Museum", "source_id": "1",
+        "source_url": "https://fake.test/art/1", "title": "Work 1", "artist": "Test Artist",
+        "license": "Public domain",
+    }
+
+
+def test_an_image_from_before_source_tracking_reads_as_uploaded(client):
+    with backend.app.app_context():
+        backend.db.session.add(backend.Image(filename="old.jpg"))
+        backend.db.session.commit()
+
+    details = client.get("/api/images/details").get_json()["details"]["old.jpg"]
+
+    assert details["source"] is None and details["source_label"] == "Uploaded"
