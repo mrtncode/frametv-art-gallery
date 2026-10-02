@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { TrashIcon, PlayIcon, PhotoIcon } from "@heroicons/react/24/outline";
 import { Skeleton } from "~/components/ui/skeleton"
+import ImageSource from "./ImageSource";
 import { type TVGalleryImage, type TVImageOrigin } from "../utils/tvApi";
 
 function Loader() {
@@ -39,8 +40,8 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
       className={
         "flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow " +
         (selected ? "border-blue-500 ring-1 ring-blue-500" : "border-border") +
-        // Ours stand out with an accent edge; Samsung's own art is quieter.
-        (image.origin === "app" ? " border-l-4 border-l-blue-500" : "") +
+        // Ours stand out with a tint; Samsung's own art is quieter.
+        (image.origin === "app" ? " bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900" : "") +
         (image.origin === "samsung" ? " opacity-75" : "")
       }
     >
@@ -91,6 +92,9 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
         >
           {ORIGIN_BADGE[image.origin].label}
         </span>
+        {image.provenance && image.provenance.source && image.provenance.source !== "upload" && (
+          <ImageSource provenance={image.provenance} className="mt-1" />
+        )}
         <div className="text-xs text-muted-foreground mt-1 space-y-1">
           <p>
             Added: {formatDate(image.date_added)}

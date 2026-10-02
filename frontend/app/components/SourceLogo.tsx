@@ -17,11 +17,15 @@ function initials(name: string) {
  */
 export default function SourceLogo({
   source,
+  src,
   className = "size-10",
 }: {
   source: DiscoverSource;
+  /** Show this icon instead of the source's own (for example Wikimedia's on a Commons collection). */
+  src?: string;
   className?: string;
 }) {
+  const icon = src ?? source.icon_url;
   const [stage, setStage] = useState<"direct" | "proxy" | "failed">("direct");
 
   if (stage === "failed") {
@@ -37,8 +41,8 @@ export default function SourceLogo({
 
   return (
     <img
-      key={`${source.id}-${stage}`}
-      src={stage === "direct" ? source.icon_url : proxiedImageUrl(source.icon_url)}
+      key={`${icon}-${stage}`}
+      src={stage === "direct" ? icon : proxiedImageUrl(icon)}
       alt=""
       referrerPolicy="no-referrer"
       onError={() => setStage(stage === "direct" ? "proxy" : "failed")}

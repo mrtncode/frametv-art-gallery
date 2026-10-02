@@ -2,6 +2,7 @@ import React from "react";
 import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon, SparklesIcon, TvIcon } from "@heroicons/react/24/outline";
 import { Button } from "./ui/button";
 import { MATTE_STYLES, MATTE_COLORS } from "../utils/matte";
+import ImageSource from "./ImageSource";
 
 export interface TV {
   ip: string;
@@ -119,6 +120,8 @@ const ImageModal: React.FC<ImageModalProps> = ({
             className="max-h-full max-w-full object-contain transition-transform duration-200"
           />
         </div>
+
+        {image?.provenance && <ImageSource provenance={image.provenance} />}
 
         {/* Crop & Assign Album Buttons */}
         {isLocalImage && (

@@ -1,7 +1,7 @@
 
 
 import React, { useEffect, useRef, useState } from "react";
-import { deleteImage, fetchImages, fetchAlbums, uploadImage, createAlbum, addImagesToAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, type ImageSort } from "../utils/galleryApi";
+import { deleteImage, fetchImages, fetchImageDetails, fetchAlbums, uploadImage, createAlbum, addImagesToAlbum, fetchProviderAlbumImages, fetchProviderAlbums, getProviderImageStreamUrl, type ImageProvenance, type ImageSort } from "../utils/galleryApi";
 import ImageCard from "../components/imageCard";
 import AlbumCard from "~/components/AlbumCard";
 import ImageGrid from "~/components/imageGrid";
@@ -18,6 +18,7 @@ type ProviderAlbum = { id: string; name: string; asset_count: number };
 type ProviderImage = { id: string; filename: string; thumb_url: string; metadata: any };
 
 type GalleryImage = {
+  provenance?: ImageProvenance;
   id: string;
   filename: string;
   provider?: string;
@@ -60,12 +61,18 @@ export default function Gallery() {
   async function loadLocalGallery() {
     setLoading(true);
     try {
-      const [imgs, als] = await Promise.all([fetchImages({ q: search, sort }), fetchAlbums()]);
+      const [imgs, als, details] = await Promise.all([
+        fetchImages({ q: search, sort }),
+        fetchAlbums(),
+        // Where each image came from; the gallery works without it.
+        fetchImageDetails().catch(() => ({} as Record<string, ImageProvenance>)),
+      ]);
       // Convert to GalleryImage objects
       setImages(imgs.map((img: string) => ({
         id: img,
         filename: img,
-        type: "local"
+        type: "local",
+        provenance: details[img],
       })));
       setAlbums(als);
     } catch (e: any) {

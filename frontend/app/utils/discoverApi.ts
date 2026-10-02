@@ -11,6 +11,9 @@ export type DiscoverSource = {
   support_url: string;
   support_label: string;
   icon_url: string;
+  /** Who to thank (and the logo to show) when that is not the museum itself, as with Wikimedia Commons. */
+  support_name: string;
+  support_icon_url: string;
   license: string;
   default_query: string;
   /** Files come pre-cropped to 3840x2160, so there is nothing to choose about framing. */
@@ -95,6 +98,7 @@ export async function searchArt(options: {
   page: number;
   shape: Shape;
   paintings: boolean;
+  sharp: boolean;
 }): Promise<SearchPage> {
   const params = new URLSearchParams({
     source: options.source,
@@ -102,6 +106,7 @@ export async function searchArt(options: {
     page: String(options.page),
     shape: options.shape,
     paintings: options.paintings ? "1" : "0",
+    sharp: options.sharp ? "1" : "0",
   });
   return readJson(await fetch(`${API_BASE}/api/discover/search?${params}`));
 }
