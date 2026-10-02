@@ -1,0 +1,61 @@
+# Self-contained build: compiles the frontend inside the image, so it can be built from a
+# plain checkout (for example by Komodo) without a separate `pnpm build` step.
+# backend/Dockerfile is the upstream version, which expects frontend/build/client to exist
+# already because CI builds it first. Build context is the repository root:
+#   docker build -f backend/Dockerfile.full -t frametv-art-gallery .
+
+FROM node:24-slim AS frontend
+
+ARG APP_VERSION=dev
+ENV VITE_APP_VERSION=${APP_VERSION}
+
+RUN npm install --global pnpm@11.1.0
+
+WORKDIR /frontend
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
+
+COPY frontend/ .
+RUN pnpm run build
+
+
+FROM python:3.13-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY backend/pyproject.toml ./
+
+COPY . .
+
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir --prefix=/install ./backend
+
+
+FROM python:3.13-slim
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
+
+COPY backend/ .
+COPY --from=frontend /frontend/build/client/ /frontend/build/client/
+
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8000
+
+# Must parse as a PEP 440 version: the app compares it with upstream's latest release to
+# decide whether to show an update banner. "2.1.1+discover" counts as not older than 2.1.1.
+ARG APP_VERSION=unknown
+ENV FRAME_TV_VERSION=${APP_VERSION}
+
+EXPOSE 8000
+
+COPY backend/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+
+CMD ["sh", "-c", "exec gunicorn app:app --bind 0.0.0.0:${PORT} --workers ${GUNICORN_WORKERS:-4} --timeout ${GUNICORN_TIMEOUT:-180}"]
