@@ -62,4 +62,8 @@ RUN chmod +x /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]
 
-CMD ["sh", "-c", "exec gunicorn app:app --bind 0.0.0.0:${PORT} --workers ${GUNICORN_WORKERS:-4} --timeout ${GUNICORN_TIMEOUT:-180}"]
+# Threaded workers: most requests wait on a museum API or a TV, and a sync worker would sit
+# blocked for the whole wait, so one "all sources" search (a request per source) queued
+# everything else behind it.
+
+CMD ["sh", "-c", "exec gunicorn app:app --bind 0.0.0.0:${PORT} --workers ${GUNICORN_WORKERS:-4} --worker-class gthread --threads ${GUNICORN_THREADS:-16} --timeout ${GUNICORN_TIMEOUT:-180}"]

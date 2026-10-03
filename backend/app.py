@@ -1538,9 +1538,18 @@ def serve(path):
         return _error_response('Invalid path', 400)
 
     if os.path.isfile(static_file_path):
+        # Vite names the built assets after their content, so they never change in place:
+        # let the browser keep them for a year instead of asking again on every page load.
+        if path.startswith('assets/'):
+            response = send_from_directory(app.static_folder, path, max_age=31536000)
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return response
         return send_from_directory(app.static_folder, path)
-    # Always serve index.html for any unknown route (client-side routing)
-    return send_from_directory(app.static_folder, 'index.html')
+    # Always serve index.html for any unknown route (client-side routing). It names the
+    # current assets, so it must always be fresh.
+    response = send_from_directory(app.static_folder, 'index.html')
+    response.headers['Cache-Control'] = 'no-cache'
+    return response
 
 
 if __name__ == '__main__':
