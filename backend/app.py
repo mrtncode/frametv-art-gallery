@@ -6,6 +6,8 @@ import shutil
 import sqlite3
 import sys
 import tempfile
+import threading
+import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -18,6 +20,7 @@ from flask import (
     Flask,
     Response,
     after_this_request,
+    g,
     flash,
     jsonify,
     redirect,
@@ -119,6 +122,29 @@ try:
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 except ImportError:
     pass
+
+# Requests that take longer than this are logged, so a slow spell leaves evidence of which
+# request it was and when. Set SLOW_REQUEST_MS=0 to turn it off.
+SLOW_REQUEST_SECONDS = int(os.environ.get('SLOW_REQUEST_MS', '300')) / 1000
+
+
+@app.before_request
+def _start_request_timer():
+    g._request_started = time.perf_counter()
+
+
+@app.teardown_request
+def _log_slow_request(exc):
+    started = g.get('_request_started')
+    if started is None or SLOW_REQUEST_SECONDS <= 0:
+        return
+    elapsed = time.perf_counter() - started
+    if elapsed >= SLOW_REQUEST_SECONDS:
+        app.logger.warning(
+            "Slow request: %s %s took %.0f ms (worker %s, %d threads alive in it)",
+            request.method, request.path, elapsed * 1000, os.getpid(), threading.active_count(),
+        )
+
 
 # Fallback CORS headers for any route, so front-end dev or production can call /api and /uploads without CORS blocking.
 @app.after_request
