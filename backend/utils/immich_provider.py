@@ -16,7 +16,14 @@ class ImmichProvider(MediaProvider):
 
     async def _get_client(self):
         session = aiohttp.ClientSession()
-        return Immich(session, self.api_key, self.host, port=self.port), session
+        immich = Immich(session, self.api_key, self.host, port=self.port)
+        
+        try:
+            await immich.async_setup()
+            return immich, session
+        except Exception:
+            await session.close()
+            raise
 
     async def get_albums(self) -> List[Dict]:
         immich, session = await self._get_client()
@@ -55,7 +62,7 @@ class ImmichProvider(MediaProvider):
 
     async def get_album_images(self, album_id: str) -> List[Dict]:
         immich, session = await self._get_client()
-        album = await immich.albums.async_get_album_info(album_id, without_assests=False)
+        assets = await immich.search.async_get_all_by_album_ids([album_id])
         await session.close()
         return [
             {
@@ -63,7 +70,7 @@ class ImmichProvider(MediaProvider):
             "filename": asset.original_file_name,
             "thumbhash": asset.thumbhash,
             "has_metadata": asset.has_metadata
-            } for asset in album.assets
+            } for asset in assets
         ]
 
     async def stream_image(self, image_id: str, size: str = "fullsize") -> Optional[bytes]:
