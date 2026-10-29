@@ -1,0 +1,76 @@
+/* Frame Gallery — Subtle Signature
+   Reference tokens. Map these into the app's existing theme system.
+   Do not replace existing shadcn/Tailwind variables with incompatible color syntax.
+   All logo SVG/PNG assets have transparent backgrounds. */
+:root {
+  color-scheme: light;
+  --fg-brand-ink: #30332F;
+  --fg-brand-clay: #C9725D;
+  --fg-brand-ochre: #D69D41;
+  --fg-brand-reverse: #F4F0E8;
+  --fg-canvas: #FAF8F4;
+  --fg-surface: #FFFEFC;
+  --fg-surface-raised: #FFFFFF;
+  --fg-surface-subtle: #F1EDE6;
+  --fg-text: #30332F;
+  --fg-text-muted: #716D66;
+  --fg-border: #E3DDD4;
+  --fg-control-border: #89857D;
+  --fg-primary: #A64E3D;
+  --fg-primary-hover: #904231;
+  --fg-on-primary: #FFFFFF;
+  --fg-selection: #F5E5DF;
+  --fg-on-selection: #8F4636;
+  --fg-secondary-accent: #D69D41;
+  --fg-on-secondary-accent: #30332F;
+  --fg-focus: #A64E3D;
+  --fg-success: #46624D;
+  --fg-success-surface: #E9F0E7;
+  --fg-warning: #805C19;
+  --fg-warning-surface: #F8EED4;
+  --fg-danger: #A43E43;
+  --fg-danger-surface: #FAE7E6;
+  --fg-info: #456A7B;
+  --fg-info-surface: #E8F0F4;
+  --fg-data-artwork: #A64E3D;
+  --fg-data-albums: #7E692F;
+  --fg-data-devices: #52736B;
+  --fg-data-storage: #686178;
+  --fg-radius-control: 10px;
+  --fg-radius-card: 16px;
+  --fg-shadow-card: 0 2px 12px rgb(48 51 47 / 4%);
+}
+:root.dark, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --fg-canvas: #1E211F;
+  --fg-surface: #282C28;
+  --fg-surface-raised: #30362F;
+  --fg-surface-subtle: #343A33;
+  --fg-text: #F4F0E8;
+  --fg-text-muted: #B7B0A6;
+  --fg-border: #42473F;
+  --fg-control-border: #858C80;
+  --fg-primary: #D58C75;
+  --fg-primary-hover: #E49F89;
+  --fg-on-primary: #1E211F;
+  --fg-selection: #443029;
+  --fg-on-selection: #E8AE98;
+  --fg-secondary-accent: #D69D41;
+  --fg-on-secondary-accent: #1E211F;
+  --fg-focus: #D58C75;
+  --fg-success: #A9C4AA;
+  --fg-success-surface: #293C2E;
+  --fg-warning: #E3C784;
+  --fg-warning-surface: #403624;
+  --fg-danger: #EBA3A4;
+  --fg-danger-surface: #482D2E;
+  --fg-info: #A8C9D9;
+  --fg-info-surface: #2A3B43;
+  --fg-data-artwork: #D58C75;
+  --fg-data-albums: #D9BD76;
+  --fg-data-devices: #91B5A9;
+  --fg-data-storage: #B6AACA;
+  --fg-shadow-card: 0 3px 16px rgb(0 0 0 / 14%);
+}
+/* The preview and integration examples use data-theme. Keep the app's existing
+   theme state as the single source of truth; do not add a second toggle. */

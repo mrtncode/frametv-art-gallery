@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="4 5 82 60" role="img" aria-label="Frame Gallery">
+  <style>
+    .frame { stroke: #30332F; }
+    @media (prefers-color-scheme: dark) { .frame { stroke: #F4F0E8; } }
+  </style>
+  <path class="frame" d="M7.825 16 Q7.825 8.825 15 8.825 H82.175 V56.5 Q82.175 61.175 77.5 61.175 H7.825 Z" fill="none" stroke-width="3" stroke-linejoin="miter"/>
+  <path d="M17 54 C17 32.95 30.9 16 48 16 V54 Z" fill="#C9725D"/>
+  <circle cx="63.5" cy="25" r="8.75" fill="#D69D41"/>
+</svg>

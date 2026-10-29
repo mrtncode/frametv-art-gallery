@@ -1,15 +1,22 @@
 import { useState } from "react";
-import { TrashIcon, PlayIcon, PhotoIcon } from "@heroicons/react/24/outline";
+import { Check as CheckIcon, Image as PhotoIcon, Play as PlayIcon, Trash as TrashIcon } from "@phosphor-icons/react";
 import { Skeleton } from "~/components/ui/skeleton"
-import { type TVGalleryImage } from "../utils/tvApi";
+import ImageSource from "./ImageSource";
+import { type TVGalleryImage, type TVImageOrigin } from "../utils/tvApi";
 
 function Loader() {
   return (
     <div className="absolute inset-0 flex items-center justify-center z-10">
-      <Skeleton className="h-full w-full bg-gray-200 dark:bg-gray-700" />
+      <Skeleton className="h-full w-full bg-muted" />
     </div>
   );
 }
+
+const ORIGIN_BADGE: Record<TVImageOrigin, { label: string; className: string }> = {
+  app: { label: "From this app", className: "bg-selection text-selection-foreground" },
+  personal: { label: "Other upload", className: "bg-secondary text-secondary-foreground" },
+  samsung: { label: "Samsung Art Store", className: "bg-muted text-muted-foreground" },
+};
 
 type TVGalleryImageCardProps = {
   image: TVGalleryImage;
@@ -28,27 +35,46 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   return (
+    // The whole card is the selection target: a click anywhere on it (shift-click for a range) picks it.
+    // The buttons and the source link keep their own clicks.
     <div
       key={image.content_id}
+      onClick={onToggleSelect ? (event) => onToggleSelect(event.shiftKey) : undefined}
       className={
-        "flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow " +
-        (selected ? "border-blue-500 ring-1 ring-blue-500" : "border-border")
+        "relative flex gap-4 p-4 bg-card border rounded-lg hover:shadow-md transition-shadow " +
+        (onToggleSelect ? "cursor-pointer select-none has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50 " : "") +
+        (selected ? "border-primary ring-1 ring-primary" : "border-border") +
+        // Ours stand out with a tint; Samsung's own art is quieter.
+        (image.origin === "app" ? " bg-selection/40 border-primary/30" : "") +
+        (image.origin === "samsung" ? " opacity-75" : "")
       }
     >
       {onToggleSelect && (
-        <label className="flex items-center self-center cursor-pointer" title="Select image">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-blue-600"
-            checked={!!selected}
-            onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}
-          />
-        </label>
+        // A real checkbox, hidden but focusable, so the keyboard and screen readers can select too.
+        <input
+          type="checkbox"
+          className="peer sr-only"
+          checked={!!selected}
+          aria-label={`Select ${image.filename}`}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onToggleSelect((event.nativeEvent as MouseEvent).shiftKey)}
+        />
       )}
       {/* The thumbnail always comes from the parent's single batched request. Letting the
           <img> fall back to the per-image endpoint fired one TV websocket per card, which
           is what used to pile up and starve the server when a TV stopped answering. */}
-      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl bg-muted border border-border">
+      <div className="relative h-20 w-20 shrink-0 self-center overflow-hidden rounded-xl bg-muted border border-border">
+        {onToggleSelect && (
+          <span
+            aria-hidden="true"
+            className={
+              "absolute left-1.5 top-1.5 z-10 flex size-5 items-center justify-center rounded-full border shadow-sm transition-colors " +
+              (selected ? "border-primary bg-primary text-primary-foreground" : "border-white/80 bg-black/25 text-transparent")
+            }
+          >
+            <CheckIcon weight="bold" className="size-3" />
+          </span>
+        )}
         {image.thumbnail ? (
           <>
             {!imgLoaded && !imgError && <Loader />}
@@ -77,6 +103,16 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
 
       <div className="flex-1 min-w-0 self-center">
         <p className="font-medium truncate">{image.filename}</p>
+        <span
+          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ORIGIN_BADGE[image.origin].className}`}
+        >
+          {ORIGIN_BADGE[image.origin].label}
+        </span>
+        {image.provenance && image.provenance.source && image.provenance.source !== "upload" && (
+          <span className="block" onClick={(event) => event.stopPropagation()}>
+            <ImageSource provenance={image.provenance} className="mt-1" />
+          </span>
+        )}
         <div className="text-xs text-muted-foreground mt-1 space-y-1">
           <p>
             Added: {formatDate(image.date_added)}
@@ -87,15 +123,16 @@ export default function TVGalleryImageCard({ image, selectedTvIp, thumbnailsLoad
       </div>
       <div className="flex gap-2 self-center ml-4">
         <button
-          onClick={() => onPlay(image.content_id)}
-          className="inline-flex items-center justify-center p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+          onClick={(event) => { event.stopPropagation(); onPlay(image.content_id); }}
+          className="inline-flex items-center justify-center rounded-lg border border-primary bg-transparent p-2 text-primary transition-colors hover:bg-primary/10 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
           title="Play image"
+          aria-label="Play image"
         >
-          <PlayIcon className="w-5 h-5" />
+          <PlayIcon weight="fill" className="w-5 h-5" />
         </button>
         <button
-          onClick={() => onDelete(image.content_id)}
-          className="inline-flex items-center justify-center p-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          onClick={(event) => { event.stopPropagation(); onDelete(image.content_id); }}
+          className="inline-flex items-center justify-center p-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-lg transition-colors"
           title="Delete image"
         >
           <TrashIcon className="w-5 h-5" />

@@ -25,6 +25,14 @@ class Image(db.Model):
     # Content hash, used to spot the same artwork uploaded twice under different names.
     # Null for rows that predate this column and have not been re-uploaded since.
     sha256 = db.Column(db.String(64), nullable=True, index=True)
+    # Where the image came from: "upload" for a manual upload, or the Discover source id
+    # (for example "met"). Null for rows that predate source tracking.
+    source = db.Column(db.String(32), nullable=True)
+    source_id = db.Column(db.String(255), nullable=True)
+    source_url = db.Column(db.String(1000), nullable=True)
+    title = db.Column(db.String(255), nullable=True)
+    artist = db.Column(db.String(255), nullable=True)
+    license = db.Column(db.String(120), nullable=True)
 
 class TV(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -33,7 +41,7 @@ class TV(db.Model):
     mac = db.Column(db.String(32), nullable=True)
     token = db.Column(db.Text, nullable=True)  # Store the TV token as text
     delete_other_images_on_upload = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
-    # Keep only one Frame TV Art Gallery-managed image on this TV.
+    # Keep only one Frame Gallery-managed image on this TV.
     one_slot_mode = db.Column(db.Boolean, nullable=False, server_default=db.text("0"))
 
     # Slideshow: rotate through an album on this TV. Off unless switched on.

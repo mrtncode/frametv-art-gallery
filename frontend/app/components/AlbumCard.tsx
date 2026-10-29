@@ -2,7 +2,7 @@ import React from 'react'
 import { useNavigate } from "react-router";
 import { deleteAlbum, getUploadUrl } from "../utils/galleryApi";
 import { Button } from './ui/button';
-import { TrashIcon } from '@heroicons/react/24/outline';
+import { Trash as TrashIcon } from "@phosphor-icons/react";
 
 type Album = { id:string, name: string; images: string[] };
 

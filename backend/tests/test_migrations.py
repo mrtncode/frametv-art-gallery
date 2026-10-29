@@ -121,3 +121,76 @@ def test_an_existing_database_still_migrates(data_dir):
     result = run_upgrade(data_dir)
     assert result.returncode == 0, f"upgrade failed:\n{result.stderr[-2000:]}"
     assert stamped_revision(data_dir) == [head], "the pending migration should have run"
+
+
+PROVENANCE_COLUMNS = {"source", "source_id", "source_url", "title", "artist", "license"}
+
+
+def run_flask(data_dir: Path, *args):
+    environment = {**os.environ, "FRAME_TV_DATA": str(data_dir), "FLASK_APP": "app.py"}
+    return subprocess.run(
+        [sys.executable, "-m", "flask", *args],
+        cwd=PROJECT_ROOT, env=environment, capture_output=True, text=True, timeout=180,
+    )
+
+
+def image_columns(data_dir: Path):
+    connection = sqlite3.connect(data_dir / "instance" / "frametv.db")
+    try:
+        return {row[1] for row in connection.execute("PRAGMA table_info(image)")}
+    finally:
+        connection.close()
+
+
+def make_database_from_before_provenance(data_dir: Path):
+    """A volume left by the release before source tracking: an image row, no new columns."""
+    run_upgrade(data_dir)
+    connection = sqlite3.connect(data_dir / "instance" / "frametv.db")
+    try:
+        for column in PROVENANCE_COLUMNS:
+            connection.execute(f"ALTER TABLE image DROP COLUMN {column}")
+        connection.execute("INSERT INTO image (filename) VALUES ('old-upload.jpg')")
+        connection.execute("UPDATE alembic_version SET version_num = 'ce4757b9dde8'")
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def test_a_database_from_before_source_tracking_gains_the_columns_and_keeps_its_images(data_dir):
+    make_database_from_before_provenance(data_dir)
+    assert not PROVENANCE_COLUMNS & image_columns(data_dir)
+
+    result = run_upgrade(data_dir)
+
+    assert result.returncode == 0, f"upgrade failed:\n{result.stderr[-2000:]}"
+    assert PROVENANCE_COLUMNS <= image_columns(data_dir)
+    connection = sqlite3.connect(data_dir / "instance" / "frametv.db")
+    try:
+        assert connection.execute("SELECT filename, source FROM image").fetchall() == [("old-upload.jpg", None)]
+    finally:
+        connection.close()
+
+
+def test_source_tracking_can_be_rolled_back_without_losing_images(data_dir):
+    """Going back to the upstream image needs the database stamped at a revision it knows."""
+    run_upgrade(data_dir)
+    connection = sqlite3.connect(data_dir / "instance" / "frametv.db")
+    try:
+        connection.execute("INSERT INTO image (filename, source) VALUES ('kept.jpg', 'met')")
+        connection.commit()
+    finally:
+        connection.close()
+
+    result = run_flask(data_dir, "db", "downgrade", "ce4757b9dde8")
+
+    assert result.returncode == 0, f"downgrade failed:\n{result.stderr[-2000:]}"
+    assert stamped_revision(data_dir) == ["ce4757b9dde8"]
+    assert not PROVENANCE_COLUMNS & image_columns(data_dir)
+    connection = sqlite3.connect(data_dir / "instance" / "frametv.db")
+    try:
+        assert connection.execute("SELECT filename FROM image").fetchall() == [("kept.jpg",)]
+    finally:
+        connection.close()
+    # ...and forward again.
+    assert run_upgrade(data_dir).returncode == 0
+    assert PROVENANCE_COLUMNS <= image_columns(data_dir)

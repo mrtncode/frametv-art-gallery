@@ -8,6 +8,7 @@ interface ImageGridProps {
   onImageClick?: (img: any) => void;
   onDeleteImage?: (img: any) => void;
   onAssignSuccess?: () => void;
+  /** Pass the list when the page already has it; left out, the tiles share one fetch */
   tvs?: any[];
   /** filenames currently selected; passing this turns the checkboxes on */
   selectedFilenames?: string[];
@@ -20,14 +21,14 @@ export default function ImageGrid({
   onImageClick,
   onDeleteImage,
   onAssignSuccess,
-  tvs = [],
+  tvs,
   selectedFilenames,
   onToggleSelect,
 }: ImageGridProps) {
   const selected = new Set(selectedFilenames || []);
   return (
-    <div className="w-full p-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div className="w-full py-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {images.map((img: any, index: number) => (
           <ImageCard
             key={img.id}
@@ -42,6 +43,7 @@ export default function ImageGrid({
             onClick={() => onImageClick?.(img)}
             onDelete={onDeleteImage ? () => onDeleteImage(img) : undefined}
             selected={selected.has(img.filename)}
+            selecting={selected.size > 0}
             onToggleSelect={
               onToggleSelect ? (shiftKey) => onToggleSelect(img.filename, index, shiftKey) : undefined
             }

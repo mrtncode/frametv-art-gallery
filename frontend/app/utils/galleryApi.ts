@@ -59,6 +59,15 @@ export async function fetchImagesAddedThisMonth() {
   return (await res.json()).count;
 }
 
+export type MonthlyCount = { month: string; count: number };
+
+/** Images added in each of the last few months, oldest first. */
+export async function fetchImagesAddedByMonth(months = 6): Promise<MonthlyCount[]> {
+  const res = await fetch(`${API_BASE}/api/images/added_by_month?months=${months}`);
+  if (!res.ok) throw new Error('Failed to fetch monthly image counts');
+  return (await res.json()).months;
+}
+
 export async function cropImage(
   filename: string,
   x?: number,
@@ -89,6 +98,23 @@ export async function cropImage(
   return (await res.json());
 }
 
+/** Where an image came from: a manual upload, or the source it was added from. */
+export type ImageProvenance = {
+  source: string | null;
+  source_label: string;
+  source_id: string | null;
+  source_url: string | null;
+  title: string | null;
+  artist: string | null;
+  license: string | null;
+};
+
+export async function fetchImageDetails(): Promise<Record<string, ImageProvenance>> {
+  const res = await fetch(`${API_BASE}/api/images/details`);
+  if (!res.ok) throw new Error('Failed to fetch image details');
+  return (await res.json()).details;
+}
+
 export async function fetchAlbums() {
   const res = await fetch(`${API_BASE}/api/albums`);
   if (!res.ok) throw new Error('Failed to fetch albums');
@@ -108,16 +134,6 @@ export async function uploadImage(file: File, albumId?: string | number) {
   });
   if (!res.ok) throw new Error((await res.json()).error || 'Failed to upload image');
 
-  return await res.json();
-}
-
-export async function importReframedGallery(url: string, albumId?: string | number) {
-  const res = await fetch(`${API_BASE}/api/import/reframed`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, album_id: albumId || undefined }),
-  });
-  if (!res.ok) throw new Error((await res.json()).error || 'Failed to import artwork');
   return await res.json();
 }
 
@@ -165,6 +181,16 @@ export async function removeImageFromAlbum(albumId: string | number, imageId: st
   return (await res.json()).album;
 }
 
+export async function renameAlbum(albumId: string | number, name: string) {
+  const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(String(albumId))}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to rename album');
+  return (await res.json()).albums;
+}
+
 export async function deleteAlbum(album: string) {
   const res = await fetch(`${API_BASE}/api/albums/${encodeURIComponent(album)}`, {
     method: 'DELETE',
@@ -178,6 +204,13 @@ export async function deleteAlbum(album: string) {
  * original — a grid tile does not need a full-resolution artwork. Only 160, 400 and
  * 800 are generated; anything else silently serves the original.
  */
+/** An upload's pixel size, read on the server so the original need not be downloaded. */
+export async function fetchImageSize(filename: string): Promise<{ width: number; height: number }> {
+  const res = await fetch(`${API_BASE}/api/images/${encodeURIComponent(filename)}/size`);
+  if (!res.ok) throw new Error('Failed to read image size');
+  return await res.json();
+}
+
 export function getUploadUrl(filename: string, width?: 160 | 400 | 800) {
   const base = `${API_BASE}/uploads/${encodeURIComponent(filename)}`;
   return width ? `${base}?w=${width}` : base;

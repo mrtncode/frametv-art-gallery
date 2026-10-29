@@ -70,3 +70,23 @@ def test_the_listing_can_be_filtered_by_name(client):
     upload(client, "portrait.png")
     assert client.get("/api/images?q=SUN").get_json()["images"] == ["sunset.png"]
     assert client.get("/api/images?q=nothing").get_json()["images"] == []
+
+
+def test_images_added_by_month_counts_each_calendar_month(client):
+    for name in ("a.png", "b.png", "c.png"):
+        upload(client, name)
+    now = datetime.now()
+    last_month = (now.replace(day=1) - timedelta(days=1)).replace(day=10)
+    with backend.app.app_context():
+        rows = {img.filename: img for img in backend.Image.query.all()}
+        rows["a.png"].created_at = now
+        rows["b.png"].created_at = now
+        rows["c.png"].created_at = last_month
+        backend.db.session.commit()
+
+    months = client.get("/api/images/added_by_month?months=3").get_json()["months"]
+
+    assert len(months) == 3
+    assert months[-1] == {"month": now.strftime("%Y-%m"), "count": 2}
+    assert months[-2] == {"month": last_month.strftime("%Y-%m"), "count": 1}
+    assert months[0]["count"] == 0

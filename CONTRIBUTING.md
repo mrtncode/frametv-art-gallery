@@ -1,35 +1,14 @@
-Thanks for taking the time to contribute!
+# Contributing
 
-## Table of Contents
-- [How Can I Contribute?](#how-can-i-contribute)
-- [Reporting Bugs](#reporting-bugs)
-- [Your First Code Contribution](#your-first-code-contribution)
+Frame Gallery is a personal fork of [mrtncode/frametv-art-gallery](https://github.com/mrtncode/frametv-art-gallery). Issues and pull requests are welcome here, but it's a one-person hobby project, so replies are best effort.
 
-## How Can I Contribute?
-*   **Reporting Bugs:** Check existing issues, use a clear title, describe steps to reproduce, and include examples.
-*   **Suggesting Enhancements:** Explain the need and provide examples.
-*   **Code contributions/ PRs** Create pull requests to suggest code changes to resolve bugs or add new features
+**Where to send it**
 
-## Frontend Development
-This project uses [pnpm](https://pnpm.io/) for package management. To set up the development environment, follow these steps:
-*   **Install dependencies:** `pnpm install`
-*   **Run the development server:** `pnpm run dev`
+- Redesign, Discover sources, or anything else specific to Frame Gallery: open it [here](https://github.com/bballdavis/Frame-Gallery/issues).
+- A bug in the TV connection, pairing or uploads that also happens in the original: please report it [upstream](https://github.com/mrtncode/frametv-art-gallery/issues) too, so everyone benefits.
 
+**Bug reports**: say what you did, what you expected and what happened. Include your TV model and year, how you run Frame Gallery (Docker, desktop app) and any log lines.
 
-## Desktop Client testing
-backend builds: `& .\.venv\Scripts\python.exe -m PyInstaller --clean --distpath ./build-backend .\flask_backend.spec`
-frontend builds: `pnpm electron:start` or `pnpm electron:dist` for bundled build
-Note: When using electron:start you have to run pnpm run dev in a separate terminal to start the frontend dev server.
+**Pull requests**: keep them small and focused, follow [Conventional Commits](https://www.conventionalcommits.org/), and update the docs if behaviour changes. Setup, tests and build steps are in [docs/development.md](docs/development.md).
 
-
-## Your First Code Contribution
-1.  Fork and branch from `main`.
-2.  Make your changes
-3.  Submit a Pull Request.
-
-### Pull Request Process
-Keep PRs small, update documentation, and address review feedback.
-
-## Development Process
-*   **Commits:** Follow Conventional Commits.
-*   **Branching:** Use `feature/` or `fix/` prefixes.
+**New Discover sources** must only offer art with a reusable license, or be flagged as unverified and off by default. See [docs/sources.md](docs/sources.md).

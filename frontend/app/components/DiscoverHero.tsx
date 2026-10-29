@@ -1,0 +1,294 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUpRight as ArrowUpRightIcon, CaretLeft as ChevronLeftIcon, CaretRight as ChevronRightIcon, Pause as PauseIcon, Play as PlayIcon, Plus as PlusIcon } from "@phosphor-icons/react";
+import { Button } from "./ui/button";
+import { Skeleton } from "./ui/skeleton";
+import { Tooltip } from "./ui/tooltip";
+import SourceLogo from "./SourceLogo";
+import { proxiedImageUrl, type Artwork, type DiscoverSource } from "~/utils/discoverApi";
+
+const ROTATE_MS = 7000;
+const SWIPE_PX = 40;
+
+/** The slide's picture: the large version first, then the tile-sized one, each tried direct and then through the proxy. */
+function HeroImage({ artwork, eager }: { artwork: Artwork; eager: boolean }) {
+  const candidates = [
+    artwork.hero_url ?? artwork.thumb_url,
+    proxiedImageUrl(artwork.hero_url ?? artwork.thumb_url),
+    ...(artwork.hero_url ? [artwork.thumb_url, proxiedImageUrl(artwork.thumb_url)] : []),
+  ];
+  const [attempt, setAttempt] = useState(0);
+  const failed = attempt >= candidates.length;
+
+  return (
+    <>
+      {failed && <span className="absolute inset-0 bg-neutral-800" aria-hidden="true" />}
+      {!failed && (
+        <img
+          key={attempt}
+          src={candidates[attempt]}
+          alt={`${artwork.title}${artwork.artist ? ` by ${artwork.artist}` : ""}`}
+          loading={eager ? "eager" : "lazy"}
+          referrerPolicy="no-referrer"
+          onError={() => setAttempt((n) => n + 1)}
+          draggable={false}
+          className="absolute inset-0 size-full object-cover"
+        />
+      )}
+    </>
+  );
+}
+
+interface DiscoverHeroProps {
+  /** null while loading; an empty list hides the hero */
+  items: Artwork[] | null;
+  sources: DiscoverSource[];
+  /** Search has the focus, so the hero scrolls out of the way */
+  collapsed: boolean;
+  /** Fold at once, without the animation: a tap on the search box, before the keyboard opens */
+  instant?: boolean;
+  onAdd: (artwork: Artwork) => void;
+  onView: (artwork: Artwork) => void;
+  onBrowse: (artwork: Artwork) => void;
+}
+
+export default function DiscoverHero({ items, sources, collapsed, instant = false, onAdd, onView, onBrowse }: DiscoverHeroProps) {
+  const [index, setIndex] = useState(0);
+  const [hovering, setHovering] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const touchStart = useRef<number | null>(null);
+  const count = items?.length ?? 0;
+
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReducedMotion(query.matches);
+    const listener = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
+    query.addEventListener("change", listener);
+    return () => query.removeEventListener("change", listener);
+  }, []);
+
+  const rotating = !userPaused && !hovering && !reducedMotion && !collapsed && count > 1;
+  useEffect(() => {
+    if (!rotating) return;
+    const timer = window.setInterval(() => {
+      if (!document.hidden) setIndex((current) => (current + 1) % count);
+    }, ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [rotating, count]);
+
+  // Folding away above the search bar pulls the bar up with it. On a phone that has just
+  // scrolled to make room for the keyboard, that carries the bar off the top of the screen,
+  // so scroll back by as much as the hero shrinks: the bar stays put. (Browsers' scroll
+  // anchoring does this, but iOS Safari has none, and the Discover page turns it off.)
+  //
+  // A tap folds it at once instead, before the input takes the focus: iOS works out its own
+  // scroll for the keyboard and animates to it, which undoes corrections made while the hero
+  // is still shrinking. With the layout already settled, there is nothing to correct.
+  const shell = useRef<HTMLDivElement>(null);
+  const folding = useRef(collapsed);
+  folding.current = collapsed;
+  // The hero's height (with its margin) and the page's scroll, as last seen.
+  const seen = useRef({ space: 0, scrollY: 0 });
+  const shown = items === null || items.length > 0;
+  const space = () => {
+    const element = shell.current;
+    return element ? element.getBoundingClientRect().height + parseFloat(getComputedStyle(element).marginBottom || "0") : 0;
+  };
+  useEffect(() => {
+    const element = shell.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    seen.current = { space: space(), scrollY: window.scrollY };
+    const onScroll = () => {
+      seen.current.scrollY = window.scrollY;
+    };
+    const observer = new ResizeObserver(() => {
+      const now = space();
+      const shrunk = seen.current.space - now;
+      if (folding.current && shrunk > 0 && window.scrollY > 0) window.scrollBy(0, -shrunk);
+      seen.current = { space: now, scrollY: window.scrollY };
+    });
+    observer.observe(element);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", onScroll);
+    };
+  }, [shown]);
+  useLayoutEffect(() => {
+    if (!collapsed || !instant || !shell.current) return;
+    // Measured from the scroll before the fold, so a browser that already pulled the page
+    // up (a short page cannot stay scrolled past its new end) is not corrected twice.
+    const now = space();
+    const shrunk = seen.current.space - now;
+    if (shrunk > 0) window.scrollTo(0, Math.max(0, seen.current.scrollY - shrunk));
+    seen.current = { space: now, scrollY: window.scrollY };
+  }, [collapsed, instant]);
+
+  if (!shown) return null;
+
+  const go = (next: number) => setIndex(((next % count) + count) % count);
+
+  return (
+    <div
+      ref={shell}
+      // select-none: when the hero unfolds under the pointer at the end of a click, the browser
+      // can read it as a drag and highlight the whole thing blue.
+      className={`grid select-none ${
+        instant ? "" : "transition-[grid-template-rows,opacity,margin] duration-500 ease-out motion-reduce:transition-none"
+      } ${
+        collapsed ? "mb-0 grid-rows-[0fr] opacity-0" : "mb-6 grid-rows-[1fr] opacity-100"
+      }`}
+      inert={collapsed}
+    >
+      <div className="min-h-0 overflow-hidden">
+        {items === null ? (
+          <Skeleton className="aspect-[4/3] w-full rounded-xl sm:aspect-[16/7]" aria-hidden="true" />
+        ) : (
+          <section
+            role="region"
+            aria-roledescription="carousel"
+            aria-label="Today's picks"
+            className="relative overflow-hidden rounded-xl border border-border bg-neutral-900"
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
+            onFocusCapture={() => setHovering(true)}
+            onBlurCapture={() => setHovering(false)}
+            onTouchStart={(event) => {
+              touchStart.current = event.touches[0].clientX;
+            }}
+            onTouchEnd={(event) => {
+              if (touchStart.current === null) return;
+              const delta = event.changedTouches[0].clientX - touchStart.current;
+              touchStart.current = null;
+              if (Math.abs(delta) > SWIPE_PX) go(index + (delta < 0 ? 1 : -1));
+            }}
+          >
+            <div
+              className="flex transition-transform duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              style={{ transform: `translateX(-${index * 100}%)` }}
+              aria-live={rotating ? "off" : "polite"}
+            >
+              {items.map((art, position) => {
+                const source = sources.find((s) => s.id === art.source);
+                return (
+                  <div
+                    key={`${art.source}:${art.id}`}
+                    role="group"
+                    aria-roledescription="slide"
+                    aria-label={`${position + 1} of ${count}`}
+                    aria-hidden={position !== index}
+                    inert={position !== index}
+                    className="relative aspect-[4/3] w-full shrink-0 sm:aspect-[16/7]"
+                  >
+                    <HeroImage artwork={art} eager={position === 0} />
+                    <button
+                      type="button"
+                      onClick={() => onView(art)}
+                      aria-label={`View ${art.title} full size`}
+                      className="absolute inset-0 cursor-zoom-in focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-white focus-visible:outline-none"
+                    />
+                    {/* Clicks pass through the text to the picture; only the buttons catch them. */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent px-4 pb-4 pt-16 text-white sm:px-6 sm:pb-5">
+                      <div className="flex items-end justify-between gap-3">
+                        <div className="min-w-0 max-w-xl">
+                          {source && (
+                            <p className="mb-1.5 flex items-center gap-2 text-xs font-medium text-white/90">
+                              <SourceLogo source={source} className="size-5" />
+                              {source.name}
+                            </p>
+                          )}
+                          <h2 className="line-clamp-2 text-xl font-semibold leading-tight text-balance sm:text-3xl">
+                            {art.title}
+                          </h2>
+                          <p className="mt-0.5 line-clamp-1 text-sm text-white/85">
+                            {[art.artist, art.date].filter(Boolean).join(" · ")}
+                          </p>
+                        </div>
+                        {/* Stacked in the bottom-right corner, add on top, so they never push the text aside. */}
+                        <div className="pointer-events-auto flex shrink-0 flex-col gap-2 sm:flex-row">
+                          <Tooltip label="Add to gallery">
+                            <Button
+                              size="icon"
+                              className="rounded-full bg-white text-neutral-950 hover:bg-white/90"
+                              aria-label="Add to gallery"
+                              onClick={() => onAdd(art)}
+                            >
+                              <PlusIcon weight="regular" className="size-5" aria-hidden="true" />
+                            </Button>
+                          </Tooltip>
+                          {source && (
+                            <Tooltip label={`Find this at ${source.short_name.replace(/^the /i, "")}`}>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="rounded-full border-white/60 bg-transparent text-white hover:bg-white/15 hover:text-white"
+                                aria-label={`Find ${art.title} at ${source.short_name.replace(/^the /i, "")}`}
+                                onClick={() => onBrowse(art)}
+                              >
+                                <ArrowUpRightIcon className="size-5" aria-hidden="true" />
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {count > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => go(index - 1)}
+                  aria-label="Previous picture"
+                  className="absolute left-2 top-1/2 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none sm:inline-flex"
+                >
+                  <ChevronLeftIcon className="size-5" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => go(index + 1)}
+                  aria-label="Next picture"
+                  className="absolute right-2 top-1/2 hidden size-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75 focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none sm:inline-flex"
+                >
+                  <ChevronRightIcon className="size-5" aria-hidden="true" />
+                </button>
+
+                <div className="absolute right-3 top-3 flex h-8 items-center gap-2 rounded-full bg-black/55 px-2.5 backdrop-blur">
+                  <button
+                    type="button"
+                    onClick={() => setUserPaused((paused) => !paused)}
+                    aria-label={userPaused || reducedMotion ? "Start the slideshow" : "Pause the slideshow"}
+                    className="inline-flex size-5 items-center justify-center rounded-full text-white focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none"
+                  >
+                    {userPaused || reducedMotion ? (
+                      <PlayIcon className="size-4" aria-hidden="true" />
+                    ) : (
+                      <PauseIcon className="size-4" aria-hidden="true" />
+                    )}
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {items.map((art, position) => (
+                      <button
+                        key={`${art.source}:${art.id}`}
+                        type="button"
+                        onClick={() => go(position)}
+                        aria-label={`Show picture ${position + 1} of ${count}`}
+                        aria-current={position === index}
+                        className={`h-1.5 rounded-full transition-all focus-visible:ring-[3px] focus-visible:ring-white focus-visible:outline-none ${
+                          position === index ? "w-5 bg-white" : "w-1.5 bg-white/55 hover:bg-white/80"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}

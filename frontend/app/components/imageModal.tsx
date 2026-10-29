@@ -1,7 +1,23 @@
 import React from "react";
-import { ArrowUpTrayIcon, ExclamationCircleIcon, TrashIcon, XMarkIcon, SparklesIcon, TvIcon } from "@heroicons/react/24/outline";
-import { Button } from "./ui/button";
-import { MATTE_STYLES, MATTE_COLORS } from "../utils/matte";
+import { Dialog, Popover, Select } from "radix-ui";
+import {
+  ArrowSquareOut as ExternalLinkIcon,
+  CaretDown as ChevronDownIcon,
+  Check as CheckIcon,
+  Crop as CropIcon,
+  Info as InfoIcon,
+  FolderSimplePlus as AlbumAddIcon,
+  Play as PlayIcon,
+  Power as PowerIcon,
+  Trash as TrashIcon,
+  UploadSimple as ArrowUpTrayIcon,
+  WarningCircle as ExclamationCircleIcon,
+  X as XMarkIcon,
+} from "@phosphor-icons/react";
+import { MATTE_STYLES, MATTE_COLORS, MATTE_STYLE_LABELS, MATTE_COLOR_LABELS, MATTE_SWATCHES } from "../utils/matte";
+import { Tooltip } from "./ui/tooltip";
+import MattePreview from "./MattePreview";
+import { fetchImageSize } from "../utils/galleryApi";
 
 export interface TV {
   ip: string;
@@ -22,9 +38,9 @@ export interface ImageModalProps {
   onClose: () => void;
   imageURL: string;
   alt: string;
+  title: string;
   filename?: string;
   image?: any;
-  albums?: AlbumOption[];
   tvs: TV[];
   selectedTvIp: string;
   setSelectedTvIp: (ip: string) => void;
@@ -32,6 +48,8 @@ export interface ImageModalProps {
   setMatteStyle: (style: string) => void;
   matteColor: string;
   setMatteColor: (color: string) => void;
+  /** the matte shown is the TV's default, not one picked for this picture */
+  matteIsDefault: boolean;
   tvLoading: boolean;
   handleSendToTV: () => void;
   handlePlayUploadedImage: () => void;
@@ -40,15 +58,83 @@ export interface ImageModalProps {
   isLocalImage: boolean;
   onDelete?: () => Promise<void>;
   deleteLoading: boolean;
-  showCropModal: boolean;
-  setShowCropModal: (open: boolean) => void;
-  onCrop?: () => void;
+  onOpenCrop: () => void;
   availableAlbums: AlbumOption[];
-  selectedAlbum: string;
-  setSelectedAlbum: (id: string) => void;
-  handleAssignToAlbum: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  onAssignToAlbum: (albumName: string) => void;
   assigning: boolean;
-  assignMessage: string;
+}
+
+const toolButton =
+  "inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50";
+
+const ONE_SLOT_NOTE = "1-Slot Mode: uploading shows this picture and replaces the artwork already on the TV.";
+
+/** The 1-Slot Mode marker: an info icon that explains itself on hover or focus. */
+function OneSlotInfo() {
+  return (
+    <Tooltip label={ONE_SLOT_NOTE}>
+      <span
+        tabIndex={0}
+        aria-label={ONE_SLOT_NOTE}
+        // Hovering or tapping the icon explains it; it must not also open the list.
+        onPointerDown={(event) => event.stopPropagation()}
+        className="inline-flex shrink-0 rounded-full text-warning focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+      >
+        <InfoIcon className="size-4" />
+      </span>
+    </Tooltip>
+  );
+}
+
+/** What the picture is and where it came from, labelled, as Discover shows it. */
+function ImageDetails({ provenance, size }: { provenance?: any; size: { w: number; h: number } | null }) {
+  const fromSource = Boolean(provenance?.source && provenance.source !== "upload");
+  let domain = "";
+  try {
+    domain = provenance?.source_url ? new URL(provenance.source_url).hostname.replace(/^www\./, "") : "";
+  } catch {
+    // No usable page address.
+  }
+  const shape = !size ? "" : size.w / size.h > 1.05 ? "Landscape" : size.w / size.h < 0.95 ? "Portrait" : "Square";
+
+  const rows: [string, React.ReactNode][] = [];
+  if (fromSource) {
+    if (provenance.title) rows.push(["Title", provenance.title]);
+    if (provenance.artist) rows.push(["Artist", provenance.artist]);
+    rows.push([
+      "Source",
+      provenance.source_url ? (
+        <a
+          href={provenance.source_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline"
+        >
+          {provenance.source_label}
+          {domain && <span className="text-muted-foreground">· {domain}</span>}
+          <ExternalLinkIcon weight="regular" className="size-3.5" aria-hidden="true" />
+        </a>
+      ) : (
+        provenance.source_label
+      ),
+    ]);
+    if (provenance.license) rows.push(["License", provenance.license]);
+  } else if (provenance) {
+    rows.push(["Source", provenance.source === "upload" ? "Uploaded manually" : "Uploaded"]);
+  }
+  if (size) rows.push(["Size", `${size.w} × ${size.h} px · ${shape}`]);
+  if (rows.length === 0) return null;
+
+  return (
+    <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 rounded-lg border border-border/70 bg-muted/40 px-3.5 py-3 text-xs">
+      {rows.map(([label, value]) => (
+        <React.Fragment key={label}>
+          <dt className="text-muted-foreground">{label}</dt>
+          <dd className="min-w-0 break-words text-foreground">{value}</dd>
+        </React.Fragment>
+      ))}
+    </dl>
+  );
 }
 
 const ImageModal: React.FC<ImageModalProps> = ({
@@ -56,9 +142,9 @@ const ImageModal: React.FC<ImageModalProps> = ({
   onClose,
   imageURL,
   alt,
+  title,
   filename,
   image,
-  albums,
   tvs,
   selectedTvIp,
   setSelectedTvIp,
@@ -66,6 +152,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
   setMatteStyle,
   matteColor,
   setMatteColor,
+  matteIsDefault,
   tvLoading,
   handleSendToTV,
   handlePlayUploadedImage,
@@ -74,248 +161,306 @@ const ImageModal: React.FC<ImageModalProps> = ({
   isLocalImage,
   onDelete,
   deleteLoading,
-  showCropModal,
-  setShowCropModal,
-  onCrop,
+  onOpenCrop,
   availableAlbums,
-  selectedAlbum,
-  setSelectedAlbum,
-  handleAssignToAlbum,
+  onAssignToAlbum,
   assigning,
-  assignMessage,
 }) => {
-  const [showAlbumAssign, setShowAlbumAssign] = React.useState(false);
+  const [albumsOpen, setAlbumsOpen] = React.useState(false);
+  // Delete asks twice: the first press arms it, the second (within a few seconds) deletes.
+  const [confirmingDelete, setConfirmingDelete] = React.useState(false);
+  React.useEffect(() => {
+    if (!confirmingDelete) return;
+    const timer = window.setTimeout(() => setConfirmingDelete(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [confirmingDelete]);
+  React.useEffect(() => {
+    if (!isOpen) setConfirmingDelete(false);
+  }, [isOpen]);
 
-  if (!isOpen) return null;
+  // The picture's own size, for the details. The preview is a downscaled copy, so for an
+  // upload the server reads the size from the original's header; anything else is measured
+  // from what was loaded. (imageURL changes after a crop, which re-reads it.)
+  const [size, setSize] = React.useState<{ w: number; h: number } | null>(null);
+  React.useEffect(() => {
+    if (!isOpen || !imageURL) return;
+    let live = true;
+    if (isLocalImage && filename) {
+      fetchImageSize(filename)
+        .then(({ width, height }) => live && setSize({ w: width, h: height }))
+        .catch(() => live && setSize(null));
+    } else {
+      const probe = new Image();
+      probe.onload = () => live && setSize({ w: probe.naturalWidth, h: probe.naturalHeight });
+      probe.src = imageURL;
+    }
+    return () => {
+      live = false;
+    };
+  }, [isOpen, imageURL, isLocalImage, filename]);
 
   const selectedTv = tvs.find((t) => t.ip === selectedTvIp);
   const isOneSlotMode = !!selectedTv?.one_slot_mode;
+  const hasTvs = tvs.length > 0;
+  const noTv = tvLoading || !selectedTvIp;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center z-50 p-0 sm:p-4 transition-opacity duration-200">
-      <div className="bg-card text-card-foreground border border-border rounded-t-xl sm:rounded-xl w-full sm:w-[420px] max-h-[90vh] overflow-y-auto p-5 space-y-4 shadow-2xl">
-        {/* Header */}
-        <div className="flex justify-between items-center pb-2 border-b border-border">
-          <div className="flex items-center gap-2">
-            <TvIcon className="h-5 w-5 text-blue-500" />
-            <h2 className="text-base font-semibold truncate max-w-[260px]" title={filename || alt}>
-              {filename || "Image Actions"}
-            </h2>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground rounded-lg p-1 transition-colors hover:bg-muted"
-            aria-label="Close modal"
-          >
-            <XMarkIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Image Preview */}
-        <div className="w-full bg-muted/60 rounded-lg flex items-center justify-center h-48 overflow-hidden border border-border/50">
-          <img
-            src={imageURL}
-            alt={alt}
-            className="max-h-full max-w-full object-contain transition-transform duration-200"
-          />
-        </div>
-
-        {/* Crop & Assign Album Buttons */}
-        {isLocalImage && (
-          <div className={`flex gap-2 ${availableAlbums.length > 0 ? '' : 'flex-col'}`}>
-            <button
-              className={`${availableAlbums.length > 0 ? 'flex-1' : 'w-full'} bg-indigo-600 text-white text-xs font-medium py-2 px-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-xs`}
-              onClick={() => {
-                setShowCropModal(true);
-                onClose();
-              }}
-            >
-              Crop Image
-            </button>
-
-            {availableAlbums.length > 0 && (
-              <button
-                className="flex-1 bg-indigo-600 text-white text-xs font-medium py-2 px-3 rounded-lg hover:bg-indigo-700 transition-colors shadow-xs"
-                onClick={() => setShowAlbumAssign(!showAlbumAssign)}
-              >
-                {showAlbumAssign ? "Hide Albums" : "Assign to Album"}
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Album Assign Dropdown */}
-        {isLocalImage && availableAlbums.length > 0 && showAlbumAssign && (
-          <div className="space-y-2 pt-2 border-t border-border/60 bg-muted/30 p-3 rounded-lg">
-            <label className="text-xs font-medium text-muted-foreground">Select Destination Album</label>
-            <select
-              className="w-full border border-border bg-background px-3 py-2 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
-              value={selectedAlbum}
-              onChange={(e) => setSelectedAlbum(e.target.value)}
-            >
-              <option value="">Choose album...</option>
-              {availableAlbums.map((album) => (
-                <option key={album.id} value={album.name}>
-                  {album.name}
-                </option>
-              ))}
-            </select>
-            <Button
-              className="w-full text-xs py-2 disabled:opacity-50 font-medium"
-              onClick={handleAssignToAlbum}
-              disabled={assigning || !selectedAlbum}
-            >
-              {assigning ? 'Assigning…' : 'Assign to Album'}
-            </Button>
-            {assignMessage && <div className="text-xs text-green-600 dark:text-green-400 font-medium text-center">{assignMessage}</div>}
-          </div>
-        )}
-
-        {/* TV Controls */}
-        {tvs.length > 0 && (
-          <div className="space-y-3 pt-1 border-t border-border/60">
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Target Frame TV</label>
-              <select
-                className="w-full border border-border bg-background px-3 py-2 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                value={selectedTvIp}
-                onChange={(e) => setSelectedTvIp(e.target.value)}
-                disabled={tvLoading}
-              >
-                <option value="">-- Select TV --</option>
-                {tvs.map((tv) => (
-                  <option key={tv.ip} value={tv.ip}>
-                    {tv.name || tv.ip} {tv.one_slot_mode ? "(1-Slot Mode)" : ""}
-                  </option>
-                ))}
-              </select>
+    <Dialog.Root open={isOpen} onOpenChange={(next) => !next && onClose()}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Content
+          onOpenAutoFocus={(event) => {
+            // Focus the dialog, not its close button, which would open with a focus ring on it.
+            event.preventDefault();
+            (event.currentTarget as HTMLElement).focus();
+          }}
+          className={
+            "fixed z-50 flex flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-2xl focus:outline-none " +
+            // Phones: a sheet from the bottom. Larger screens: centred, never taller than the window.
+            "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-2xl " +
+            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[calc(100dvh-2rem)] sm:w-[min(60rem,calc(100vw-2rem))] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-xl " +
+            "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:slide-in-from-bottom-4 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=open]:zoom-in-95"
+          }
+        >
+          {/* Header */}
+          <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-3.5">
+            <div className="min-w-0">
+              <Dialog.Title className="truncate text-base font-semibold" title={title}>
+                {title}
+              </Dialog.Title>
+              <Dialog.Description className="truncate text-xs text-muted-foreground" title={filename}>
+                {filename || "Image actions"}
+              </Dialog.Description>
             </div>
+            <Dialog.Close className="-mr-1 shrink-0 rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground" aria-label="Close">
+              <XMarkIcon weight="regular" className="size-5" />
+            </Dialog.Close>
+          </div>
 
-            {/* 1-Slot Mode status badge */}
-            {selectedTvIp && isOneSlotMode && (
-              <div className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg border border-amber-200 dark:border-amber-800/50 flex items-start gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-amber-500 mt-1 flex-shrink-0 animate-pulse" />
-                <span>
-                  <strong>1-Slot Mode active:</strong> Uploading will display the image and auto-replace existing artwork on TV.
-                </span>
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="grid gap-5 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)] md:gap-6">
+              {/* The picture, as it will look on the TV */}
+              <div className="space-y-3 md:sticky md:top-0 md:self-start">
+                <MattePreview
+                  imageURL={imageURL}
+                  alt={alt}
+                  matteStyle={hasTvs ? matteStyle : "none"}
+                  matteColor={matteColor}
+                />
+
+                {isLocalImage && (
+                  <div className={`grid gap-2 ${availableAlbums.length > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
+                    <button type="button" className={toolButton} onClick={onOpenCrop}>
+                      <CropIcon className="size-[18px]" />
+                      Crop
+                    </button>
+
+                    {availableAlbums.length > 0 && (
+                      <Popover.Root open={albumsOpen} onOpenChange={setAlbumsOpen}>
+                        <Popover.Trigger className={toolButton} disabled={assigning}>
+                          <AlbumAddIcon className="size-[18px]" />
+                          {assigning ? "Adding…" : "Add to album"}
+                        </Popover.Trigger>
+                        <Popover.Portal>
+                          <Popover.Content
+                            align="end"
+                            sideOffset={6}
+                            collisionPadding={12}
+                            className="z-50 max-h-64 w-[var(--radix-popover-trigger-width)] min-w-48 overflow-y-auto rounded-lg border border-border bg-popover p-1.5 text-sm text-popover-foreground shadow-lg focus:outline-none"
+                          >
+                            {availableAlbums.map((album) => (
+                              <button
+                                key={album.id}
+                                type="button"
+                                className="block w-full truncate rounded-md px-2 py-1.5 text-left hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                                onClick={() => {
+                                  onAssignToAlbum(album.name);
+                                  setAlbumsOpen(false);
+                                }}
+                              >
+                                {album.name}
+                              </button>
+                            ))}
+                          </Popover.Content>
+                        </Popover.Portal>
+                      </Popover.Root>
+                    )}
+                  </div>
+                )}
+
+                <ImageDetails provenance={image?.provenance} size={size} />
               </div>
-            )}
 
-            {/* Matte settings */}
-            <div className="space-y-1">
-              <label className="text-xs font-medium text-muted-foreground">Matte / Frame Options</label>
-              <div className="grid grid-cols-2 gap-2">
-                <select
-                  className="border border-border bg-background px-2.5 py-2 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  value={matteStyle}
-                  onChange={(e) => setMatteStyle(e.target.value)}
-                  aria-label="Matte style"
-                >
-                  {MATTE_STYLES.map((style) => (
-                    <option key={style} value={style}>
-                      {style === 'none' ? 'No matte' : style}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  className="border border-border bg-background px-2.5 py-2 rounded-lg text-xs disabled:opacity-50 focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  value={matteColor}
-                  onChange={(e) => setMatteColor(e.target.value)}
-                  disabled={matteStyle === 'none'}
-                  aria-label="Matte color"
-                >
-                  {MATTE_COLORS.map((color) => (
-                    <option key={color} value={color}>
-                      {color}
-                    </option>
-                  ))}
-                </select>
+              {/* Sending it to a TV */}
+              <div className="flex flex-col gap-4">
+                {hasTvs ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <span id="image-modal-tv" className="text-xs font-medium text-muted-foreground">
+                        Frame TV
+                      </span>
+                      <Select.Root value={selectedTvIp || undefined} onValueChange={setSelectedTvIp} disabled={tvLoading}>
+                        <Select.Trigger
+                          aria-labelledby="image-modal-tv"
+                          className="flex h-10 w-full items-center gap-2 rounded-lg border border-input bg-background px-3 text-left text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 disabled:opacity-50"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            <Select.Value placeholder="Select a TV" />
+                          </span>
+                          {isOneSlotMode && <OneSlotInfo />}
+                          <Select.Icon>
+                            <ChevronDownIcon weight="regular" className="size-4 text-muted-foreground" />
+                          </Select.Icon>
+                        </Select.Trigger>
+                        <Select.Portal>
+                          <Select.Content
+                            position="popper"
+                            sideOffset={4}
+                            className="z-50 max-h-72 w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-border bg-popover p-1 text-sm text-popover-foreground shadow-lg"
+                          >
+                            <Select.Viewport>
+                              {tvs.map((tv) => (
+                                <Select.Item
+                                  key={tv.ip}
+                                  value={tv.ip}
+                                  className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 outline-none data-[highlighted]:bg-accent"
+                                >
+                                  <span className="flex w-4 shrink-0 justify-center">
+                                    <Select.ItemIndicator>
+                                      <CheckIcon weight="bold" className="size-3.5" />
+                                    </Select.ItemIndicator>
+                                  </span>
+                                  <span className="min-w-0 flex-1 truncate">
+                                    <Select.ItemText>{tv.name || tv.ip}</Select.ItemText>
+                                  </span>
+                                  {tv.one_slot_mode && <OneSlotInfo />}
+                                </Select.Item>
+                              ))}
+                            </Select.Viewport>
+                          </Select.Content>
+                        </Select.Portal>
+                      </Select.Root>
+                    </div>
+
+                    {/* Matte */}
+                    <div className="space-y-2">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <label htmlFor="image-modal-matte" className="text-xs font-medium text-muted-foreground">
+                          Matte
+                        </label>
+                        {matteIsDefault && <span className="text-[11px] text-muted-foreground">TV default</span>}
+                      </div>
+                      <select
+                        id="image-modal-matte"
+                        className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/60"
+                        value={matteStyle}
+                        onChange={(e) => setMatteStyle(e.target.value)}
+                      >
+                        {MATTE_STYLES.map((style) => (
+                          <option key={style} value={style}>
+                            {MATTE_STYLE_LABELS[style] ?? style}
+                          </option>
+                        ))}
+                      </select>
+                      {matteStyle !== "none" && (
+                      <div role="radiogroup" aria-label="Matte color" className="grid grid-cols-8 gap-1.5">
+                        {MATTE_COLORS.map((color) => {
+                          const selected = color === matteColor;
+                          return (
+                            <Tooltip key={color} label={MATTE_COLOR_LABELS[color] ?? color}>
+                              <button
+                                type="button"
+                                role="radio"
+                                aria-checked={selected}
+                                aria-label={MATTE_COLOR_LABELS[color] ?? color}
+                                onClick={() => setMatteColor(color)}
+                                className={
+                                  "aspect-square w-full rounded-full border border-black/15 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/60 dark:border-white/15 " +
+                                  (selected ? "ring-2 ring-primary ring-offset-2 ring-offset-card" : "")
+                                }
+                                style={{ backgroundColor: MATTE_SWATCHES[color] }}
+                              />
+                            </Tooltip>
+                          );
+                        })}
+                      </div>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          className="flex items-center justify-center gap-2 rounded-lg bg-secondary px-3 py-2.5 text-sm font-medium text-secondary-foreground transition-colors hover:bg-accent disabled:opacity-50 border border-border"
+                          onClick={handleTvPowerOn}
+                          disabled={noTv}
+                        >
+                          <PowerIcon className="size-4" weight="bold" />
+                          Power on
+                        </button>
+                        <button
+                          type="button"
+                          className="flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover disabled:opacity-50"
+                          onClick={handleSendToTV}
+                          disabled={noTv}
+                        >
+                          <ArrowUpTrayIcon className="size-4" weight="bold" />
+                          {tvLoading ? "Sending…" : "Upload to TV"}
+                        </button>
+                      </div>
+                      {!isOneSlotMode && (
+                        <button
+                          type="button"
+                          className="mx-auto flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50"
+                          onClick={handlePlayUploadedImage}
+                          disabled={noTv}
+                        >
+                          <PlayIcon className="size-3.5" weight="fill" />
+                          Already on this TV? Show it without re-uploading
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center gap-2 rounded-lg border border-border bg-muted p-3 text-xs text-muted-foreground">
+                    <ExclamationCircleIcon className="size-5 shrink-0 text-warning" />
+                    <span>No TVs configured. Add one in Settings to send pictures to it.</span>
+                  </div>
+                )}
+
+                {error && (
+                  <div role="alert" className="rounded-lg border border-destructive/30 bg-danger-surface p-3 text-xs text-destructive">
+                    {error}
+                  </div>
+                )}
+
+                {onDelete && isLocalImage && (
+                  <div className="mt-auto border-t border-border/60 pt-4">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-danger px-3 py-2.5 text-sm font-medium text-danger-foreground shadow-xs transition-colors hover:bg-danger-hover disabled:opacity-50"
+                      onClick={() => {
+                        if (!confirmingDelete) {
+                          setConfirmingDelete(true);
+                          return;
+                        }
+                        setConfirmingDelete(false);
+                        onDelete();
+                      }}
+                      disabled={deleteLoading}
+                    >
+                      <TrashIcon className="size-4" />
+                      {deleteLoading ? "Deleting…" : confirmingDelete ? "Press again to delete" : "Delete image"}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Dynamic Buttons depending on 1-Slot Mode */}
-            {isOneSlotMode ? (
-              <div className="space-y-2 pt-1">
-                <button
-                  className="w-full bg-blue-600 text-white text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-sm"
-                  onClick={() => handleSendToTV()}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={2.5} />
-                  {tvLoading ? 'Processing…' : 'Upload and Play on TV'}
-                </button>
-
-                <button
-                  className="w-full bg-gray-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-gray-700 transition-colors"
-                  onClick={handleTvPowerOn}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  Power On TV
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2 pt-1">
-                <button
-                  className="w-full bg-blue-600 text-white text-xs font-semibold py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors shadow-sm"
-                  onClick={() => handleSendToTV()}
-                  disabled={tvLoading || !selectedTvIp}
-                >
-                  <ArrowUpTrayIcon className="h-4 w-4" strokeWidth={2.5} />
-                  {tvLoading ? 'Uploading…' : 'Upload to TV'}
-                </button>
-
-                <div className="flex gap-2">
-                  <button
-                    className="flex-1 bg-emerald-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-emerald-700 transition-colors shadow-xs"
-                    onClick={handlePlayUploadedImage}
-                    disabled={tvLoading || !selectedTvIp}
-                  >
-                    Play
-                  </button>
-
-                  <button
-                    className="flex-1 bg-gray-600 text-white text-xs font-medium py-2 px-3 rounded-lg disabled:opacity-50 hover:bg-gray-700 transition-colors shadow-xs"
-                    onClick={handleTvPowerOn}
-                    disabled={tvLoading || !selectedTvIp}
-                  >
-                    Power On
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
-        )}
-
-        {/* No TVs Warning */}
-        {tvs.length === 0 && (
-          <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg flex items-center gap-2 border border-border">
-            <ExclamationCircleIcon className="h-5 w-5 flex-shrink-0 text-amber-500" strokeWidth={1.8} />
-            <span>No TVs configured. Go to Settings to add one.</span>
-          </div>
-        )}
-
-        {/* Error Message */}
-        {error && (
-          <div className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 p-3 rounded-lg border border-red-200 dark:border-red-800">
-            {error}
-          </div>
-        )}
-
-        {/* Delete Button */}
-        {onDelete && isLocalImage && (
-          <div className="pt-2 border-t border-border/60">
-            <button
-              className="w-full bg-red-600 text-white text-xs font-medium py-2.5 px-3 rounded-lg disabled:opacity-50 hover:bg-red-700 flex items-center justify-center gap-2 transition-colors shadow-xs"
-              onClick={onDelete}
-              disabled={deleteLoading}
-            >
-              <TrashIcon className="h-4 w-4" />
-              {deleteLoading ? 'Deleting…' : 'Delete Image'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 };
 

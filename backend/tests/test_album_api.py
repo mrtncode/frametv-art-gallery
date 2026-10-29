@@ -98,3 +98,17 @@ def test_invalid_bulk_payloads_are_rejected(client, payload):
 def test_assigning_to_a_missing_album_is_a_404(client):
     upload(client, "a.png")
     assert client.post("/api/albums/Nope/add", json={"images": ["a.png"]}).status_code == 404
+
+
+def test_rename_album(client):
+    created = client.post("/api/albums", json={"name": "Holidays"}).get_json()
+    album_id = album_named(created, "Holidays")["id"]
+    client.post("/api/albums", json={"name": "Winter"})
+
+    res = client.patch(f"/api/albums/{album_id}", json={"name": "  Summer  "})
+    assert res.status_code == 200
+    assert album_named(res.get_json(), "Summer")["id"] == album_id
+
+    assert client.patch(f"/api/albums/{album_id}", json={"name": "Winter"}).status_code == 400
+    assert client.patch(f"/api/albums/{album_id}", json={"name": " "}).status_code == 400
+    assert client.patch("/api/albums/999", json={"name": "Nope"}).status_code == 404

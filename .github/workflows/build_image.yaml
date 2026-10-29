@@ -13,7 +13,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  # Lowercase: registry names must be, and the repository is Frame-Gallery.
+  IMAGE_NAME: bballdavis/frame-gallery
 
 jobs:
   build-and-push-image:
@@ -33,7 +34,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 9
+          version: 11
       # build frontend
       - name: Setup Node.js
         uses: actions/setup-node@v3

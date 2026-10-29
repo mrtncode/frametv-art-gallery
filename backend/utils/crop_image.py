@@ -5,6 +5,7 @@ from pathlib import Path
 
 try:
     from PIL import Image as PILImage
+    from PIL import ImageOps
 except ImportError:
     PILImage = None
 
@@ -118,7 +119,11 @@ def crop_image_file(image_path: str, x: int, y: int, width: int, height: int) ->
         raise FileNotFoundError(f'Image not found at {image_path}')
     
     try:
-        with PILImage.open(image_path) as img:
+        with PILImage.open(image_path) as original:
+            source_format = original.format
+            # The browser shows a photo turned upright by its EXIF orientation and picks the
+            # crop on that, so crop the upright picture too. The result is saved upright.
+            img = ImageOps.exif_transpose(original)
             img_w, img_h = img.size
             
             # Validate crop box is within image bounds
@@ -133,7 +138,7 @@ def crop_image_file(image_path: str, x: int, y: int, width: int, height: int) ->
             
             # Save with original format
             save_kwargs = {}
-            if img.format == 'JPEG':
+            if source_format == 'JPEG':
                 save_kwargs['format'] = 'JPEG'
                 save_kwargs['quality'] = 95
             
