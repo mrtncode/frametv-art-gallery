@@ -1,10 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router";
-import { Popover } from "radix-ui";
-import { CheckCircle as CheckCircleIcon, CheckCircle as CheckCircleSolidIcon, Funnel as FunnelIcon, Sparkle as SparklesIcon, Television as TvIcon, Trash as TrashIcon, X as XMarkIcon } from "@phosphor-icons/react";
+import { SparklesIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import TVGalleryImageCard from "~/components/TVGalleryImageCard";
-import { Skeleton } from "~/components/ui/skeleton";
-import { Tooltip } from "~/components/ui/tooltip";
 
 import { toast } from "sonner";
 import {
@@ -15,35 +12,7 @@ import {
   getTvs,
   playTvGalleryImage,
   type TVGalleryImage,
-  type TVImageOrigin,
 } from "~/utils/tvApi";
-
-// Ours first, then other personal uploads, then Samsung's own art. The TV's order is kept
-// within each group.
-const ORIGIN_RANK: Record<TVImageOrigin, number> = { app: 0, personal: 1, samsung: 2 };
-
-function GallerySkeleton() {
-  return (
-    <div className="space-y-3" role="status" aria-busy="true">
-      <span className="sr-only">Loading the TV&apos;s gallery</span>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex gap-4 rounded-lg border border-border bg-card p-4" aria-hidden="true">
-          <Skeleton className="size-4 self-center rounded" />
-          <Skeleton className="size-20 shrink-0 rounded-xl" />
-          <div className="flex-1 space-y-2 self-center">
-            <Skeleton className="h-4 w-2/3" />
-            <Skeleton className="h-3 w-1/4" />
-            <Skeleton className="h-3 w-1/2" />
-          </div>
-          <div className="ml-4 flex gap-2 self-center">
-            <Skeleton className="size-9 rounded-lg" />
-            <Skeleton className="size-9 rounded-lg" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
 
 export default function TVGallery() {
   const [searchParams] = useSearchParams();
@@ -54,9 +23,6 @@ export default function TVGallery() {
   const [thumbnailsLoading, setThumbnailsLoading] = useState(false);
   const [selectedTvIp, setSelectedTvIp] = useState<string>(tvIp || "");
   const [tvs, setTvs] = useState<any[]>([]);
-  const [tvsLoaded, setTvsLoaded] = useState(false);
-  // The Samsung Art Store subscription is hidden by default so our own pictures stand out.
-  const [showSamsung, setShowSamsung] = useState(false);
   // Multi-select, plus the last clicked row so shift-click can span a range.
   const [selected, setSelected] = useState<string[]>([]);
   const lastClickedIndex = useRef<number | null>(null);
@@ -76,14 +42,12 @@ export default function TVGallery() {
     try {
       const tvList = await getTvs();
       setTvs(tvList || []);
-      // Open on the TV from the link if there is one, otherwise on the first TV.
-      const requested = (tvList || []).find((tv: any) => tv.ip === tvIp);
-      setSelectedTvIp(requested?.ip ?? (tvList || [])[0]?.ip ?? "");
+      if (tvIp) {
+        setSelectedTvIp(tvIp);
+      }
     } catch (error) {
       console.error("Failed to fetch TVs:", error);
       toast.error("Failed to load TVs");
-    } finally {
-      setTvsLoaded(true);
     }
   };
 
@@ -119,29 +83,6 @@ export default function TVGallery() {
     }
   };
 
-  const samsungCount = images.filter((img) => img.origin === "samsung").length;
-  const visibleImages = useMemo(
-    () =>
-      images
-        .map((img, position) => ({ img, position }))
-        .filter(({ img }) => showSamsung || img.origin !== "samsung")
-        .sort((a, b) => ORIGIN_RANK[a.img.origin] - ORIGIN_RANK[b.img.origin] || a.position - b.position)
-        .map(({ img }) => img),
-    [images, showSamsung]
-  );
-  // Samsung images are hidden unless asked for, so by default a filter is narrowing the list.
-  const filterActive = !showSamsung;
-  const allSelected = visibleImages.length > 0 && visibleImages.every((img) => selected.includes(img.content_id));
-
-  function changeShowSamsung(show: boolean) {
-    setShowSamsung(show);
-    if (!show) {
-      // Never leave something selected that cannot be seen.
-      setSelected((prev) => prev.filter((id) => images.find((img) => img.content_id === id)?.origin !== "samsung"));
-      lastClickedIndex.current = null;
-    }
-  }
-
   const handlePlayImage = async (contentId: string) => {
     try {
       await playTvGalleryImage(selectedTvIp, contentId);
@@ -169,7 +110,7 @@ export default function TVGallery() {
       const anchor = lastClickedIndex.current;
       if (shiftKey && anchor !== null) {
         const [from, to] = anchor <= index ? [anchor, index] : [index, anchor];
-        const range = visibleImages.slice(from, to + 1).map(img => img.content_id);
+        const range = images.slice(from, to + 1).map(img => img.content_id);
         const next = new Set(prev);
         const selecting = !prev.includes(contentId);
         range.forEach(id => (selecting ? next.add(id) : next.delete(id)));
@@ -211,36 +152,21 @@ export default function TVGallery() {
     }
   };
 
-  const iconButton =
-    "relative inline-flex size-9 items-center justify-center rounded-lg border border-border bg-card text-foreground transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none";
-
   return (
     <div className="container mx-auto px-4 py-6 max-w-2xl">
-      <h1 className="sr-only">TV Gallery</h1>
+      <div className="flex items-center gap-2 mb-6">
+        <h1 className="text-2xl font-bold mb-6 mt-3 text-center text-foreground">TV Settings</h1>
+      </div>
 
-      {!tvsLoaded ? (
-        <div className="mb-6 space-y-2" role="status" aria-busy="true">
-          <span className="sr-only">Loading your TVs</span>
-          <Skeleton className="h-11 w-full rounded-md" />
-        </div>
-      ) : tvs.length === 0 ? (
+      {tvs.length === 0 ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No TVs configured</p>
         </div>
       ) : (
         <>
-          {/* One bar like the search bars: a TV icon segment, then the picker. */}
-          <div className="mb-6 flex h-11 items-stretch rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 dark:bg-input/30">
-            <label
-              htmlFor="tv-select"
-              className="inline-flex shrink-0 items-center rounded-l-md border-r border-border bg-muted/50 px-3 text-muted-foreground"
-              title="Select TV"
-            >
-              <TvIcon className="size-5" aria-hidden="true" />
-              <span className="sr-only">Select TV</span>
-            </label>
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">Select TV</label>
             <select
-              id="tv-select"
               value={selectedTvIp}
               onChange={(e) => {
                 setSelectedTvIp(e.target.value);
@@ -248,7 +174,7 @@ export default function TVGallery() {
                 setSelected([]);
                 lastClickedIndex.current = null;
               }}
-              className="min-w-0 flex-1 rounded-r-md bg-transparent px-3 text-base focus-visible:outline-none"
+              className="w-full p-2 border border-border rounded-lg bg-card"
             >
               <option value="" disabled>
                 Select a TV
@@ -262,15 +188,17 @@ export default function TVGallery() {
           </div>
 
           {!selectedTvIp ? (
-            <div className="rounded-xl border border-dashed border-primary/30 bg-selection/50 px-6 py-10 text-center">
-              <SparklesIcon className="mx-auto mb-3 h-10 w-10 text-primary" />
+            <div className="rounded-xl border border-dashed border-blue-200 bg-blue-50 px-6 py-10 text-center dark:border-blue-900 dark:bg-blue-950/30">
+              <SparklesIcon className="mx-auto mb-3 h-10 w-10 text-blue-600 dark:text-blue-400" />
               <h2 className="text-lg font-semibold text-foreground">Select a TV to view its gallery</h2>
               <p className="mt-2 text-sm text-muted-foreground">
                 Choose a TV above to load its artwork.
               </p>
             </div>
           ) : loading ? (
-            <GallerySkeleton />
+            <div className="flex items-center justify-center py-12">
+              <ArrowPathIcon className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
+            </div>
           ) : images.length === 0 ? (
             <div className="text-center py-12">
               <p className="text-muted-foreground">No images on TV</p>
@@ -279,96 +207,21 @@ export default function TVGallery() {
             <div className="space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                 <p className="text-sm text-muted-foreground">
-                  {visibleImages.length} image{visibleImages.length !== 1 ? "s" : ""} on TV
-                  {!showSamsung && samsungCount > 0 && ` · ${samsungCount} Samsung hidden`}
+                  {images.length} image{images.length !== 1 ? "s" : ""} on TV
                 </p>
-                <div className="flex items-center gap-2">
-                  <Popover.Root>
-                    <Tooltip
-                      label={
-                        showSamsung
-                          ? "Filter images: showing everything"
-                          : "Filter images: Samsung Art Store images are hidden"
-                      }
-                    >
-                      <Popover.Trigger
-                        className={`${iconButton} ${filterActive ? "border-primary/60 bg-selection text-selection-foreground" : ""}`}
-                        aria-label={filterActive ? "Filter images, 1 filter applied" : "Filter images"}
-                      >
-                        <FunnelIcon className="size-5" aria-hidden="true" />
-                        {filterActive && (
-                          <span className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-primary" aria-hidden="true" />
-                        )}
-                      </Popover.Trigger>
-                    </Tooltip>
-                    <Popover.Portal>
-                      <Popover.Content
-                        align="end"
-                        sideOffset={6}
-                        className="z-50 w-72 rounded-lg border border-border bg-card p-4 text-sm text-card-foreground shadow-lg focus:outline-none"
-                      >
-                        <p className="mb-2 font-semibold">Show on this TV</p>
-                        <label className="flex items-start gap-2">
-                          <input
-                            type="checkbox"
-                            className="mt-0.5 size-4 accent-primary"
-                            checked={showSamsung}
-                            onChange={(e) => changeShowSamsung(e.target.checked)}
-                          />
-                          <span>
-                            Samsung Art Store images{samsungCount > 0 ? ` (${samsungCount})` : ""}
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              The subscription art that comes with the TV (ids starting SAM). Hidden by default so
-                              your own pictures stand out.
-                            </span>
-                          </span>
-                        </label>
-                        <Popover.Arrow className="fill-card" />
-                      </Popover.Content>
-                    </Popover.Portal>
-                  </Popover.Root>
-                  <Tooltip
-                    label={
-                      allSelected
-                        ? "Clear selection"
-                        : `Select all ${visibleImages.length} image${visibleImages.length !== 1 ? "s" : ""} shown`
-                    }
-                  >
-                    <button
-                      type="button"
-                      className={iconButton}
-                      aria-label={allSelected ? "Clear selection" : `Select all ${visibleImages.length}`}
-                      aria-pressed={allSelected}
-                      disabled={visibleImages.length === 0}
-                      onClick={() => {
-                        setSelected(allSelected ? [] : visibleImages.map(img => img.content_id));
-                        lastClickedIndex.current = null;
-                      }}
-                    >
-                      {allSelected ? (
-                        <CheckCircleSolidIcon weight="fill" className="size-5 text-primary" aria-hidden="true" />
-                      ) : (
-                        <CheckCircleIcon className="size-5" aria-hidden="true" />
-                      )}
-                    </button>
-                  </Tooltip>
-                </div>
+                <button
+                  type="button"
+                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  onClick={() => {
+                    setSelected(selected.length === images.length ? [] : images.map(img => img.content_id));
+                    lastClickedIndex.current = null;
+                  }}
+                >
+                  {selected.length === images.length ? "Clear selection" : "Select all"}
+                </button>
               </div>
 
-              {visibleImages.length === 0 && (
-                <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                  <p>Only Samsung Art Store images are on this TV.</p>
-                  <button
-                    type="button"
-                    className="mt-2 text-primary hover:underline"
-                    onClick={() => changeShowSamsung(true)}
-                  >
-                    Show them
-                  </button>
-                </div>
-              )}
-
-              {visibleImages.map((image, index) => (
+              {images.map((image, index) => (
                 <TVGalleryImageCard
                   key={image.content_id}
                   image={image}
@@ -383,33 +236,25 @@ export default function TVGallery() {
               ))}
 
               {selected.length > 0 && (
-                <div className="sticky bottom-20 z-30 flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-lg">
+                <div className="sticky bottom-20 z-30 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3 shadow-lg">
                   <span className="text-sm font-medium">
                     {selected.length} selected
                   </span>
-                  <div className="ml-auto flex items-center gap-2">
-                    <Tooltip label="Clear selection">
-                      <button
-                        type="button"
-                        className={iconButton}
-                        aria-label="Clear selection"
-                        onClick={() => { setSelected([]); lastClickedIndex.current = null; }}
-                      >
-                        <XMarkIcon weight="regular" className="size-5" aria-hidden="true" />
-                      </button>
-                    </Tooltip>
-                    <Tooltip label={deleting ? "Deleting…" : `Delete ${selected.length} from the TV`}>
-                      <button
-                        type="button"
-                        onClick={handleDeleteSelected}
-                        disabled={deleting}
-                        aria-label={`Delete ${selected.length} selected from the TV`}
-                        className="inline-flex size-9 items-center justify-center rounded-lg bg-destructive text-destructive-foreground transition-colors hover:bg-destructive/90 disabled:opacity-50 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
-                      >
-                        <TrashIcon className="size-5" aria-hidden="true" />
-                      </button>
-                    </Tooltip>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelected}
+                    disabled={deleting}
+                    className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium py-2 px-4 rounded-lg"
+                  >
+                    {deleting ? "Deleting…" : "Delete from TV"}
+                  </button>
+                  <button
+                    type="button"
+                    className="text-sm text-muted-foreground hover:underline"
+                    onClick={() => { setSelected([]); lastClickedIndex.current = null; }}
+                  >
+                    Clear
+                  </button>
                 </div>
               )}
             </div>

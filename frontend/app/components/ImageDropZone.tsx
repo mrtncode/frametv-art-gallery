@@ -1,4 +1,4 @@
-import { UploadSimple as ArrowUpTrayIcon } from "@phosphor-icons/react";
+import { ArrowUpTrayIcon } from "@heroicons/react/24/outline";
 import React, { useState } from "react";
 
 type ImageDropZoneProps = {
@@ -97,22 +97,22 @@ export default function ImageDropZone({
         <div
           className={`fixed inset-0 z-40 flex items-center justify-center pointer-events-none ${
             hasImageFiles
-              ? "bg-success-surface opacity-90"
-              : "bg-danger-surface opacity-90"
+              ? "bg-green-200 opacity-80"
+              : "bg-red-500 bg-opacity-20"
           }`}
         >
           <div className="text-center">
             <ArrowUpTrayIcon scale={20} />
             <p
               className={`text-2xl font-bold ${
-                hasImageFiles ? "text-success" : "text-destructive"
+                hasImageFiles ? "text-green-900" : "text-red-600"
               }`}
             >
               {hasImageFiles ? "Upload Image" : "No Images Detected"}
             </p>
             <p
               className={`text-sm mt-2 ${
-                hasImageFiles ? "text-success" : "text-destructive"
+                hasImageFiles ? "text-green-900" : "text-red-600"
               }`}
             >
               {hasImageFiles ? "Drop to upload" : "Please drag image files"}

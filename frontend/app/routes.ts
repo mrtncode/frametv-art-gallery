@@ -4,8 +4,6 @@ export default [
   layout("routes/_layout.tsx", [
     index("routes/home.tsx"),
     route("gallery", "routes/gallery.tsx"),
-    route("albums", "routes/albums.tsx"),
-    route("discover", "routes/discover.tsx"),
     route("tv-gallery", "routes/tvGallery.tsx"),
     route("settings", "routes/settings.tsx"),
     route("/album/:albumId", "routes//albumPage.tsx"),

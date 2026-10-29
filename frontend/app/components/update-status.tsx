@@ -1,5 +1,6 @@
-import { DownloadSimple, Sparkle as SparklesIcon, X as XMarkIcon } from "@phosphor-icons/react";
+import { BellAlertIcon, SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
 import React, { useEffect, useState } from "react";
+import { Button } from "~/components/ui/button";
 import { fetchAppStatus, type AppStatusResponse } from "~/utils/appApi";
 
 const DISMISSED_UPDATE_VERSION_KEY = "frametv-dismissed-update-version";
@@ -318,19 +319,19 @@ export default function UpdateStatus() {
 
   return (
     <>
-      {hasUpdate && (
-        // Sized and shaped like the theme toggle beside it, in the accent colour.
-        <button
-          type="button"
-          onClick={openModal}
-          aria-label={`Update available${appStatus?.latest_version ? `: ${appStatus.latest_version}` : ""}`}
-          title="Update available"
-          className="relative rounded-full p-2 text-primary transition-colors hover:bg-selection focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-        >
-          <DownloadSimple className="h-5 w-5" aria-hidden="true" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card" aria-hidden="true" />
-        </button>
-      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="icon-sm"
+        onClick={openModal}
+        aria-label={`Update available${appStatus?.latest_version ? `: ${appStatus.latest_version}` : ""}`}
+        title={hasUpdate ? "Update available" : loading ? "Checking for updates..." : "No update available"}
+        disabled={!hasUpdate}
+        className="relative border-blue-500/40 text-blue-700 hover:bg-blue-500/10 hover:text-blue-800 disabled:opacity-100 dark:text-blue-300 dark:hover:text-blue-200"
+      >
+        <BellAlertIcon className="h-4 w-4" />
+        {hasUpdate && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-500" />}
+      </Button>
 
       {hasUpdate && showPopup && (
         <div className="fixed right-4 top-4 z-50 w-[min(24rem,calc(100vw-2rem))]">
@@ -344,7 +345,7 @@ export default function UpdateStatus() {
                 openModal();
               }
             }}
-            className="relative cursor-pointer rounded-2xl border border-primary/30 bg-background/95 p-4 pr-11 shadow-2xl backdrop-blur transition hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-3xl"
+            className="relative cursor-pointer rounded-2xl border border-blue-500/30 bg-background/95 p-4 pr-11 shadow-2xl backdrop-blur transition hover:-translate-y-0.5 hover:border-blue-500/50 hover:shadow-3xl"
           >
             <button
               type="button"
@@ -355,10 +356,10 @@ export default function UpdateStatus() {
               aria-label="Dismiss update popup"
               className="absolute right-3 top-3 rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
             >
-              <XMarkIcon weight="regular" className="h-4 w-4" />
+              <XMarkIcon className="h-4 w-4" />
             </button>
             <div className="flex items-start gap-3">
-              <div className="rounded-full bg-selection p-2 text-selection-foreground">
+              <div className="rounded-full bg-blue-500/15 p-2 text-blue-700 dark:text-blue-300">
                 <SparklesIcon className="h-5 w-5" />
               </div>
               <div className="space-y-1">
@@ -405,7 +406,7 @@ export default function UpdateStatus() {
                 aria-label="Close update modal"
                 className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
-                <XMarkIcon weight="regular" className="h-5 w-5" />
+                <XMarkIcon className="h-5 w-5" />
               </button>
             </div>
 
@@ -414,7 +415,7 @@ export default function UpdateStatus() {
                 <MarkdownView content={appStatus?.changelog?.trim() || "No changelog was provided."} />
               </div>
 
-              <div className="mt-5 rounded-2xl border border-warning/30 bg-warning-surface p-4 text-sm text-foreground">
+              <div className="mt-5 rounded-2xl border border-amber-500/25 bg-amber-500/10 p-4 text-sm text-foreground">
                 <p className="font-semibold">Update your installation</p>
                 <p className="mt-1 text-muted-foreground">
                   Update by your installation way, for example by updating the version in your Docker Compose
