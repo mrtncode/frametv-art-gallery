@@ -433,7 +433,7 @@ from packaging.version import parse as parse_version
 def backend_status():
     """Return a simple status message for health checks and update availability."""
     current_version = os.environ.get('FRAME_TV_VERSION', 'unknown')
-    repo = 'bballdavis/Frame-Gallery'
+    repo = 'mrtncode/frametv-art-gallery'
     
     cache_entry = AppSetting.query.filter_by(key='github_version_cache').first()
     
@@ -446,9 +446,8 @@ def backend_status():
             cache_data = json.loads(cache_entry.value)
             last_fetched = cache_data.get('last_fetched', 0)
             
-            # 24 hours = 86400 seconds. A cache filled from another repository (before the
-            # fork was renamed) is ignored, so its version numbers can't trigger an update.
-            if cache_data.get('repo') == repo and now.timestamp() - last_fetched < 86400:
+            # 24 hours = 86400 seconds
+            if now.timestamp() - last_fetched < 86400:
                 use_cached = True
         except Exception:
             app.logger.warning("Error parsing cached GitHub version data; will fetch fresh", exc_info=True)
@@ -461,7 +460,7 @@ def backend_status():
         url = f'https://api.github.com/repos/{repo}/releases/latest'
         
         try:
-            headers = {"User-Agent": f"Frame-Gallery/{current_version}"}
+            headers = {"User-Agent": f"Flask-FrameTV/{current_version}"}
             response = requests.get(url, headers=headers, timeout=5)
             
             if response.status_code == 200:
@@ -472,8 +471,7 @@ def backend_status():
                 new_cache_content = {
                     'last_fetched': now.timestamp(),
                     'latest_version': latest_version,
-                    'changelog': changelog,
-                    'repo': repo,
+                    'changelog': changelog
                 }
                 
                 if not cache_entry:

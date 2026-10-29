@@ -13,7 +13,7 @@ import requests
 from .errors import DiscoverError  # noqa: F401  (re-exported)
 from .limits import Limiter
 
-USER_AGENT = "frame-gallery/discover (+https://github.com/bballdavis/Frame-Gallery)"
+USER_AGENT = "frametv-art-gallery/discover (+https://github.com/mrtncode/frametv-art-gallery)"
 
 TARGET_WIDTH = 3840
 TARGET_HEIGHT = 2160

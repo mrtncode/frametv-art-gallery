@@ -26,8 +26,8 @@ _PAGE_URL = re.compile(r"^/artworks/(\d+)")
 # challenges anonymous scripted requests without it. DISCOVER_CONTACT can carry an email
 # or URL so the museum has a way to reach whoever runs this instance.
 AIC_HEADERS = {
-    "AIC-User-Agent": "Frame Gallery ({})".format(
-        os.environ.get("DISCOVER_CONTACT", "https://github.com/bballdavis/Frame-Gallery")
+    "AIC-User-Agent": "frametv-art-gallery ({})".format(
+        os.environ.get("DISCOVER_CONTACT", "https://github.com/mrtncode/frametv-art-gallery")
     )
 }
 

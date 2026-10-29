@@ -3,13 +3,13 @@ requires = ["setuptools>=65.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "frame-gallery"
+name = "frametv-art-gallery"
 version = "0.1.0"
 description = "Self-hosted gallery manager for Samsung Frame TVs"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "AGPL-3.0-or-later" }
-authors = [ { name = "mrtncode" }, { name = "bballdavis" } ]
+authors = [ { name = "mrtncode" } ]
 
 dependencies = [
     "Flask==3.1.3",
