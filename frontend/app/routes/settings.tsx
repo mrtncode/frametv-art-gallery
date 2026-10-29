@@ -9,13 +9,16 @@ import { getBackupUrl, reconcileImages } from '~/utils/galleryApi';
 import { toast } from 'sonner';
 
 import type { ProviderConfig } from '~/utils/providerApi';
-import { CircleNotch as SpinnerIcon, Images as ImagesIcon, Pencil as PencilIcon, Plus as PlusIcon, Sparkle as SparklesIcon, Trash as TrashIcon } from "@phosphor-icons/react";
+import { CircleNotch as SpinnerIcon, Images as ImagesIcon, Pencil as PencilIcon, Plus as PlusIcon, Sparkle as SparklesIcon, Trash as TrashIcon, Desktop as DesktopIcon, Moon as MoonIcon, Sun as SunIcon } from "@phosphor-icons/react";
 import { Tooltip } from '~/components/ui/tooltip';
 import { splitMatte } from '~/utils/matte';
 import { Switch } from '~/components/ui/switch';
 import { TvEditModal, type TV } from '~/components/TvEditModal';
 import SourceLogo from '~/components/SourceLogo';
 import SourceOrderDialog from '~/components/SourceOrderDialog';
+import { useUITheme } from '~/context/ThemeContext';
+import { useTheme as useColorMode } from 'next-themes';
+import { cn } from '~/lib/utils';
 import { clearCredentials, fetchSources, saveCredentials, type DiscoverSource } from '~/utils/discoverApi';
 import {
   getCustomizeSources,
@@ -158,6 +161,12 @@ function OptionalSource({
 }
 
 export default function Settings() {
+  // User interface state
+  const { theme: currentTheme, setTheme, themes } = useUITheme();
+  const { theme: colorMode, setTheme: setColorMode } = useColorMode();
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+
   // TV state
   const [tvs, setTvs] = React.useState<TV[]>([]);
   const [ip, setIp] = React.useState("");
@@ -679,7 +688,7 @@ export default function Settings() {
         </div>
 
         {/* Provider Settings */}
-        <div className="bg-card rounded-2xl border border-border p-5">
+        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
           <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
           <form
             onSubmit={(e) => {
@@ -744,6 +753,141 @@ export default function Settings() {
             {providerError && <div className="text-destructive text-sm">{providerError}</div>}
           </form>
         </div>
+
+         {/* User Interface */}
+        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground">User interface</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Personalize how Frame Gallery looks on this device.
+            </p>
+          </div>
+
+          <div className="space-y-5">
+            <div>
+              <span className="block text-sm font-medium text-foreground mb-2">Theme</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Theme selection">
+                {themes.map((themeOption) => {
+                  const isSelected = currentTheme === themeOption.id;
+                  return (
+                    <button
+                      key={themeOption.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
+                      onClick={() => {
+                        setTheme(themeOption.id);
+                        toast.success(`Theme set to ${themeOption.name}`);
+                      }}
+                      className={cn(
+                        "relative flex items-start gap-3.5 p-4 rounded-xl border text-left transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        isSelected
+                          ? "border-primary bg-selection/30 shadow-xs"
+                          : "border-border bg-card/60 hover:border-primary/40 hover:bg-muted/30"
+                      )}
+                    >
+                      <div className="flex shrink-0 items-center mt-0.5">
+                        <span
+                          className="size-5 rounded-full border border-black/15 shadow-xs dark:border-white/20"
+                          style={{ backgroundColor: themeOption.primaryColor }}
+                          aria-hidden="true"
+                        />
+                        {themeOption.accentColor && (
+                          <span
+                            className="size-3.5 -ml-2 rounded-full border border-black/15 shadow-xs dark:border-white/20"
+                            style={{ backgroundColor: themeOption.accentColor }}
+                            aria-hidden="true"
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground text-sm">{themeOption.name}</span>
+                          {themeOption.isDefault && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                              Default
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          {themeOption.description}
+                        </p>
+                      </div>
+                      <div
+                        className={cn(
+                          "size-4 rounded-full border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                          isSelected
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-muted-foreground/40 bg-transparent"
+                        )}
+                        aria-hidden="true"
+                      >
+                        {isSelected && <span className="size-1.5 rounded-full bg-primary-foreground" />}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="border-t border-border pt-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <span className="block text-sm font-medium text-foreground">Appearance mode</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Switch between light and dark backgrounds, or sync with your system.
+                  </span>
+                </div>
+                <div className="inline-flex rounded-xl border border-border bg-muted/40 p-1 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setColorMode("light")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
+                      mounted && colorMode === "light"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="Light mode"
+                  >
+                    <SunIcon className="size-4" />
+                    <span>Light</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setColorMode("dark")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
+                      mounted && colorMode === "dark"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="Dark mode"
+                  >
+                    <MoonIcon className="size-4" />
+                    <span>Dark</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setColorMode("system")}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer",
+                      mounted && colorMode === "system"
+                        ? "bg-card text-foreground shadow-xs"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    aria-label="System mode"
+                  >
+                    <DesktopIcon className="size-4" />
+                    <span>System</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+
       </div>
     </div>
   );

@@ -83,7 +83,136 @@ body {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-:root {
+/* ==========================================================================
+   Themes
+   ==========================================================================
+   Default: Clean Blue (default :root and [data-ui-theme="clean"]).
+   Optional: Warm Terracotta / Orange ([data-ui-theme="orange"]).
+
+   How to add a new theme:
+   1. Register the theme in `app/lib/theme.ts` (in the `THEMES` array).
+   2. Add light and dark variable blocks below:
+      :root[data-ui-theme="<id>"], [data-ui-theme="<id>"] { ...light tokens... }
+      :root[data-ui-theme="<id>"].dark, [data-ui-theme="<id>"].dark, [data-ui-theme="<id>"] .dark { ...dark tokens... }
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Default Theme: Clean Blue
+   -------------------------------------------------------------------------- */
+:root,
+:root[data-ui-theme="clean"],
+[data-ui-theme="clean"] {
+  --radius: 0.625rem;
+  /* Frame Gallery "Clean Blue" tokens */
+  --background: #FFFFFF;
+  --foreground: #111827;
+  --card: #FAFAFA;
+  --card-foreground: #111827;
+  --popover: #FFFFFF;
+  --popover-foreground: #111827;
+  --primary: #2563EB;
+  --primary-hover: #1D4ED8;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #111827;
+  --muted: #F4F4F5;
+  --muted-foreground: #6B7280;
+  --accent: #F4F4F5;
+  --accent-foreground: #111827;
+  --selection: #DBEAFE;
+  --selection-foreground: #1E40AF;
+  --brand-ochre: #3B82F6;
+  --brand-ochre-foreground: #FFFFFF;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --danger-surface: #FEE2E2;
+  --danger: #DC2626;
+  --danger-hover: #B91C1C;
+  --danger-foreground: #FFFFFF;
+  --success: #16A34A;
+  --success-surface: #DCFCE7;
+  --warning: #CA8A04;
+  --warning-surface: #FEF9C3;
+  --info: #0284C7;
+  --info-surface: #E0F2FE;
+  --border: #E5E7EB;
+  --input: #9CA3AF;
+  --ring: #2563EB;
+  --chart-1: #2563EB;
+  --chart-2: #0EA5E9;
+  --chart-3: #3B82F6;
+  --chart-4: #6366F1;
+  --chart-5: #60A5FA;
+  --sidebar: #FAFAFA;
+  --sidebar-foreground: #111827;
+  --sidebar-primary: #2563EB;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #DBEAFE;
+  --sidebar-accent-foreground: #1E40AF;
+  --sidebar-border: #E5E7EB;
+  --sidebar-ring: #2563EB;
+  --shadow-card: 0 2px 12px rgb(0 0 0 / 6%);
+}
+
+.dark,
+:root[data-ui-theme="clean"].dark,
+[data-ui-theme="clean"].dark,
+[data-ui-theme="clean"] .dark {
+  --background: #0A0A0A;
+  --foreground: #FAFAFA;
+  --card: #121212;
+  --card-foreground: #FAFAFA;
+  --popover: #1A1A1A;
+  --popover-foreground: #FAFAFA;
+  --primary: #3B82F6;
+  --primary-hover: #60A5FA;
+  --primary-foreground: #0A0A0A;
+  --secondary: #262626;
+  --secondary-foreground: #FAFAFA;
+  --muted: #262626;
+  --muted-foreground: #A3A3A3;
+  --accent: #262626;
+  --accent-foreground: #FAFAFA;
+  --selection: #1E3A8A;
+  --selection-foreground: #93C5FD;
+  --brand-ochre: #60A5FA;
+  --brand-ochre-foreground: #0A0A0A;
+  --destructive: #F87171;
+  --destructive-foreground: #0A0A0A;
+  --danger-surface: #450A0A;
+  --danger: #DC2626;
+  --danger-hover: #EF4444;
+  --danger-foreground: #FFFFFF;
+  --success: #4ADE80;
+  --success-surface: #052E16;
+  --warning: #FACC15;
+  --warning-surface: #422006;
+  --info: #38BDF8;
+  --info-surface: #082F49;
+  --border: #262626;
+  --input: #525252;
+  --ring: #3B82F6;
+  --chart-1: #3B82F6;
+  --chart-2: #38BDF8;
+  --chart-3: #60A5FA;
+  --chart-4: #818CF8;
+  --chart-5: #93C5FD;
+  --sidebar: #121212;
+  --sidebar-foreground: #FAFAFA;
+  --sidebar-primary: #3B82F6;
+  --sidebar-primary-foreground: #0A0A0A;
+  --sidebar-accent: #1E3A8A;
+  --sidebar-accent-foreground: #93C5FD;
+  --sidebar-border: #262626;
+  --sidebar-ring: #3B82F6;
+  --shadow-card: 0 3px 16px rgb(0 0 0 / 40%);
+}
+
+/* --------------------------------------------------------------------------
+   Theme: Warm Terracotta (Orange / Subtle Signature)
+   -------------------------------------------------------------------------- */
+:root[data-ui-theme="orange"],
+[data-ui-theme="orange"] {
   --radius: 0.625rem;
   /* Frame Gallery "Subtle Signature" tokens (source: theme/theme-tokens.css). */
   --background: #FAF8F4;
@@ -138,7 +267,9 @@ body {
   --shadow-card: 0 2px 12px rgb(48 51 47 / 4%);
 }
 
-.dark {
+:root[data-ui-theme="orange"].dark,
+[data-ui-theme="orange"].dark,
+[data-ui-theme="orange"] .dark {
   --background: #1E211F;
   --foreground: #F4F0E8;
   --card: #282C28;

@@ -180,7 +180,7 @@ export const iconButton =
  * are fewer than four. Wider screens get the same albums in one row.
  */
 export default function AlbumStrip({ albums, activeId, onSelect, onCreate, onRename, onDelete, loading }: AlbumStripProps) {
-  const [showEmpty, setShowEmpty] = useState(false);
+  const [showEmpty, setShowEmpty] = useState(true);
 
   const emptyCount = albums.filter((a) => a.images.length === 0).length;
   // Biggest first; the sort is stable, so equal albums keep their order.
