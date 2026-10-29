@@ -19,6 +19,8 @@ import "./app.css";
 import LoadingScreen from "./components/loading-screen";
 import SessionGuard from "./components/SessionGuard";
 import { Toaster } from "./components/ui/sonner";
+import { UIThemeProvider } from "./context/ThemeContext";
+import { THEME_STORAGE_KEY, DEFAULT_THEME_ID } from "./lib/theme";
 
 export const links: Route.LinksFunction = () => [
   { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
@@ -33,21 +35,28 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#FAF8F4" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#1E211F" media="(prefers-color-scheme: dark)" />
+        <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#0A0A0A" media="(prefers-color-scheme: dark)" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('${THEME_STORAGE_KEY}')||'${DEFAULT_THEME_ID}';document.documentElement.setAttribute('data-ui-theme',t);}catch(e){}})();`,
+          }}
+        />
         <Meta />
         <Links />
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {/* One icon set across the app, in duotone: a line plus a soft fill of the same colour. */}
-          <IconContext.Provider value={{ weight: "duotone" }}>
-            {children}
-            <ScrollRestoration />
-            <Scripts />
-            <Toaster />
-            <SessionGuard />
-          </IconContext.Provider>
+          <UIThemeProvider>
+            {/* One icon set across the app, in duotone: a line plus a soft fill of the same colour. */}
+            <IconContext.Provider value={{ weight: "duotone" }}>
+              {children}
+              <ScrollRestoration />
+              <Scripts />
+              <Toaster />
+              <SessionGuard />
+            </IconContext.Provider>
+          </UIThemeProvider>
         </ThemeProvider>
       </body>
     </html>
