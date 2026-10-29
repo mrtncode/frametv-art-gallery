@@ -2,17 +2,9 @@
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-/** Where a picture on the TV came from: this app, the Samsung Art Store, or another upload. */
-import type { ImageProvenance } from "./galleryApi";
-
-export type TVImageOrigin = "app" | "samsung" | "personal";
-
 export interface TVGalleryImage {
   content_id: string;
   filename: string;
-  origin: TVImageOrigin;
-  /** Where it came from, for pictures this app sent */
-  provenance?: ImageProvenance;
   date_added: string;
   width?: number | null;
   height?: number | null;
@@ -70,20 +62,10 @@ export async function playUploadedImage({ ip, filename }: { ip: string, filename
 }
 
 // TV management (add/get TVs)
-// Callers that ask at the same moment (every tile in a grid, say) share one request.
-let tvsInFlight: Promise<any> | null = null;
-
 export async function getTvs() {
-  if (!tvsInFlight) {
-    tvsInFlight = (async () => {
-      const res = await fetch(`${API_BASE}/api/tvs`);
-      if (!res.ok) throw new Error((await res.json()).error || 'Failed to get TVs');
-      return (await res.json()).tvs;
-    })().finally(() => {
-      tvsInFlight = null;
-    });
-  }
-  return tvsInFlight;
+  const res = await fetch(`${API_BASE}/api/tvs`);
+  if (!res.ok) throw new Error((await res.json()).error || 'Failed to get TVs');
+  return (await res.json()).tvs;
 }
 
 export async function discoverTvs(): Promise<DiscoveredTV[]> {
@@ -137,8 +119,6 @@ export async function getTvGalleryImages(ip: string): Promise<TVGalleryImage[]> 
   return (data.images || []).map((img: any) => ({
     content_id: img.content_id,
     filename: img.filename || img.content_id,
-    origin: img.origin || "personal",
-    provenance: img.provenance || undefined,
     date_added: img.date_added,
     width: img.width ?? null,
     height: img.height ?? null,

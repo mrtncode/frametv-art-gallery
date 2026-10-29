@@ -1,5 +1,4 @@
 import base64
-import gzip
 import hashlib
 import importlib
 import os
@@ -7,8 +6,6 @@ import shutil
 import sqlite3
 import sys
 import tempfile
-import threading
-import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
@@ -16,12 +13,10 @@ from typing import Optional
 
 import requests
 from const import CONNECTION_NAME
-from discover_routes import discover_routes
 from flask import (
     Flask,
     Response,
     after_this_request,
-    g,
     flash,
     jsonify,
     redirect,
@@ -113,7 +108,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 app = Flask(__name__, static_folder="../frontend/build/client")
 app.secret_key = os.environ.get('SECRET_KEY', 'frameartsecretkey')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-app.config['INSTANCE_FOLDER'] = INSTANCE_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_UPLOAD_SIZE_BYTES', str(20 * 1024 * 1024)))
 
 # allow cross-origin requests from the dev server or any other origin when
@@ -123,80 +117,6 @@ try:
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 except ImportError:
     pass
-
-# Requests that take longer than this are logged, so a slow spell leaves evidence of which
-# request it was and when. Set SLOW_REQUEST_MS=0 to turn it off.
-SLOW_REQUEST_SECONDS = int(os.environ.get('SLOW_REQUEST_MS', '300')) / 1000
-
-
-@app.before_request
-def _start_request_timer():
-    g._request_started = time.perf_counter()
-
-
-@app.teardown_request
-def _log_slow_request(exc):
-    started = g.get('_request_started')
-    if started is None or SLOW_REQUEST_SECONDS <= 0:
-        return
-    elapsed = time.perf_counter() - started
-    if elapsed >= SLOW_REQUEST_SECONDS:
-        app.logger.warning(
-            "Slow request: %s %s took %.0f ms (worker %s, %d threads alive in it)",
-            request.method, request.path, elapsed * 1000, os.getpid(), threading.active_count(),
-        )
-
-
-# Text responses (the built JavaScript and CSS above all) are gzipped: they shrink to about a
-# quarter, which matters most on a first visit from outside the house.
-_COMPRESSIBLE = ('text/', 'application/json', 'application/javascript', 'image/svg+xml')
-_COMPRESS_MIN_BYTES = 1024
-# The built assets are named after their content and never change, so each is gzipped once
-# per worker and the result reused.
-_gzipped_assets: dict = {}
-_GZIPPED_ASSETS_MAX = 256
-
-
-@app.after_request
-def _gzip_response(response):
-    if (
-        response.status_code != 200
-        or request.method not in ('GET', 'HEAD')
-        or 'gzip' not in request.headers.get('Accept-Encoding', '').lower()
-        or 'Content-Encoding' in response.headers
-        or not (response.mimetype or '').startswith(_COMPRESSIBLE)
-        or (response.content_length is not None and response.content_length < _COMPRESS_MIN_BYTES)
-    ):
-        return response
-
-    immutable = request.path.startswith('/assets/')
-    body = _gzipped_assets.get(request.path) if immutable else None
-    # A file response streams from an open file; it is replaced below, so close it here
-    # rather than leave the handle for the garbage collector.
-    original = response.response
-    response.direct_passthrough = False
-    if body is None:
-        data = response.get_data()
-        if hasattr(original, 'close'):
-            original.close()
-        if len(data) < _COMPRESS_MIN_BYTES:
-            return response
-        body = gzip.compress(data, compresslevel=6)
-        if immutable and len(_gzipped_assets) < _GZIPPED_ASSETS_MAX:
-            _gzipped_assets[request.path] = body
-    elif hasattr(original, 'close'):
-        original.close()
-
-    response.set_data(body)
-    response.headers['Content-Encoding'] = 'gzip'
-    response.vary.add('Accept-Encoding')
-    # The bytes differ from the file's, so its validator becomes a weak one. Revalidation
-    # still matches: If-None-Match is compared weakly.
-    etag = response.headers.get('ETag')
-    if etag and not etag.startswith('W/'):
-        response.headers['ETag'] = f'W/{etag}'
-    return response
-
 
 # Fallback CORS headers for any route, so front-end dev or production can call /api and /uploads without CORS blocking.
 @app.after_request
@@ -214,35 +134,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{frametv_db_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 from models import TV, Album, AppSetting, Image, ProviderConfig, UploadedImage, db
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
-
-
-@event.listens_for(Engine, "connect")
-def _tune_sqlite(dbapi_connection, _record):
-    """Let the gunicorn workers share the database without blocking one another.
-
-    In SQLite's default rollback-journal mode a write locks readers out until it is on
-    disk, so one slow commit stalls every other worker's page load. WAL lets reads carry
-    on during a write, and busy_timeout makes a second writer wait briefly instead of
-    failing straight away.
-    """
-    if not isinstance(dbapi_connection, sqlite3.Connection):
-        return
-    cursor = dbapi_connection.cursor()
-    try:
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.execute("PRAGMA busy_timeout=5000")
-    finally:
-        cursor.close()
-
 
 db.init_app(app)
 
 # Import blueprints
 app.register_blueprint(media_provider_routes)
-app.register_blueprint(discover_routes)
 app.register_blueprint(provider_config_routes)
 
 # ...models are now imported from models.py...
@@ -433,7 +329,7 @@ from packaging.version import parse as parse_version
 def backend_status():
     """Return a simple status message for health checks and update availability."""
     current_version = os.environ.get('FRAME_TV_VERSION', 'unknown')
-    repo = 'bballdavis/Frame-Gallery'
+    repo = 'mrtncode/frametv-art-gallery'
     
     cache_entry = AppSetting.query.filter_by(key='github_version_cache').first()
     
@@ -446,9 +342,8 @@ def backend_status():
             cache_data = json.loads(cache_entry.value)
             last_fetched = cache_data.get('last_fetched', 0)
             
-            # 24 hours = 86400 seconds. A cache filled from another repository (before the
-            # fork was renamed) is ignored, so its version numbers can't trigger an update.
-            if cache_data.get('repo') == repo and now.timestamp() - last_fetched < 86400:
+            # 24 hours = 86400 seconds
+            if now.timestamp() - last_fetched < 86400:
                 use_cached = True
         except Exception:
             app.logger.warning("Error parsing cached GitHub version data; will fetch fresh", exc_info=True)
@@ -461,7 +356,7 @@ def backend_status():
         url = f'https://api.github.com/repos/{repo}/releases/latest'
         
         try:
-            headers = {"User-Agent": f"Frame-Gallery/{current_version}"}
+            headers = {"User-Agent": f"Flask-FrameTV/{current_version}"}
             response = requests.get(url, headers=headers, timeout=5)
             
             if response.status_code == 200:
@@ -472,8 +367,7 @@ def backend_status():
                 new_cache_content = {
                     'last_fetched': now.timestamp(),
                     'latest_version': latest_version,
-                    'changelog': changelog,
-                    'repo': repo,
+                    'changelog': changelog
                 }
                 
                 if not cache_entry:
@@ -648,32 +542,6 @@ def api_images_added_this_month():
     return {'count': count}
 
 
-@app.route('/api/images/added_by_month', methods=['GET'])
-def api_images_added_by_month():
-    """How many images were added in each of the last few months, oldest first (for the home page)."""
-    try:
-        months = max(1, min(int(request.args.get('months', 6)), 24))
-    except ValueError:
-        months = 6
-    now = datetime.now()
-    # Walk back from this month, one calendar month at a time.
-    starts = []
-    year, month = now.year, now.month
-    for _ in range(months):
-        starts.append((year, month))
-        month -= 1
-        if month == 0:
-            year, month = year - 1, 12
-    starts.reverse()
-    first = datetime(starts[0][0], starts[0][1], 1)
-    counts = {key: 0 for key in starts}
-    for (created_at,) in db.session.query(Image.created_at).filter(Image.created_at >= first):
-        key = (created_at.year, created_at.month)
-        if key in counts:
-            counts[key] += 1
-    return {'months': [{'month': f'{y:04d}-{m:02d}', 'count': counts[(y, m)]} for y, m in starts]}
-
-
 @app.route('/api/images/<filename>', methods=['DELETE'])
 def api_delete_image(filename):
     try:
@@ -823,21 +691,6 @@ def api_get_album(album_id):
         }
     }
 
-@app.route('/api/albums/<int:album_id>', methods=['PATCH'])
-def api_rename_album(album_id):
-    album = Album.query.get(album_id)
-    if not album:
-        return {'error': 'Album not found'}, 404
-    name = ((request.get_json(silent=True) or {}).get('name') or '').strip()
-    if not name:
-        return {'error': 'Album name required'}, 400
-    clash = Album.query.filter_by(name=name).first()
-    if clash and clash.id != album.id:
-        return {'error': 'Album already exists'}, 400
-    album.name = name
-    db.session.commit()
-    return api_list_albums()
-
 @app.route('/api/albums/<int:album_id>/images/<int:image_id>', methods=['DELETE'])
 def api_remove_image_from_album(album_id, image_id):
     album = Album.query.get(album_id)
@@ -859,60 +712,6 @@ def api_delete_album(album_name):
     db.session.commit()
     return api_list_albums()
 
-
-
-def _image_provenance(image) -> dict:
-    """Where an image came from, in the shape the front end shows it."""
-    from utils.discover import SOURCES
-
-    source = SOURCES.get(image.source) if image.source else None
-    return {
-        'source': image.source,
-        'source_label': source.name if source else 'Uploaded',
-        'source_id': image.source_id,
-        'source_url': image.source_url,
-        'title': image.title,
-        'artist': image.artist,
-        'license': image.license,
-    }
-
-
-def _mark_manual_upload(image) -> None:
-    """A file someone put here themselves, not one fetched from a source."""
-    image.source = 'upload'
-    image.source_id = image.source_url = image.title = image.artist = image.license = None
-
-
-@app.route('/api/images/<filename>/size', methods=['GET'])
-def api_image_size(filename):
-    """Pixel size of an upload, as it is shown upright, read from its header only.
-
-    Lets the image dialog say how big a picture is without downloading the original.
-    """
-    try:
-        _, source_path = _normalized_upload_path(filename, must_exist=True)
-    except ValueError:
-        return {'error': 'Invalid filename'}, 400
-    except FileNotFoundError:
-        return {'error': 'Image not found'}, 404
-    try:
-        from PIL import Image as PILImage
-
-        with PILImage.open(source_path) as img:
-            width, height = img.size
-            # EXIF orientations 5-8 are turned a quarter, which swaps the sides.
-            if img.getexif().get(0x0112) in (5, 6, 7, 8):
-                width, height = height, width
-    except Exception as e:
-        _log_exception('Failed to read image size', e)
-        return _error_response('Failed to read image size', 500)
-    return {'width': width, 'height': height}
-
-
-@app.route('/api/images/details', methods=['GET'])
-def api_image_details():
-    """Provenance for every image, keyed by filename: manual upload, or which source it came from."""
-    return {'details': {image.filename: _image_provenance(image) for image in Image.query.all()}}
 
 
 @app.route('/api/upload', methods=['POST'])
@@ -961,7 +760,6 @@ def upload():
             duplicate_of = twin.filename
         img.sha256 = digest
 
-    _mark_manual_upload(img)
     if album:
         img.album = album
     db.session.commit()
@@ -1004,8 +802,6 @@ def import_image_from_reframed_gallery():
             if twin and os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], twin.filename)):
                 duplicate_of = twin.filename
             image.sha256 = digest
-        image.source = 'reframed'
-        image.source_url = url.strip()[:1000]
         if album:
             image.album = album
         db.session.commit()
@@ -1348,20 +1144,6 @@ def api_remove_all_tv_images(ip):
         _log_exception('Failed to remove all images from TV', e)
         return jsonify({'error': 'Failed to remove all images from TV'}), 500
 
-def _tv_image_origin(content_id: str, sent_from_here: bool) -> str:
-    """Where a picture on the TV came from.
-
-    "app": sent by this app. "samsung": the Samsung Art Store subscription, whose ids
-    start with SAM (for example SAM-S1110436). "personal": anything else, such as photos
-    added from a phone or USB.
-    """
-    if sent_from_here:
-        return 'app'
-    if str(content_id).upper().startswith('SAM'):
-        return 'samsung'
-    return 'personal'
-
-
 @app.route("/api/tv/<ip>/gallery", methods=['GET'])
 def api_get_tv_gallery(ip):
     """Get list of images currently on the TV."""
@@ -1375,19 +1157,15 @@ def api_get_tv_gallery(ip):
         # sent from here was recorded with its content id, which gives the real name
         # back; the rest keep the id, which at least identifies them.
         known = {
-            uploaded.content_id: image
+            uploaded.content_id: image.filename
             for uploaded, image in db.session.query(UploadedImage, Image)
             .join(Image, UploadedImage.image_id == Image.id)
             .filter(UploadedImage.tv_id == tv.id)
             .all()
         }
         for entry in images:
-            ours = known.get(entry['content_id'])
             if not entry.get('filename'):
-                entry['filename'] = ours.filename if ours else entry['content_id']
-            entry['origin'] = _tv_image_origin(entry['content_id'], ours is not None)
-            if ours:
-                entry['provenance'] = _image_provenance(ours)
+                entry['filename'] = known.get(entry['content_id'], entry['content_id'])
 
         return jsonify({'images': images, 'tv_ip': ip})
     except FrameTVUnavailableError as e:
@@ -1667,18 +1445,9 @@ def serve(path):
         return _error_response('Invalid path', 400)
 
     if os.path.isfile(static_file_path):
-        # Vite names the built assets after their content, so they never change in place:
-        # let the browser keep them for a year instead of asking again on every page load.
-        if path.startswith('assets/'):
-            response = send_from_directory(app.static_folder, path, max_age=31536000)
-            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
-            return response
         return send_from_directory(app.static_folder, path)
-    # Always serve index.html for any unknown route (client-side routing). It names the
-    # current assets, so it must always be fresh.
-    response = send_from_directory(app.static_folder, 'index.html')
-    response.headers['Cache-Control'] = 'no-cache'
-    return response
+    # Always serve index.html for any unknown route (client-side routing)
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 if __name__ == '__main__':

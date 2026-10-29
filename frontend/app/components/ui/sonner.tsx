@@ -1,4 +1,10 @@
-import { CheckCircle as CircleCheckIcon, CircleNotch as Loader2Icon, Info as InfoIcon, Warning as TriangleAlertIcon, WarningOctagon as OctagonXIcon } from "@phosphor-icons/react";
+import {
+  CircleCheckIcon,
+  InfoIcon,
+  Loader2Icon,
+  OctagonXIcon,
+  TriangleAlertIcon,
+} from "lucide-react"
 import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 

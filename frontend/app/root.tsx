@@ -8,22 +8,23 @@ import {
 } from "react-router";
 
 import { ThemeProvider } from "next-themes";
-import { IconContext } from "@phosphor-icons/react";
 
 import type { Route } from "./+types/root";
-// Inter is bundled with the app rather than fetched from Google Fonts: that stylesheet
-// blocked the first paint on a round trip to another site. Font files load only when used.
-import "@fontsource-variable/inter/opsz.css";
-import "@fontsource-variable/inter/opsz-italic.css";
 import "./app.css";
 import LoadingScreen from "./components/loading-screen";
-import SessionGuard from "./components/SessionGuard";
 import { Toaster } from "./components/ui/sonner";
 
 export const links: Route.LinksFunction = () => [
-  { rel: "icon", href: "/favicon.svg", type: "image/svg+xml" },
-  { rel: "icon", href: "/favicon.ico", sizes: "48x48" },
-  { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
+  { rel: "preconnect", href: "https://fonts.googleapis.com" },
+  {
+    rel: "preconnect",
+    href: "https://fonts.gstatic.com",
+    crossOrigin: "anonymous",
+  },
+  {
+    rel: "stylesheet",
+    href: "https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap",
+  },
 ];
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -32,22 +33,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-        <meta name="theme-color" content="#FAF8F4" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#1E211F" media="(prefers-color-scheme: dark)" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <Meta />
         <Links />
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {/* One icon set across the app, in duotone: a line plus a soft fill of the same colour. */}
-          <IconContext.Provider value={{ weight: "duotone" }}>
-            {children}
-            <ScrollRestoration />
-            <Scripts />
-            <Toaster />
-            <SessionGuard />
-          </IconContext.Provider>
+          {children}
+          <ScrollRestoration />
+          <Scripts />
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

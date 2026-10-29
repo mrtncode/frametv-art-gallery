@@ -133,7 +133,7 @@ function startPythonBackend() {
 function showBackendError(message) {
   dialog.showMessageBoxSync({
     type: "error",
-    title: "Frame Gallery – Backend Error",
+    title: "FrameTV Art Gallery – Backend Error",
     message: "The backend could not be started.",
     detail: message,
     buttons: ["OK"],
