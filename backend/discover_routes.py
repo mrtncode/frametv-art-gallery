@@ -1,26 +1,34 @@
 """Discover: search free, high-resolution art and import it ready for the Frame."""
 
 import hashlib
+import json
 import logging
 import os
 import shutil
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
-
 from urllib.parse import urlsplit
 
 from flask import Blueprint, Response, current_app, jsonify, request
-from models import Album, Image, ProviderConfig, db
-from utils.discover import SOURCES, configure, credentials, get_source, resolve_url, source_info
+from models import Album, AppSetting, Image, ProviderConfig, db
+from utils.discover import (
+    DEFAULT_ENABLED_SOURCES,
+    SOURCES,
+    configure,
+    credentials,
+    get_source,
+    resolve_url,
+    source_info,
+)
 from utils.discover.aggregate import cached_search, filter_results, highlights
 from utils.discover.artic import AIC_HEADERS
 from utils.discover.common import (
     DEFAULT_SHAPE,
     MAX_DOWNLOAD_BYTES,
+    PAGE_SIZE,
     SHAPES,
     DiscoverError,
-    PAGE_SIZE,
     http_get,
     prune_old_files,
     theme_query,
@@ -81,6 +89,49 @@ def _configure(state):
 # --- Source keys, entered in Settings -------------------------------------------------
 
 PREFIX = "discover:"
+SETTING_KEY_ENABLED_SOURCES = "discover_enabled_sources"
+
+
+def get_enabled_source_ids():
+    try:
+        setting = AppSetting.query.filter_by(key=SETTING_KEY_ENABLED_SOURCES).first()
+        if setting and setting.value is not None:
+            ids = json.loads(setting.value)
+            if isinstance(ids, list):
+                return [s_id for s_id in ids if isinstance(s_id, str) and s_id in SOURCES]
+    except Exception:
+        log.exception("Could not read enabled discover sources from database")
+    # If there is no saved preference, return the recommended defaults
+    return list(DEFAULT_ENABLED_SOURCES)
+
+
+def set_enabled_source_ids(ids):
+    valid_ids = []
+    seen = set()
+    for s_id in ids:
+        if isinstance(s_id, str) and s_id in SOURCES and s_id not in seen:
+            valid_ids.append(s_id)
+            seen.add(s_id)
+    setting = AppSetting.query.filter_by(key=SETTING_KEY_ENABLED_SOURCES).first()
+    if not setting:
+        setting = AppSetting(key=SETTING_KEY_ENABLED_SOURCES)
+        db.session.add(setting)
+    setting.value = json.dumps(valid_ids)
+    db.session.commit()
+    return valid_ids
+
+
+def set_source_enabled(source_id, enabled):
+    if source_id not in SOURCES:
+        raise DiscoverError("Unknown source", 404)
+    current = get_enabled_source_ids()
+    if enabled:
+        if source_id not in current:
+            current.append(source_id)
+    else:
+        current = [s for s in current if s != source_id]
+    set_enabled_source_ids(current)
+    return source_id in current
 
 
 def _load_credentials():
@@ -139,6 +190,10 @@ def api_discover_clear_credentials(service):
     ProviderConfig.query.filter_by(provider=PREFIX + service).delete()
     db.session.commit()
     _load_credentials()
+    # Also turn off any sources that depend on this service
+    for source in SOURCES.values():
+        if getattr(source, "service", None) == service:
+            set_source_enabled(source.id, False)
     return jsonify(credentials.describe(service))
 
 
@@ -167,7 +222,62 @@ def _int_arg(name, default, low, high):
 
 @discover_routes.route("/api/discover/sources", methods=["GET"])
 def api_discover_sources():
-    return jsonify(sources=[source_info(source) for source in SOURCES.values()], season=seasonal_word())
+    enabled_set = set(get_enabled_source_ids())
+    return jsonify(
+        sources=[source_info(source, enabled=(source.id in enabled_set)) for source in SOURCES.values()],
+        season=seasonal_word(),
+    )
+
+
+@discover_routes.route("/api/discover/sources/enabled", methods=["PUT"])
+def api_discover_set_enabled_sources():
+    data = request.get_json(silent=True) or {}
+    if "enabled" in data:
+        if not isinstance(data["enabled"], list):
+            raise DiscoverError("enabled must be a list of source IDs", 400)
+        enabled_ids = data["enabled"]
+    elif "sources" in data:
+        if not isinstance(data["sources"], dict):
+            raise DiscoverError("sources must be an object mapping source ID to boolean", 400)
+        current = set(get_enabled_source_ids())
+        for sid, is_on in data["sources"].items():
+            if is_on:
+                current.add(sid)
+            else:
+                current.discard(sid)
+        enabled_ids = list(current)
+    else:
+        raise DiscoverError("Expected 'enabled' list or 'sources' object", 400)
+
+    updated_ids = set_enabled_source_ids(enabled_ids)
+    enabled_set = set(updated_ids)
+    return jsonify(
+        enabled=updated_ids,
+        sources=[source_info(source, enabled=(source.id in enabled_set)) for source in SOURCES.values()],
+    )
+
+
+@discover_routes.route("/api/discover/sources/<source_id>", methods=["PUT", "PATCH"])
+def api_discover_update_source(source_id):
+    if source_id not in SOURCES:
+        raise DiscoverError("Unknown source", 404)
+    data = request.get_json(silent=True) or {}
+    if "enabled" not in data:
+        raise DiscoverError("Missing 'enabled' parameter", 400)
+    enabled = bool(data["enabled"])
+    set_source_enabled(source_id, enabled)
+    source = SOURCES[source_id]
+    return jsonify(source_info(source, enabled=enabled))
+
+
+@discover_routes.route("/api/discover/sources/reset", methods=["POST"])
+def api_discover_reset_sources():
+    updated_ids = set_enabled_source_ids(DEFAULT_ENABLED_SOURCES)
+    enabled_set = set(updated_ids)
+    return jsonify(
+        enabled=updated_ids,
+        sources=[source_info(source, enabled=(source.id in enabled_set)) for source in SOURCES.values()],
+    )
 
 
 @discover_routes.route("/api/discover/search", methods=["GET"])

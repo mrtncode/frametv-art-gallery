@@ -19,19 +19,20 @@ import SourceOrderDialog from '~/components/SourceOrderDialog';
 import { useUITheme } from '~/context/ThemeContext';
 import { useTheme as useColorMode } from 'next-themes';
 import { cn } from '~/lib/utils';
-import { clearCredentials, fetchSources, saveCredentials, type DiscoverSource } from '~/utils/discoverApi';
 import {
-  getCustomizeSources,
-  getDisabledSources,
-  getEnabledFlaggedSources,
+  clearCredentials,
+  fetchSources,
+  resetSourcesToDefaults,
+  saveCredentials,
+  setSourceEnabled,
+  type DiscoverSource,
+} from '~/utils/discoverApi';
+import {
   isOptional,
   orderSources,
-  setCustomizeSources,
   setSourceOrder,
   getSourceOrder,
   visibleSources,
-  setDisabledSources,
-  setEnabledFlaggedSources,
 } from '~/lib/discoverPrefs';
 
 /** The service's own logo for a row that groups several sources (each source has its museum's icon, not the umbrella's). */
@@ -194,46 +195,59 @@ export default function Settings() {
   // Albums feed the slideshow picker.
   const [albums, setAlbums] = React.useState<{ id: string; name: string }[]>([]);
 
-  // Discover sources: all on unless the person turned the master switch off and chose.
+  // Discover sources: stored in the backend database.
   const [discoverSources, setDiscoverSources] = React.useState<DiscoverSource[]>([]);
-  const [customizeSources, setCustomizeSourcesState] = React.useState(false);
-  const [disabledSources, setDisabledState] = React.useState<Set<string>>(new Set());
-  // Sources that need a key are off until chosen here.
-  const [enabledFlagged, setEnabledFlaggedState] = React.useState<Set<string>>(new Set());
+  const [sourcesBusy, setSourcesBusy] = React.useState(false);
 
-  React.useEffect(() => {
-    setCustomizeSourcesState(getCustomizeSources());
-    setDisabledState(getDisabledSources());
-    setEnabledFlaggedState(getEnabledFlaggedSources());
-    fetchSources().then(({ sources }) => setDiscoverSources(sources)).catch(() => setDiscoverSources([]));
+  const reloadSources = React.useCallback(async () => {
+    try {
+      const { sources } = await fetchSources();
+      setDiscoverSources(sources);
+    } catch {
+      setDiscoverSources([]);
+    }
   }, []);
 
-  const handleToggleAllSources = (all: boolean) => {
-    setCustomizeSourcesState(!all);
-    setCustomizeSources(!all);
-    if (all) {
-      // Back to everything; a source added later is simply on.
-      setDisabledState(new Set());
-      setDisabledSources(new Set());
+  React.useEffect(() => {
+    reloadSources();
+  }, [reloadSources]);
+
+  const handleToggleSource = async (id: string, on: boolean) => {
+    setDiscoverSources((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, enabled: on } : s))
+    );
+    try {
+      await setSourceEnabled(id, on);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update source");
+      reloadSources();
     }
   };
 
-  const handleToggleSource = (id: string, on: boolean) => {
-    const next = new Set(disabledSources);
-    if (on) next.delete(id);
-    else next.add(id);
-    setDisabledState(next);
-    setDisabledSources(next);
+  const handleToggleKeyed = async (ids: string[], on: boolean) => {
+    setDiscoverSources((prev) =>
+      prev.map((s) => (ids.includes(s.id) ? { ...s, enabled: on } : s))
+    );
+    try {
+      await Promise.all(ids.map((id) => setSourceEnabled(id, on)));
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update source");
+      reloadSources();
+    }
   };
 
-  const handleToggleFlagged = (ids: string[], on: boolean) => {
-    const next = new Set(enabledFlagged);
-    for (const id of ids) {
-      if (on) next.add(id);
-      else next.delete(id);
+  const handleResetDefaults = async () => {
+    setSourcesBusy(true);
+    try {
+      const { sources } = await resetSourcesToDefaults();
+      setDiscoverSources(sources);
+      toast.success("Art sources reset to recommended defaults");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to reset sources");
+      reloadSources();
+    } finally {
+      setSourcesBusy(false);
     }
-    setEnabledFlaggedState(next);
-    setEnabledFlaggedSources(next);
   };
 
   const freeSources = discoverSources.filter((s) => !isOptional(s));
@@ -243,9 +257,7 @@ export default function Settings() {
   const [orderVersion, setOrderVersion] = React.useState(0);
   const inUse = React.useMemo(
     () => orderSources(visibleSources(discoverSources)),
-    // The switches live in localStorage, so re-derive when they or the order change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [discoverSources, disabledSources, enabledFlagged, customizeSources, orderVersion]
+    [discoverSources, orderVersion]
   );
   const saveOrder = (ids: string[]) => {
     // Sources not shown here (switched off) keep their place, after the ones just ordered.
@@ -261,7 +273,6 @@ export default function Settings() {
     }
     return [...groups.values()];
   }, [keyedSources]);
-  const reloadSources = () => fetchSources().then(({ sources }) => setDiscoverSources(sources)).catch(() => {});
 
   // Fetch TVs
   const fetchTvs = React.useCallback(async () => {
@@ -611,21 +622,30 @@ export default function Settings() {
 
         {/* Discover */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-foreground">Discover</h2>
-          <label className="flex items-center justify-between gap-4">
-            <span>
-              <span className="block font-semibold text-foreground">All sources</span>
-              <span className="block text-sm text-muted-foreground">
-                Search every source that needs no key, and any added later. Turn this off to choose which ones to use.
-              </span>
-            </span>
-            <Switch checked={!customizeSources} onCheckedChange={handleToggleAllSources} aria-label="Use all Discover sources" />
-          </label>
-          {customizeSources && (
-            <ul className="mt-4 flex flex-col gap-3 border-t border-border pt-4">
-              {freeSources.map((s) => {
-                const on = !disabledSources.has(s.id);
-                const lastOn = on && freeSources.filter((v) => !disabledSources.has(v.id)).length <= 1;
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Discover Sources</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Choose which art sources are active in Discover. Recommended defaults are enabled.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={sourcesBusy || discoverSources.length === 0}
+              onClick={handleResetDefaults}
+            >
+              Reset to defaults
+            </Button>
+          </div>
+
+          <ul className="flex flex-col gap-3 border-t border-border pt-4">
+            {[...freeSources]
+              .sort((a, b) => (b.enabled === a.enabled ? 0 : b.enabled ? 1 : -1))
+              .map((s) => {
+                const on = s.enabled;
+                const lastOn = on && freeSources.filter((v) => v.enabled).length <= 1;
                 return (
                   <li key={s.id}>
                     <label className="flex items-center gap-3">
@@ -651,9 +671,9 @@ export default function Settings() {
                   </li>
                 );
               })}
-              {discoverSources.length === 0 && <li className="text-sm text-muted-foreground">Could not load the sources.</li>}
-            </ul>
-          )}
+            {discoverSources.length === 0 && <li className="text-sm text-muted-foreground">Could not load the sources.</li>}
+          </ul>
+
           {keyedSources.length > 0 && (
             <div className="mt-4 border-t border-border pt-4">
               <h3 className="font-semibold text-foreground">Sources that need a key</h3>
@@ -665,8 +685,8 @@ export default function Settings() {
                   <OptionalSource
                     key={group[0].credentials?.service ?? group[0].id}
                     sources={group}
-                    on={group.some((s) => enabledFlagged.has(s.id))}
-                    onToggle={(next) => handleToggleFlagged(group.map((s) => s.id), next)}
+                    on={group.some((s) => s.enabled)}
+                    onToggle={(next) => handleToggleKeyed(group.map((s) => s.id), next)}
                     onSaved={reloadSources}
                   />
                 ))}
