@@ -33,7 +33,8 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
-          version: 9
+          run_install: false
+          package_json_file: ./frontend/package.json
       # build frontend
       - name: Setup Node.js
         uses: actions/setup-node@v3
