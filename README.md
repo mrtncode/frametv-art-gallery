@@ -80,19 +80,28 @@ The **Discover** tab searches free, high-resolution art and imports it straight 
 | [National Gallery of Art](https://www.nga.gov/open-access-images.html) and [Yale Center for British Art](https://britishart.yale.edu/) (Wikimedia Commons) | Public domain / CC0 only | Both donated their open-access paintings to Commons, which is the way in because neither has a search API. |
 | [Flickr](https://www.flickr.com/creativecommons/) | CC0, CC BY, CC BY-SA, public domain | Search by tag or title across freely licensed photography and street art. Needs a free key. |
 | [Pixabay illustrations](https://pixabay.com/illustrations/) | Pixabay Content License | Cute, colorful illustration. A free key returns files up to 1280 px; Pixabay can approve a key for full-size files. |
-| [Danbooru](https://danbooru.donmai.us/), [Konachan](https://konachan.net/) and [Bing daily wallpapers](https://www.bing.com/) | **License not verified (personal use)** | Danbooru and Konachan: anime and illustration art searched by tag, general/safe ratings only. Bing: each day's world photograph in 4K. All need no key, are flagged and off by default, and offer only pictures at least 1920 px wide. |
-| [Mastodon art tags](https://mastodon.social/tags/mastoart) | **License not verified (personal use)** | What artists are posting right now, by hashtag (`mastoart`, `pixelart`, `digitalart`). Reads one server's public tag pages with no key; sensitive posts are skipped. Flagged and off by default. |
-| [Wallhaven](https://wallhaven.cc/) and [DeviantArt](https://www.deviantart.com/) | **License not verified (personal use)** | Huge, well-tagged libraries of independent art, but neither records a reusable license. They are flagged, **off by default** (turn them on under Settings, Discover, More sources), and never in the daily highlights. Wallhaven needs no key; DeviantArt needs a free app (client ID and secret) and offers only art the artist made downloadable. |
 
 - **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. The **Shape** filter narrows results to *Landscape* (wider than tall), *Wide* (close to 16:9, the default) or *No matte needed* (already 16:9 within 3%, so nothing is cropped or padded).
 - **Albums**: choose an album before adding, or create one.
 - **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.
-- **Keys**: most sources need no key or account. Smithsonian, Flickr, Pixabay and DeviantArt need a free one: switch the source on under **Settings, Discover, More sources** and paste the key there. It is stored on your server, never shown again, and the source appears in Discover once it is saved.
+- **Keys**: most sources need no key or account. Smithsonian, Flickr and Pixabay need a free one: switch the source on under **Settings, Discover, More sources** and paste the key there. It is stored on your server, never shown again, and the source appears in Discover once it is saved.
 
 > ⚠️ **Personal Use Notice:** Some Discover sources are unofficial integrations intended for personal, private use only. They are not endorsed by or affiliated with the respective platforms and may be disabled or removed at any time upon request. Please respect the rights of the original artists and content providers.
 
 Set `DISCOVER_CONTACT` (an email or URL) to tell the Art Institute who is making requests, as its API documentation asks. 
-Thanks to the creator of Reframed for the great tool. Please tip them!
+
+
+### Note to Reframed Gallery
+
+**Special thanks to the creator of Reframed Gallery for making this great resource available. If you enjoy their work, please consider supporting them!**
+
+The Reframed Gallery integration in frametv-art-gallery is an unofficial, community-driven integration that allows users to discover and import artwork from Reframed Gallery into their personal Samsung Frame TV galleries.
+
+To minimize server load, artwork metadata and images are cached. This integration is intended to make Reframed Gallery's artwork more conveniently accessible to users while respecting the original service.
+
+If you are the creator or maintainer of Reframed Gallery and have any questions or concerns about this integration, please get in touch through this repository. We are happy to discuss any concerns, adjust the integration, or remove it entirely upon request.
+
+We appreciate your work and want to maintain a positive and respectful relationship with the Reframed Gallery project and its community.
 
 # Installation
 
@@ -241,4 +250,5 @@ Backend:
 - Flask (Python)
 
 # Credits
-Speical thanks to https://github.com/xchwarze/samsung-tv-ws-api
+- Speical thanks to https://github.com/xchwarze/samsung-tv-ws-api
+- Huge contributions from @bballdavis

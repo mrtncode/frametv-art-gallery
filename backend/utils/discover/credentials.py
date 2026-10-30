@@ -26,11 +26,6 @@ SERVICES = {
         "fields": [("api_key", "API key")],
         "help_url": "https://pixabay.com/api/docs/",
     },
-    "deviantart": {
-        "label": "DeviantArt",
-        "fields": [("client_id", "Client ID"), ("client_secret", "Client secret")],
-        "help_url": "https://www.deviantart.com/developers/apps",
-    },
 }
 
 RELOAD_SECONDS = 5

@@ -43,14 +43,8 @@ BUDGETS = {
     "ids.si.edu": (30, 60, 120),
     "api.flickr.com": (40, 60, 300),               # documented 3600 an hour per key
     "pixabay.com": (60, 60, 120),                  # documented 100 a minute per key
-    "wallhaven.cc": (30, 60, 120),                 # documented 45 a minute
-    "www.deviantart.com": (30, 60, 300),
-    "danbooru.donmai.us": (60, 60, 120),
-    "konachan.net": (30, 60, 300),
-    "www.bing.com": (40, 60, 300),
     "data.getty.edu": (30, 60, 120),
     "media.getty.edu": (60, 60, 120),
-    "mastodon.social": (60, 60, 300),               # documented 300 per 5 minutes
 }
 MAX_COOLDOWN = 1800
 _thread_lock = threading.Lock()

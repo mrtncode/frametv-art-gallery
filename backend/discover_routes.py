@@ -63,9 +63,7 @@ THUMB_HOSTS = {
     "images-assets.nasa.gov", "images.nasa.gov",
     "ids.si.edu", "americanart.si.edu", "www.cooperhewitt.org", "www.si.edu",
     "live.staticflickr.com", "combo.staticflickr.com", "pixabay.com", "cdn.pixabay.com",
-    "wallhaven.cc", "th.wallhaven.cc", "w.wallhaven.cc",
-    "cdn.donmai.us", "danbooru.donmai.us", "konachan.net", "www.bing.com",
-    "media.getty.edu", "files.mastodon.social", "www.nga.gov", "britishart.yale.edu", "www.getty.edu", "www.moma.org",
+    "media.getty.edu", "www.nga.gov", "britishart.yale.edu", "www.getty.edu", "www.moma.org",
 }
 THUMB_MAX_BYTES = 8 * 1024 * 1024
 THUMB_TTL_SECONDS = 7 * 24 * 3600
@@ -143,7 +141,6 @@ def _load_credentials():
         if not spec:
             continue
         names = [name for name, _ in spec["fields"]]
-        # One field lives in api_key; a second (DeviantArt's client ID) in host.
         values[service] = {names[-1]: row.api_key or ""}
         if len(names) > 1:
             values[service][names[0]] = row.host or ""

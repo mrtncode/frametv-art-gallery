@@ -3,23 +3,15 @@
 Run with: pytest tests/test_discover_modern_sources.py
 """
 
-import sys
-
 import pytest
 from discover_fakes import FakeNet, FakeResponse
 
 from utils.discover import SOURCES, credentials, source_info
 from utils.discover.common import DiscoverError, DiskCache
-from utils.discover.deviantart import deviantart
-
-# The package re-exports the instance under the module's name, so fetch the module itself.
-deviantart_module = sys.modules["utils.discover.deviantart"]
 from utils.discover.flickr import flickr
 from utils.discover.getty import getty
-from utils.discover.mastodon import mastodon
 from utils.discover.pixabay import pixabay
 from utils.discover.smithsonian import cooper_hewitt, saam
-from utils.discover.wallhaven import wallhaven
 from utils.discover.wikimedia import illustrations, moma, modern, nga, popart, ukiyoe, yale
 
 
@@ -27,7 +19,6 @@ from utils.discover.wikimedia import illustrations, moma, modern, nga, popart, u
 def net(monkeypatch, tmp_path):
     monkeypatch.setattr(DiskCache, "directory", str(tmp_path / "cache"))
     credentials.replace_all({})
-    monkeypatch.setitem(deviantart_module._token, "value", None)
     yield FakeNet().install(monkeypatch)
     credentials.replace_all({})
 
@@ -40,17 +31,16 @@ def set_keys(**services):
 
 
 def test_sources_that_need_a_key_refuse_until_it_is_set_in_settings(net):
-    needing = {"saam", "cooperhewitt", "flickr", "pixabay", "deviantart"}
+    needing = {"saam", "cooperhewitt", "flickr", "pixabay"}
     assert needing == {sid for sid, s in SOURCES.items() if source_info(s)["credentials"]}
     assert not any(source_info(s)["credentials"]["configured"] for sid, s in SOURCES.items() if sid in needing)
     with pytest.raises(DiscoverError) as error:
         flickr.search("x", 1, True, "any")
     assert error.value.status == 503 and "Settings" in str(error.value)
 
-    set_keys(flickr={"api_key": "k"}, smithsonian={"api_key": "k"}, deviantart={"client_id": "a"})
+    set_keys(flickr={"api_key": "k"}, smithsonian={"api_key": "k"})
     info = {sid: source_info(s)["credentials"]["configured"] for sid, s in SOURCES.items() if sid in needing}
-    # DeviantArt is not ready until both its ID and its secret are set.
-    assert info == {"saam": True, "cooperhewitt": True, "flickr": True, "pixabay": False, "deviantart": False}
+    assert info == {"saam": True, "cooperhewitt": True, "flickr": True, "pixabay": False}
 
 
 def test_source_info_never_includes_a_secret(net):
@@ -59,7 +49,7 @@ def test_source_info_never_includes_a_secret(net):
 
 
 def test_personal_use_sources_are_flagged_and_the_rest_are_not(net):
-    assert {sid for sid, s in SOURCES.items() if source_info(s)["flagged"]} == {"wallhaven", "danbooru", "konachan", "bing", "mastodon", "deviantart"}
+    assert {sid for sid, s in SOURCES.items() if source_info(s)["flagged"]} == set()
 
 
 # --- Smithsonian ---------------------------------------------------------------------
@@ -243,82 +233,6 @@ def test_pixabay_reports_the_real_size_of_the_file_it_will_hand_over(net, monkey
     assert pixabay.from_url("https://pixabay.com/illustrations/fox-forest-cute-1/") == "1"
 
 
-# --- Wallhaven (flagged) ----------------------------------------------------------------
-
-
-def test_wallhaven_asks_for_safe_for_work_only_and_marks_the_license_unverified(net):
-    net.add("wallhaven.cc/api/v1/search", FakeResponse({"meta": {"last_page": 4, "total": 90}, "data": [
-        {"id": "abc123", "url": "https://wallhaven.cc/w/abc123", "path": "https://w.wallhaven.cc/full/ab/wallhaven-abc123.jpg",
-         "dimension_x": 3840, "dimension_y": 2160, "thumbs": {"large": "https://th.wallhaven.cc/lg/ab/abc123.jpg"}},
-        {"id": "nopath", "dimension_x": 100, "dimension_y": 100},
-    ]}))
-
-    page = wallhaven.search("pixel art", 2, True, "any")
-
-    params = net.calls[0]["params"]
-    assert params["purity"] == "100" and params["page"] == 2
-    assert [item["id"] for item in page["results"]] == ["abc123"]
-    assert page["results"][0]["license"] == "License not verified (personal use)"
-    assert page["has_more"] is True and wallhaven.flagged is True
-    assert wallhaven.from_url("https://wallhaven.cc/w/abc123") == "abc123"
-
-
-def test_wallhaven_refuses_a_link_to_an_adult_wallpaper(net):
-    net.add("wallhaven.cc/api/v1/w/", FakeResponse({"data": {"id": "abc123", "purity": "nsfw", "path": "https://w.wallhaven.cc/x.jpg"}}))
-    with pytest.raises(DiscoverError):
-        wallhaven.get("abc123")
-
-
-# --- DeviantArt (flagged) ---------------------------------------------------------------
-
-
-def da_deviation(dev_id, downloadable=True, mature=False, src="https://images-wixmp-x.wixmp.com/f/a.jpg"):
-    return {"deviationid": dev_id, "title": "Neon Cat", "url": f"https://www.deviantart.com/artist/art/neon-cat-{dev_id}",
-            "author": {"username": "artist"}, "is_downloadable": downloadable, "is_mature": mature,
-            "content": {"src": src, "width": 3000, "height": 2000}, "published_time": "1700000000",
-            "thumbs": [{"src": "https://images-wixmp-x.wixmp.com/t.jpg"}]}
-
-
-def test_deviantart_signs_in_as_the_app_and_offers_only_downloadable_non_mature_art(net, monkeypatch):
-    set_keys(deviantart={"client_id": "id", "client_secret": "secret"})
-    net.add("oauth2/token", FakeResponse({"access_token": "tok", "expires_in": 3600}))
-    net.add("browse/popular", FakeResponse({"has_more": True, "results": [
-        da_deviation("1"), da_deviation("2", downloadable=False), da_deviation("3", mature=True),
-    ]}))
-
-    page = deviantart.search("neon cat", 1, True, "any")
-
-    token_call = next(c for c in net.calls if c["url"].endswith("/oauth2/token"))
-    assert token_call["data"]["grant_type"] == "client_credentials"
-    search_call = next(c for c in net.calls if "browse/popular" in c["url"])
-    assert search_call["params"]["access_token"] == "tok" and search_call["params"]["mature_content"] == "false"
-    assert [item["id"] for item in page["results"]] == ["1"]
-    assert page["results"][0]["artist"] == "artist" and page["has_more"] is True
-
-    deviantart.search("again", 1, True, "any")
-    assert len([c for c in net.calls if c["url"].endswith("/oauth2/token")]) == 1   # the token is reused
-
-
-def test_deviantart_downloads_the_original_the_artist_allows(net, monkeypatch):
-    set_keys(deviantart={"client_id": "id", "client_secret": "secret"})
-    net.add("oauth2/token", FakeResponse({"access_token": "tok", "expires_in": 3600}))
-    net.add("deviation/download/", FakeResponse({"src": "https://images-wixmp-x.wixmp.com/orig.png", "width": 5000, "height": 3000}))
-    net.add("oauth2/deviation/", FakeResponse(da_deviation("1")))
-
-    plan = deviantart.plan("1", "fill")
-
-    assert plan.url.endswith("orig.png") and plan.width == 5000
-    assert plan.license == "License not verified (personal use)"
-    assert "foo.wixmp.com" in deviantart.download_hosts and "evil.example.com" not in deviantart.download_hosts
-
-
-def test_deviantart_credentials_that_are_refused_fail_clearly(net, monkeypatch):
-    set_keys(deviantart={"client_id": "id", "client_secret": "wrong"})
-    net.add("oauth2/token", FakeResponse({"error": "invalid_client"}))
-    with pytest.raises(DiscoverError):
-        deviantart.search("x", 1, True, "any")
-
-
 def test_smithsonian_collections_have_distinct_units():
     assert (saam.unit, cooper_hewitt.unit) == ("SAAM", "CHNDM")
 
@@ -384,47 +298,6 @@ def test_getty_does_not_lose_a_picture_whose_size_it_cannot_read(net):
     assert item["width"] is None and item["crop_loss"] is None
 
 
-# --- Mastodon (flagged) ---------------------------------------------------------------------
-
-
-def toot(status_id, width=3000, height=2000, sensitive=False, host="files.mastodon.social", media_type="image", reblog=None):
-    return {
-        "id": status_id, "sensitive": sensitive, "reblog": reblog, "url": f"https://mastodon.art/@maker/{status_id}",
-        "created_at": "2026-09-01T10:00:00Z", "content": "<p>Fresh <b>sketch</b></p>", "tags": [{"name": "mastoart"}],
-        "account": {"display_name": "Maker", "acct": "maker@mastodon.art"},
-        "media_attachments": [{"id": "9", "type": media_type, "url": f"https://{host}/cache/a.png",
-                               "preview_url": f"https://{host}/cache/a_s.png", "description": "A cat in neon light",
-                               "meta": {"original": {"width": width, "height": height}}}],
-    }
-
-
-def test_mastodon_reads_a_tag_and_skips_sensitive_small_or_foreign_hosted_pictures(net):
-    net.add("timelines/tag/", FakeResponse([
-        toot("1"), toot("2", sensitive=True), toot("3", width=1700, height=1200), toot("4", host="evil.example"),
-        toot("5", media_type="video"), toot("6", reblog={"id": "x"}),
-    ]))
-
-    page = mastodon.search("#Pixel Art!", 1, True, "any")
-
-    call = net.calls[0]
-    assert call["url"].endswith("/timelines/tag/Pixel") and call["params"]["only_media"] == "true"
-    assert [item["id"] for item in page["results"]] == ["1:9"]   # 1700 px wide is under the 1920 floor
-    item = page["results"][0]
-    assert (item["title"], item["artist"], item["license"]) == ("A cat in neon light", "Maker", "License not verified (personal use)")
-    assert mastodon.flagged is True and mastodon.from_url("https://mastodon.social/@a/123") == "123"
-
-
-def test_mastodon_download_is_the_original_picture_of_that_post(net):
-    net.add("/api/v1/statuses/", FakeResponse(toot("77")))
-
-    plan = mastodon.plan("77:9", "fill")
-
-    assert plan.url == "https://files.mastodon.social/cache/a.png" and (plan.width, plan.height) == (3000, 2000)
-    assert plan.page_url == "https://mastodon.art/@maker/77"
-    with pytest.raises(DiscoverError):
-        mastodon.plan("x:9", "fill")
-
-
 # --- Museums that donated their images to Commons -------------------------------------------
 
 
@@ -439,13 +312,3 @@ def test_the_nga_yale_and_moma_collections_search_their_own_commons_category(net
     assert nga_search.startswith('deepcategory:"Paintings in the National Gallery of Art (Washington, D.C.)" monet')
     assert yale_search.startswith('deepcategory:"Paintings in the Yale Center for British Art" landscape')
     assert moma_search.startswith('deepcategory:"Paintings in the Museum of Modern Art" van gogh')
-
-
-def test_deviantart_leaves_out_pictures_under_the_floor_for_unverified_sources(net):
-    set_keys(deviantart={"client_id": "id", "client_secret": "secret"})
-    small = da_deviation("2")
-    small["content"]["width"] = 1500
-    net.add("oauth2/token", FakeResponse({"access_token": "tok", "expires_in": 3600}))
-    net.add("browse/popular", FakeResponse({"results": [da_deviation("1"), small]}))
-
-    assert [item["id"] for item in deviantart.search("x", 1, True, "any")["results"]] == ["1"]

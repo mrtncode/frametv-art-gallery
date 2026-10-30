@@ -728,19 +728,6 @@ def test_a_key_saved_in_settings_reaches_the_source_but_never_comes_back(client)
     assert cleared["configured"] is False and credentials.get("flickr") == ""
 
 
-def test_a_service_with_two_fields_needs_both(client):
-    from utils.discover import credentials
-
-    credentials.replace_all({})
-    assert client.put("/api/discover/credentials/deviantart", json={"client_id": "abc"}).status_code == 400
-    reply = client.put("/api/discover/credentials/deviantart", json={"client_id": "abc", "client_secret": "xyz"})
-    assert reply.get_json()["configured"] is True
-    assert (credentials.get("deviantart", "client_id"), credentials.get("deviantart", "client_secret")) == ("abc", "xyz")
-    assert client.put("/api/discover/credentials/nope", json={"api_key": "x"}).status_code == 404
-    credentials.replace_all({})
-
-
-
 def test_default_enabled_sources_match_recommended_defaults(client):
     sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
 
@@ -768,16 +755,10 @@ def test_default_enabled_sources_match_recommended_defaults(client):
         "ukiyoe",
         "holidays",
         "posters",
-        "wallhaven",
-        "danbooru",
-        "konachan",
-        "bing",
-        "mastodon",
         "saam",
         "cooperhewitt",
         "pixabay",
         "flickr",
-        "deviantart",
     }
     actual_disabled = {sid for sid, s in sources.items() if not s["enabled"]}
     assert expected_disabled.issubset(actual_disabled)
