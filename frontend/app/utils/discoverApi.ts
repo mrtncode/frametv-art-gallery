@@ -30,6 +30,8 @@ export type DiscoverSource = {
   flagged: boolean;
   /** Set when the source needs a key or app credentials, entered in Settings. */
   credentials: SourceCredentials | null;
+  /** Whether this source is enabled (stored on the server in database). */
+  enabled: boolean;
 };
 
 export type SourceCredentials = {
@@ -134,6 +136,35 @@ export async function fetchSources(): Promise<{ sources: DiscoverSource[]; seaso
   return await readJson(await fetch(`${API_BASE}/api/discover/sources`));
 }
 
+export async function setSourceEnabled(id: string, enabled: boolean): Promise<DiscoverSource> {
+  return await readJson(
+    await fetch(`${API_BASE}/api/discover/sources/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    })
+  );
+}
+
+export async function setEnabledSources(enabled: string[]): Promise<{ enabled: string[]; sources: DiscoverSource[] }> {
+  return await readJson(
+    await fetch(`${API_BASE}/api/discover/sources/enabled`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    })
+  );
+}
+
+export async function resetSourcesToDefaults(): Promise<{ enabled: string[]; sources: DiscoverSource[] }> {
+  return await readJson(
+    await fetch(`${API_BASE}/api/discover/sources/reset`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+  );
+}
+
 export async function searchArt(options: {
   source: string;
   q: string;
@@ -156,11 +187,25 @@ export async function searchArt(options: {
   });
   if (options.limit) params.set("limit", String(options.limit));
   if (options.terms?.length) params.set("terms", options.terms.join(","));
-  return readJson(await fetch(`${API_BASE}/api/discover/search?${params}`));
+  return await readJson(await fetch(`${API_BASE}/api/discover/search?${params.toString()}`));
+}
+
+export async function fetchHighlights(): Promise<{ mood: string; items: Artwork[] }> {
+  return await readJson(await fetch(`${API_BASE}/api/discover/highlights`));
+}
+
+export async function resolveLink(url: string): Promise<{ source: string; id: string; artwork: Artwork }> {
+  return await readJson(
+    await fetch(`${API_BASE}/api/discover/resolve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    })
+  );
 }
 
 export async function saveCredentials(service: string, values: Record<string, string>): Promise<SourceCredentials> {
-  return readJson(
+  return await readJson(
     await fetch(`${API_BASE}/api/discover/credentials/${encodeURIComponent(service)}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -170,22 +215,9 @@ export async function saveCredentials(service: string, values: Record<string, st
 }
 
 export async function clearCredentials(service: string): Promise<SourceCredentials> {
-  return readJson(await fetch(`${API_BASE}/api/discover/credentials/${encodeURIComponent(service)}`, { method: "DELETE" }));
-}
-
-export type Highlights = { mood: string; items: Artwork[] };
-
-/** A few wide, sharp pictures from different sources, picked fresh each day. */
-export async function fetchHighlights(): Promise<Highlights> {
-  return readJson(await fetch(`${API_BASE}/api/discover/highlights`));
-}
-
-export async function resolveLink(url: string): Promise<{ source: string; id: string; artwork: Artwork }> {
-  return readJson(
-    await fetch(`${API_BASE}/api/discover/resolve`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+  return await readJson(
+    await fetch(`${API_BASE}/api/discover/credentials/${encodeURIComponent(service)}`, {
+      method: "DELETE",
     })
   );
 }
