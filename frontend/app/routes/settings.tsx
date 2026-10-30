@@ -186,6 +186,7 @@ export default function Settings() {
   const [immichHost, setImmichHost] = React.useState("");
   const [immichPort, setImmichPort] = React.useState<number | undefined>(undefined);
   const [immichApiKey, setImmichApiKey] = React.useState("");
+  const [immichApiKeyConfigured, setImmichApiKeyConfigured] = React.useState(false);
   const [immichEnabled, setImmichEnabled] = React.useState(false);
   const [providerError, setProviderError] = React.useState("");
   const [providerSaving, setProviderSaving] = React.useState(false);
@@ -291,9 +292,10 @@ export default function Settings() {
       if (immich) {
         setImmichHost(immich.host || "");
         setImmichPort(immich.port);
-        setImmichApiKey(immich.api_key || "");
+        setImmichApiKey("");
+        setImmichApiKeyConfigured(!!immich.api_key_configured);
         setImmichEnabled(!!immich.enabled);
-        savedImmich.current = JSON.stringify({ host: immich.host || "", port: immich.port, api_key: immich.api_key || "", enabled: !!immich.enabled });
+        savedImmich.current = JSON.stringify({ host: immich.host || "", port: immich.port, enabled: !!immich.enabled });
       }
     } catch (e: any) {
       setProviderError(e.message || 'Failed to fetch providers');
@@ -425,14 +427,18 @@ export default function Settings() {
   // Provider handlers. Like the rest of the page, Immich saves as it is changed: the switch
   // straight away, the fields when you leave one (or press Enter), once host and key are both in.
   const saveImmich = async (enabled: boolean) => {
-    const config = { host: immichHost.trim(), port: immichPort, api_key: immichApiKey.trim(), enabled };
-    if (!config.host || !config.api_key) return;
+    const apiKey = immichApiKey.trim();
+    const config = { host: immichHost.trim(), port: immichPort, enabled };
+    if (!config.host || (!apiKey && !immichApiKeyConfigured)) return;
     const snapshot = JSON.stringify(config);
-    if (snapshot === savedImmich.current) return;
+    if (!apiKey && snapshot === savedImmich.current) return;
+    const payload = apiKey ? { ...config, api_key: apiKey } : config;
     setProviderSaving(true);
     setProviderError("");
     try {
-      await setProvider('immich', config);
+      await setProvider('immich', payload);
+      setImmichApiKey("");
+      setImmichApiKeyConfigured(true);
       savedImmich.current = snapshot;
       toast.success(
         enabled ? 'Immich settings saved. Restart Frame Gallery to apply them.' : 'Immich turned off. Restart Frame Gallery to apply it.',
@@ -459,6 +465,7 @@ export default function Settings() {
       setImmichHost("");
       setImmichPort(undefined);
       setImmichApiKey("");
+      setImmichApiKeyConfigured(false);
       setImmichEnabled(false);
       savedImmich.current = "";
       await fetchProviders();
@@ -747,11 +754,12 @@ export default function Settings() {
                     />
                   </div>
                   <Input
-                    type="text"
+                    type="password"
+                    autoComplete="new-password"
                     value={immichApiKey}
                     onChange={e => setImmichApiKey(e.target.value)}
                     onBlur={() => saveImmich(immichEnabled)}
-                    placeholder="API key"
+                    placeholder={immichApiKeyConfigured ? "Key saved — enter a new key to replace" : "API key"}
                     aria-label="Immich API key"
                   />
                   {/* Enter in a field saves too; this hidden button is what makes it submit. */}
@@ -761,7 +769,7 @@ export default function Settings() {
                   <button
                     type="button"
                     onClick={handleDeleteImmich}
-                    disabled={providerSaving || (!immichHost && !immichApiKey && immichPort === undefined)}
+                    disabled={providerSaving || (!immichHost && !immichApiKey && !immichApiKeyConfigured && immichPort === undefined)}
                     aria-label="Clear Immich settings"
                     className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-surface hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-40"
                   >

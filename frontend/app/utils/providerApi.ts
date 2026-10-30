@@ -8,7 +8,7 @@ export type ProviderConfig = {
   provider: string;
   host?: string;
   port?: number;
-  api_key?: string;
+  api_key_configured?: string;
   enabled?: boolean;
 };
 
