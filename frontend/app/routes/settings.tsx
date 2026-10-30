@@ -627,6 +627,74 @@ export default function Settings() {
           </p>
         </div>
 
+        {/* Provider Settings */}
+        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
+          <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              saveImmich(immichEnabled);
+            }}
+            className="flex flex-col gap-4"
+          >
+            <label className="flex items-center justify-between gap-4">
+              <span>
+                <span className="block font-semibold text-foreground">Immich</span>
+                <span className="block text-sm text-muted-foreground">Browse and add pictures from your own Immich server.</span>
+              </span>
+              <Switch checked={immichEnabled} onCheckedChange={handleToggleImmich} aria-label="Enable Immich" />
+            </label>
+            {/* The fields belong to the switch: they show and hide together. */}
+            {immichEnabled && (
+              <div className="flex items-center gap-2 border-t border-border pt-4">
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
+                    <Input
+                      type="text"
+                      value={immichHost}
+                      onChange={e => setImmichHost(e.target.value)}
+                      onBlur={() => saveImmich(immichEnabled)}
+                      placeholder="Host (e.g. immich.example.com)"
+                      aria-label="Immich host"
+                    />
+                    <Input
+                      type="number"
+                      value={immichPort === undefined ? '' : immichPort}
+                      onChange={e => setImmichPort(e.target.value ? parseInt(e.target.value) : undefined)}
+                      onBlur={() => saveImmich(immichEnabled)}
+                      placeholder="Port (443)"
+                      aria-label="Immich port"
+                    />
+                  </div>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    value={immichApiKey}
+                    onChange={e => setImmichApiKey(e.target.value)}
+                    onBlur={() => saveImmich(immichEnabled)}
+                    placeholder={immichApiKeyConfigured ? "Key saved — enter a new key to replace" : "API key"}
+                    aria-label="Immich API key"
+                  />
+                  {/* Enter in a field saves too; this hidden button is what makes it submit. */}
+                  <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
+                </div>
+                <Tooltip label="Clear Immich settings">
+                  <button
+                    type="button"
+                    onClick={handleDeleteImmich}
+                    disabled={providerSaving || (!immichHost && !immichApiKey && !immichApiKeyConfigured && immichPort === undefined)}
+                    aria-label="Clear Immich settings"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-surface hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-40"
+                  >
+                    {providerSaving ? <SpinnerIcon className="size-5 animate-spin" aria-hidden="true" /> : <TrashIcon weight="regular" className="size-5" aria-hidden="true" />}
+                  </button>
+                </Tooltip>
+              </div>
+            )}
+            {providerError && <div className="text-destructive text-sm">{providerError}</div>}
+          </form>
+        </div>
+
         {/* Discover */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -712,74 +780,6 @@ export default function Settings() {
             </Button>
           </div>
           <SourceOrderDialog open={orderOpen} sources={inUse} onClose={() => setOrderOpen(false)} onSave={saveOrder} />
-        </div>
-
-        {/* Provider Settings */}
-        <div className="bg-card rounded-2xl border border-border p-5 mb-8">
-          <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              saveImmich(immichEnabled);
-            }}
-            className="flex flex-col gap-4"
-          >
-            <label className="flex items-center justify-between gap-4">
-              <span>
-                <span className="block font-semibold text-foreground">Immich</span>
-                <span className="block text-sm text-muted-foreground">Browse and add pictures from your own Immich server.</span>
-              </span>
-              <Switch checked={immichEnabled} onCheckedChange={handleToggleImmich} aria-label="Enable Immich" />
-            </label>
-            {/* The fields belong to the switch: they show and hide together. */}
-            {immichEnabled && (
-              <div className="flex items-center gap-2 border-t border-border pt-4">
-                <div className="flex min-w-0 flex-1 flex-col gap-3">
-                  <div className="grid gap-3 sm:grid-cols-[1fr_9rem]">
-                    <Input
-                      type="text"
-                      value={immichHost}
-                      onChange={e => setImmichHost(e.target.value)}
-                      onBlur={() => saveImmich(immichEnabled)}
-                      placeholder="Host (e.g. immich.example.com)"
-                      aria-label="Immich host"
-                    />
-                    <Input
-                      type="number"
-                      value={immichPort === undefined ? '' : immichPort}
-                      onChange={e => setImmichPort(e.target.value ? parseInt(e.target.value) : undefined)}
-                      onBlur={() => saveImmich(immichEnabled)}
-                      placeholder="Port (443)"
-                      aria-label="Immich port"
-                    />
-                  </div>
-                  <Input
-                    type="password"
-                    autoComplete="new-password"
-                    value={immichApiKey}
-                    onChange={e => setImmichApiKey(e.target.value)}
-                    onBlur={() => saveImmich(immichEnabled)}
-                    placeholder={immichApiKeyConfigured ? "Key saved — enter a new key to replace" : "API key"}
-                    aria-label="Immich API key"
-                  />
-                  {/* Enter in a field saves too; this hidden button is what makes it submit. */}
-                  <button type="submit" hidden aria-hidden="true" tabIndex={-1} />
-                </div>
-                <Tooltip label="Clear Immich settings">
-                  <button
-                    type="button"
-                    onClick={handleDeleteImmich}
-                    disabled={providerSaving || (!immichHost && !immichApiKey && !immichApiKeyConfigured && immichPort === undefined)}
-                    aria-label="Clear Immich settings"
-                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-danger-surface hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-40"
-                  >
-                    {providerSaving ? <SpinnerIcon className="size-5 animate-spin" aria-hidden="true" /> : <TrashIcon weight="regular" className="size-5" aria-hidden="true" />}
-                  </button>
-                </Tooltip>
-              </div>
-            )}
-            {providerError && <div className="text-destructive text-sm">{providerError}</div>}
-          </form>
         </div>
 
          {/* User Interface */}
