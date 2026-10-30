@@ -190,6 +190,7 @@ export default function Settings() {
   const [immichEnabled, setImmichEnabled] = React.useState(false);
   const [providerError, setProviderError] = React.useState("");
   const [providerSaving, setProviderSaving] = React.useState(false);
+  const [restartRequired, setRestartRequired] = React.useState(false);
   // What the server last stored, so leaving a field unchanged does not save again.
   const savedImmich = React.useRef("");
 
@@ -440,10 +441,8 @@ export default function Settings() {
       setImmichApiKey("");
       setImmichApiKeyConfigured(true);
       savedImmich.current = snapshot;
-      toast.success(
-        enabled ? 'Immich settings saved. Restart Frame Gallery to apply them.' : 'Immich turned off. Restart Frame Gallery to apply it.',
-        { position: 'top-center' },
-      );
+      setRestartRequired(true);
+      toast.success('Immich settings saved.');
     } catch (e: any) {
       setProviderError(e.message || 'Failed to save Immich settings');
     } finally {
@@ -468,6 +467,9 @@ export default function Settings() {
       setImmichApiKeyConfigured(false);
       setImmichEnabled(false);
       savedImmich.current = "";
+      setRestartRequired(true);
+      await fetchProviders();
+      toast.success('Immich settings cleared.');
       await fetchProviders();
       toast.success('Immich settings cleared.', { position: 'top-center' });
     } catch (e: any) {
@@ -630,6 +632,22 @@ export default function Settings() {
         {/* Provider Settings */}
         <div className="bg-card rounded-2xl border border-border p-5 mb-8">
           <h2 className="text-lg font-semibold mb-4 text-foreground">External Providers</h2>
+            {restartRequired && (
+              <div
+                role="status"
+                className="mb-4 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4"
+              >
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                  <DesktopIcon className="size-4" aria-hidden="true" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">Restart required</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Your Immich settings have been saved. Restart Frame Gallery to apply the changes.
+                  </p>
+                </div>
+              </div>
+            )}
           <form
             onSubmit={(e) => {
               e.preventDefault();
