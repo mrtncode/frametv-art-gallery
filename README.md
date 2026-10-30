@@ -47,8 +47,9 @@ You can use any kind of image! Either upload your own personal photos or import 
 <p align="center">
   <img alt="Screenshot Home" src="docs/Screenshot_home_light.png" width="100%" />
   <br / >
-  <img alt="Screenshot Gallery" src="docs/Screenshot_gallery_light.png" width="49.6%" />
   <img alt="Screenshot TV Gallery" src="docs/Screenshot_tv_gallery_light.png" width="49.6%" />
+  <img alt="Screenshot TV Gallery" src="docs/Screenshot_discovery_light.png" width="49.6%" />
+  <img alt="Screenshot Gallery" src="docs/Screenshot_gallery_light.png" width="100%" />
 </p>
 The UI is also available in dark mode and is fully responsive for mobile devices.
 Gallery example images from https://pixabay.com/
@@ -88,7 +89,10 @@ The **Discover** tab searches free, high-resolution art and imports it straight 
 - **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.
 - **Keys**: most sources need no key or account. Smithsonian, Flickr, Pixabay and DeviantArt need a free one: switch the source on under **Settings, Discover, More sources** and paste the key there. It is stored on your server, never shown again, and the source appears in Discover once it is saved.
 
-Set `DISCOVER_CONTACT` (an email or URL) to tell the Art Institute who is making requests, as its API documentation asks. Thanks to the creator of Reframed for the great tool. Please tip them!
+> ⚠️ **Personal Use Notice:** Some Discover sources are unofficial integrations intended for personal, private use only. They are not endorsed by or affiliated with the respective platforms and may be disabled or removed at any time upon request. Please respect the rights of the original artists and content providers.
+
+Set `DISCOVER_CONTACT` (an email or URL) to tell the Art Institute who is making requests, as its API documentation asks. 
+Thanks to the creator of Reframed for the great tool. Please tip them!
 
 # Installation
 
@@ -133,7 +137,17 @@ All optional, with sensible defaults. Set them as environment variables on the c
 
 ## Disclaimer (important!)
 
-frametv-art-gallery Disclaimer
+### Third-Party Artwork and Content
+
+Some artwork and image sources available through the Discover feature are provided by independent third-party platforms and websites. These integrations are unofficial, community-driven and intended for **personal, private use only**.
+
+We do not claim ownership of any third-party artwork or content. All rights remain with their respective authors, artists and copyright holders. The availability of these sources does not imply any affiliation, partnership or endorsement.
+
+**These integrations are provided without any guarantee of permanent availability and may be modified, disabled or removed at any time and without prior notice**, for example following a request from a copyright holder, content provider or platform operator.
+
+Users are responsible for ensuring that their use of downloaded content complies with applicable copyright laws and the respective source's terms of use.
+
+### frametv-art-gallery Disclaimer
 
 frametv-art-gallery is an unofficial, fun, open-source project and is **not affiliated with, endorsed by, or sponsored by Samsung** (or any other company). It is provided "as is" and use is entirely at your own risk. 
 
