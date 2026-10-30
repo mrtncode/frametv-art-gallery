@@ -21,8 +21,8 @@ from flask import (
     Flask,
     Response,
     after_this_request,
-    g,
     flash,
+    g,
     jsonify,
     redirect,
     render_template,
@@ -42,10 +42,9 @@ from utils.crop_image import (
     crop_image_file,
     get_preset_crop_box,
 )
+from utils.reframed_gallery import get_image_from_reframed_gallery
 from utils.thumbnails import get_or_create, parse_width
 from werkzeug.utils import secure_filename
-
-from utils.reframed_gallery import get_image_from_reframed_gallery
 
 try:
     from PIL import Image as PILImage
@@ -417,9 +416,18 @@ def load_media_provider():
         else:
             media_provider = None
 
-# Load provider at startup
-load_media_provider()
-app.media_provider = media_provider
+# Load the provider lazily on the first request.
+_provider_loaded = False
+
+
+@app.before_request
+def ensure_media_provider_loaded():
+    global _provider_loaded
+
+    if not _provider_loaded:
+        load_media_provider()
+        app.media_provider = media_provider
+        _provider_loaded = True
 
 
 # --- API Endpoints ---

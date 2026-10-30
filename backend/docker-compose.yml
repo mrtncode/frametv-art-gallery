@@ -10,7 +10,7 @@ services:
    #ports:
     #  - "8000:8005"
     environment:
-      - SECRET_KEY=supersecretkey
+      - SECRET_KEY=supersecretkey # This key is also used for encrypting the provider API keys. Change it to a random string for better security. After a change, you will need to re-enter your provider API keys in the UI.
       - FRAME_TV_DATA=/data
       # This is the port that the web server will listen on when using the host network mode. You can change it to any available port on your host machine.
       - "PORT=8005"

@@ -1,5 +1,7 @@
 import datetime
 
+from cryptography.fernet import Fernet
+from flask import current_app
 from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
@@ -74,14 +76,50 @@ class UploadedImage(db.Model):
     image = db.relationship('Image', backref='uploaded_images')
     tv = db.relationship('TV', back_populates='uploaded_images')
 
+def get_provider_cipher():
+    secret = current_app.secret_key.encode()
+
+    import base64
+    import hashlib
+
+    key = base64.urlsafe_b64encode(
+        hashlib.sha256(secret).digest()
+    )
+
+    return Fernet(key)
+
 class ProviderConfig(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(32), nullable=False, unique=True)  # e.g. 'immich'
+    provider = db.Column(db.String(32), nullable=False, unique=True)
     host = db.Column(db.String(255), nullable=True)
     port = db.Column(db.Integer, nullable=True)
-    api_key = db.Column(db.String(255), nullable=True)
+
+    api_key_encrypted = db.Column(db.Text, nullable=True)
+
     enabled = db.Column(db.Boolean, nullable=False, default=False)
-    # Add more fields as needed for other providers
+
+    @property
+    def api_key(self):
+        if not self.api_key_encrypted:
+            return None
+
+        cipher = get_provider_cipher()
+
+        return cipher.decrypt(
+            self.api_key_encrypted.encode()
+        ).decode()
+
+    @api_key.setter
+    def api_key(self, value):
+        if not value:
+            self.api_key_encrypted = None
+            return
+
+        cipher = get_provider_cipher()
+
+        self.api_key_encrypted = cipher.encrypt(
+            value.encode()
+        ).decode()
 
     def as_dict(self):
         return {
@@ -89,6 +127,6 @@ class ProviderConfig(db.Model):
             'provider': self.provider,
             'host': self.host,
             'port': self.port,
-            'api_key': self.api_key,
+            'api_key_configured': bool(self.api_key_encrypted),
             'enabled': self.enabled,
         }
