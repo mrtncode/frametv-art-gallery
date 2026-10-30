@@ -25,17 +25,27 @@ def api_get_provider(provider):
 def api_set_provider(provider):
     if provider.startswith('discover:'):
         return {'error': 'Provider not found'}, 404
-    data = request.get_json()
+
+    data = request.get_json(silent=True)
+
+    if not isinstance(data, dict):
+        return {'error': 'Invalid JSON body'}, 400
+
     config = ProviderConfig.query.filter_by(provider=provider).first()
+
     if not config:
         config = ProviderConfig(provider=provider)
         db.session.add(config)
-    # Update fields
+
     config.host = data.get('host')
     config.port = data.get('port')
-    config.api_key = data.get('api_key')
     config.enabled = bool(data.get('enabled', False))
+
+    if 'api_key' in data:
+        config.api_key = data['api_key']
+
     db.session.commit()
+
     return config.as_dict()
 
 @provider_config_routes.route('/api/providers/<provider>', methods=['DELETE'])
