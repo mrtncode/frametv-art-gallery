@@ -738,3 +738,96 @@ def test_a_service_with_two_fields_needs_both(client):
     assert (credentials.get("deviantart", "client_id"), credentials.get("deviantart", "client_secret")) == ("abc", "xyz")
     assert client.put("/api/discover/credentials/nope", json={"api_key": "x"}).status_code == 404
     credentials.replace_all({})
+
+
+
+def test_default_enabled_sources_match_recommended_defaults(client):
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+
+    expected_enabled = {
+        "reframed",
+        "artic",
+        "met",
+        "cleveland",
+        "getty",
+        "nasa",
+        "worldmuseums",
+    }
+    actual_enabled = {sid for sid, s in sources.items() if s["enabled"]}
+    assert actual_enabled == expected_enabled
+
+    expected_disabled = {
+        "smk",
+        "nga",
+        "yale",
+        "moma",
+        "louvre",
+        "modernart",
+        "popart",
+        "illustrations",
+        "ukiyoe",
+        "holidays",
+        "posters",
+        "wallhaven",
+        "danbooru",
+        "konachan",
+        "bing",
+        "mastodon",
+        "saam",
+        "cooperhewitt",
+        "pixabay",
+        "flickr",
+        "deviantart",
+    }
+    actual_disabled = {sid for sid, s in sources.items() if not s["enabled"]}
+    assert expected_disabled.issubset(actual_disabled)
+
+
+def test_toggle_individual_source_enabled_in_backend(client):
+    # smk starts disabled
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["smk"]["enabled"] is False
+
+    # Enable smk
+    res = client.put("/api/discover/sources/smk", json={"enabled": True})
+    assert res.status_code == 200
+    assert res.get_json()["enabled"] is True
+
+    # Check persistence in listing
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["smk"]["enabled"] is True
+
+    # Disable reframed
+    res = client.put("/api/discover/sources/reframed", json={"enabled": False})
+    assert res.status_code == 200
+    assert res.get_json()["enabled"] is False
+
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["reframed"]["enabled"] is False
+
+
+def test_set_enabled_sources_list_and_reset(client):
+    # Set custom list
+    res = client.put("/api/discover/sources/enabled", json={"enabled": ["smk", "nasa"]})
+    assert res.status_code == 200
+    assert set(res.get_json()["enabled"]) == {"smk", "nasa"}
+
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["smk"]["enabled"] is True
+    assert sources["nasa"]["enabled"] is True
+    assert sources["artic"]["enabled"] is False
+
+    # Set using sources map
+    res = client.put("/api/discover/sources/enabled", json={"sources": {"artic": True, "nasa": False}})
+    assert res.status_code == 200
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["artic"]["enabled"] is True
+    assert sources["nasa"]["enabled"] is False
+    assert sources["smk"]["enabled"] is True
+
+    # Reset back to recommended defaults
+    res = client.post("/api/discover/sources/reset")
+    assert res.status_code == 200
+    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
+    assert sources["reframed"]["enabled"] is True
+    assert sources["smk"]["enabled"] is False
