@@ -37,6 +37,18 @@ SOURCES = {
     )
 }
 
+# Recommended defaults: high-resolution, public-domain or free museum/institutional collections.
+# Other sources (including niche, opt-in Wikimedia feeds, personal-use, and keyed ones) are off by default.
+DEFAULT_ENABLED_SOURCES = (
+    "reframed",
+    "artic",
+    "met",
+    "cleveland",
+    "getty",
+    "nasa",
+    "worldmuseums",
+)
+
 
 def get_source(source_id):
     try:
@@ -45,8 +57,10 @@ def get_source(source_id):
         raise DiscoverError("Unknown source", 404) from None
 
 
-def source_info(source):
+def source_info(source, enabled=None):
     """What the front end needs to describe a source, including where to send thanks."""
+    if enabled is None:
+        enabled = source.id in DEFAULT_ENABLED_SOURCES
     return {
         "id": source.id,
         "name": source.name,
@@ -72,6 +86,7 @@ def source_info(source):
         "weight": getattr(source, "weight", "light"),
         "search_delay_ms": getattr(source, "search_delay_ms", 350),
         "status": Limiter.status(getattr(source, "api_hosts", ())),
+        "enabled": bool(enabled),
     }
 
 
