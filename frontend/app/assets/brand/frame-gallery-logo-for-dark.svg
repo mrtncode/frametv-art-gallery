@@ -1,9 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="90" height="70" viewBox="0 0 90 70" role="img" aria-labelledby="fg-title fg-desc">
-<title id="fg-title">Frame Gallery — logo — for-dark</title>
-<desc id="fg-desc">Subtle Signature, the selected option D. Thin asymmetrically softened frame, terracotta quarter-arch and ochre disc. Transparent outside and inside the frame. Lettering is outlined, with no font dependency.</desc>
-<g id="art-window">
-<path id="delicate-frame" d="M7.825 16 Q7.825 8.825 15 8.825 H82.175 V56.5 Q82.175 61.175 77.5 61.175 H7.825 Z" fill="none" stroke="#F4F0E8" stroke-width="1.65" stroke-linejoin="miter"/>
-<path id="clay-form" d="M17 54 C17 32.95 30.9 16 48 16 V54 Z" fill="#C9725D"/>
-<circle id="ochre-disc" cx="63.5" cy="25" r="8.75" fill="#D69D41"/>
-</g>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="100%" height="100%" viewBox="0 0 90 70" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" xmlns:affinity="https://www.affinity.studio/" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:1.5;">
+    <g id="art-window">
+        <g id="ochre-disc" transform="matrix(1,0,0,1,7.110842,-2.895419)">
+            <circle cx="63.5" cy="25" r="8.75" style="fill:rgb(214,157,65);"/>
+        </g>
+        <g transform="matrix(1.607847,0,0,1.365504,-9.883702,-9.513104)">
+            <path d="M41.151,50.589L12.235,50.589C11.451,50.589 10.734,50.25 10.183,49.69C11.722,45.14 24.418,23.155 25.694,23.155C27.084,23.155 42.03,49.25 41.334,50.464C41.31,50.507 41.247,50.549 41.151,50.589Z" style="fill:rgb(181,200,238);"/>
+        </g>
+        <g transform="matrix(1.032478,0,0,0.817457,27.766274,20.561173)">
+            <path d="M3.147,47.716C3.76,43.664 21.858,10.773 23.604,10.773C25.349,10.773 43.447,43.664 44.06,47.716L3.147,47.716Z" style="fill:rgb(30,64,175);"/>
+        </g>
+        <g transform="matrix(1.038831,0,0,1.027846,-1.747438,-1.658696)">
+            <path d="M7.928,58.372C6.897,57.47 6.244,56.138 6.244,54.653L6.244,15.347C6.244,12.635 8.422,10.433 11.105,10.433L78.897,10.433C81.58,10.433 83.759,12.635 83.759,15.347L83.759,54.653C83.759,57.365 81.58,59.567 78.897,59.567L11.105,59.567C9.891,59.567 8.781,59.116 7.928,58.372Z" style="fill:rgb(50,50,50);fill-opacity:0;stroke:rgb(200,200,200);stroke-width:0.97px;"/>
+        </g>
+    </g>
 </svg>
