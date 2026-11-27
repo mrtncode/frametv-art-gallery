@@ -8,10 +8,8 @@ from discover_fakes import FakeNet, FakeResponse
 
 from utils.discover import SOURCES, credentials, source_info
 from utils.discover.common import DiscoverError, DiskCache
-from utils.discover.flickr import flickr
 from utils.discover.getty import getty
 from utils.discover.pixabay import pixabay
-from utils.discover.smithsonian import cooper_hewitt, saam
 from utils.discover.wikimedia import illustrations, moma, modern, nga, popart, ukiyoe, yale
 
 
@@ -31,85 +29,20 @@ def set_keys(**services):
 
 
 def test_sources_that_need_a_key_refuse_until_it_is_set_in_settings(net):
-    needing = {"saam", "cooperhewitt", "flickr", "pixabay"}
+    needing = {"pixabay"}
     assert needing == {sid for sid, s in SOURCES.items() if source_info(s)["credentials"]}
     assert not any(source_info(s)["credentials"]["configured"] for sid, s in SOURCES.items() if sid in needing)
-    with pytest.raises(DiscoverError) as error:
-        flickr.search("x", 1, True, "any")
-    assert error.value.status == 503 and "Settings" in str(error.value)
-
-    set_keys(flickr={"api_key": "k"}, smithsonian={"api_key": "k"})
     info = {sid: source_info(s)["credentials"]["configured"] for sid, s in SOURCES.items() if sid in needing}
-    assert info == {"saam": True, "cooperhewitt": True, "flickr": True, "pixabay": False}
+    assert info == {"pixabay": False}
 
 
 def test_source_info_never_includes_a_secret(net):
-    set_keys(flickr={"api_key": "super-secret"})
-    assert "super-secret" not in repr(source_info(flickr))
-
+    set_keys(pixabay={"api_key": "super-secret"})
+    assert "super-secret" not in repr(source_info(pixabay))
 
 def test_personal_use_sources_are_flagged_and_the_rest_are_not(net):
     assert {sid for sid, s in SOURCES.items() if source_info(s)["flagged"]} == set()
 
-
-# --- Smithsonian ---------------------------------------------------------------------
-
-
-def si_record(record_id, title="Pop Study", access="CC0", media_access="CC0", width=4000, height=2250):
-    return {
-        "id": record_id,
-        "content": {
-            "freetext": {
-                "name": [{"label": "Artist", "content": "Jane Doe, American, 1920-2000"}],
-                "date": [{"label": "Date", "content": "1965"}],
-            },
-            "descriptiveNonRepeating": {
-                "title": {"content": title},
-                "record_link": f"https://americanart.si.edu/artwork/{record_id}",
-                "metadata_usage": {"access": access},
-                "online_media": {"media": [{
-                    "type": "Images", "idsId": f"SAAM-{record_id}", "usage": {"access": media_access},
-                    "resources": [{"label": "High-resolution JPEG", "width": width, "height": height}],
-                }]},
-            },
-        },
-    }
-
-
-def test_smithsonian_searches_one_museum_and_keeps_only_cc0_pictures(net, monkeypatch):
-    set_keys(smithsonian={"api_key": "secret"})
-    net.add("openaccess/api/v1.0/search", FakeResponse({"response": {"rowCount": 100, "rows": [
-        si_record("a"), si_record("b", access="Usage conditions apply"), si_record("c", media_access="Restricted"),
-    ]}}))
-
-    page = saam.search('pop" OR unit_code:"X', 2, True, "any")
-
-    params = net.calls[0]["params"]
-    assert params["api_key"] == "secret" and params["start"] == 24
-    assert params["q"].endswith('AND online_media_type:"Images" AND unit_code:"SAAM"')
-    assert 'unit_code:"X' not in params["q"]   # typed operators are neutralised
-    assert [item["id"] for item in page["results"]] == ["a"]
-    item = page["results"][0]
-    assert (item["title"], item["artist"], item["date"]) == ("Pop Study", "Jane Doe", "1965")
-    assert item["thumb_url"] == "https://ids.si.edu/ids/deliveryService?id=SAAM-a&max=480"
-    assert page["has_more"] is True and page["total"] == 100
-
-
-def test_smithsonian_download_asks_the_image_server_to_scale_huge_scans(net, monkeypatch):
-    set_keys(smithsonian={"api_key": "secret"})
-    net.add("content/", FakeResponse({"response": si_record("a", width=12000, height=6000)}))
-
-    plan = cooper_hewitt.plan("a", "fill")
-
-    assert plan.url == "https://ids.si.edu/ids/deliveryService?id=SAAM-a&max=6000"
-    assert (plan.width, plan.height) == (6000, 3000)
-    assert plan.license == "Public domain (CC0)" and plan.artist == "Jane Doe"
-
-
-def test_smithsonian_without_a_key_refuses_politely(net):
-    with pytest.raises(DiscoverError) as error:
-        saam.search("x", 1, True, "any")
-    assert error.value.status == 503
 
 
 # --- Wikimedia Commons: the modern collections ------------------------------------------
@@ -125,15 +58,15 @@ def commons_page(page_id, license_name, title="File:Digital sunrise.jpg", artist
     }]}
 
 
-def test_modern_collections_accept_credit_licenses_but_never_non_commercial_ones(net):
+def test_modern_collections_accept_only_public_domain_or_cc0(net):
     pages = {str(i): commons_page(i, name) for i, name in enumerate(
         ["CC BY-SA 4.0", "CC BY 3.0", "CC0", "CC BY-NC 2.0", "CC BY-ND 2.0", "All rights reserved"], start=1)}
     net.add("w/api.php", FakeResponse({"query": {"pages": pages}}))
 
     results = popart.search("sunrise", 1, True, "any")["results"]
 
-    assert [item["id"] for item in results] == ["1", "2", "3"]
-    assert results[0]["artist"] == "Ann Artist" and results[0]["license"] == "CC BY-SA 4.0"
+    assert [item["id"] for item in results] == ["3"]
+    assert results[0]["artist"] == "Ann Artist" and results[0]["license"] == "CC0"
 
 
 def test_modern_collections_search_one_category_and_leave_out_adult_work(net):
@@ -155,58 +88,6 @@ def test_older_collections_still_take_only_public_domain(net):
     assert illustrations.license_note != ukiyoe.license_note
 
 
-# --- Flickr ---------------------------------------------------------------------------
-
-
-def flickr_photo(photo_id, license_code="4", width=3000, height=2000, url=True):
-    photo = {"id": photo_id, "owner": "123@N01", "ownername": "Pat", "title": "Mural", "license": license_code,
-             "datetaken": "2021-05-01 10:00:00", "url_z": "https://live.staticflickr.com/z.jpg"}
-    if url:
-        photo.update(url_o="https://live.staticflickr.com/o.jpg", width_o=width, height_o=height)
-    return photo
-
-
-def test_flickr_searches_only_free_licenses_and_credits_the_photographer(net, monkeypatch):
-    set_keys(flickr={"api_key": "k"})
-    net.add("services/rest", FakeResponse({"stat": "ok", "photos": {"pages": 3, "total": "70", "photo": [
-        flickr_photo("1"), flickr_photo("2", license_code="2"), flickr_photo("3", width=900, height=600),
-        flickr_photo("4", url=False), flickr_photo("5", license_code="9"),
-    ]}}))
-
-    page = flickr.search("street art", 1, True, "any")
-
-    params = net.calls[0]["params"]
-    assert params["method"] == "flickr.photos.search" and params["text"] == "street art"
-    assert params["license"] == "4,5,9,10"   # never the non-commercial or no-derivatives kinds
-    assert [item["id"] for item in page["results"]] == ["1", "5"]
-    assert page["results"][0]["license"] == "CC BY (credit the photographer)"
-    assert page["results"][1]["license"] == "CC0"
-    assert page["results"][0]["artist"] == "Pat" and page["has_more"] is True and page["total"] == 70
-
-
-def test_flickr_download_uses_the_largest_file_the_owner_allows(net, monkeypatch):
-    set_keys(flickr={"api_key": "k"})
-    net.add("services/rest", lambda url, params, json, headers: FakeResponse(
-        {"stat": "ok", "photo": {"id": "9", "license": "5", "title": {"_content": "Mural"},
-                                 "owner": {"realname": "Pat Painter"}, "dates": {"taken": "2020-01-01"},
-                                 "urls": {"url": [{"_content": "https://www.flickr.com/photos/pat/9"}]}}}
-        if params["method"] == "flickr.photos.getInfo" else
-        {"stat": "ok", "sizes": {"size": [
-            {"label": "Square", "width": 75, "height": 75, "source": "https://live.staticflickr.com/sq.jpg"},
-            {"label": "Large", "width": "1024", "height": "683", "source": "https://live.staticflickr.com/l.jpg"},
-            {"label": "Original", "width": "5000", "height": "3333", "source": "https://live.staticflickr.com/o.jpg"},
-        ]}}))
-
-    plan = flickr.plan("9", "fill")
-
-    assert plan.url == "https://live.staticflickr.com/o.jpg" and plan.width == 5000
-    assert plan.artist == "Pat Painter" and plan.license == "CC BY-SA (credit the photographer)"
-    assert flickr.from_url("https://www.flickr.com/photos/pat/9/in/photostream/") == "9"
-
-
-def test_flickr_hosts_with_numbered_subdomains_are_allowed_for_downloads():
-    assert "live.staticflickr.com" in flickr.download_hosts and "farm66.staticflickr.com" in flickr.download_hosts
-    assert "evil.example.com" not in flickr.download_hosts
 
 
 # --- Pixabay --------------------------------------------------------------------------
@@ -231,10 +112,6 @@ def test_pixabay_reports_the_real_size_of_the_file_it_will_hand_over(net, monkey
     assert (full["width"], full["height"]) == (6000, 4000)    # an approved key gets the original
     assert small["title"] == "Cute, Cartoon, Fox" and small["artist"] == "Dee"
     assert pixabay.from_url("https://pixabay.com/illustrations/fox-forest-cute-1/") == "1"
-
-
-def test_smithsonian_collections_have_distinct_units():
-    assert (saam.unit, cooper_hewitt.unit) == ("SAAM", "CHNDM")
 
 
 # --- The Getty ----------------------------------------------------------------------------

@@ -89,15 +89,6 @@ export default function DiscoverFilters({ filters, onChange, onReset, source, on
                 </label>
               ))}
             </div>
-            {filters.shape === "fits" && source && !source.tv_ready && onSwitchToTvReady && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Very few museum works are exactly 16:9, so expect a short list. Everything on Reframed Gallery is made for
-                it.{" "}
-                <button type="button" className="text-primary underline underline-offset-2" onClick={onSwitchToTvReady}>
-                  Switch to Reframed
-                </button>
-              </p>
-            )}
           </fieldset>
 
           <fieldset className="mt-4 space-y-2.5 border-t border-border pt-4">

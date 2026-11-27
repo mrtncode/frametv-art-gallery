@@ -26,11 +26,6 @@ API = "https://commons.wikimedia.org/w/api.php"
 MIN_WIDTH = 2500
 MAX_PIXELS = 100_000_000   # beyond this Commons will not make a scaled copy
 OPEN_LICENSE = re.compile(r"^(public domain|cc0|pd\b|pdm|no restrictions)", re.IGNORECASE)
-# Living artists' work is rarely public domain, so some collections also take CC BY and
-# CC BY-SA (never the non-commercial or no-derivatives kinds). The artist is credited.
-CREDITED_LICENSE = re.compile(
-    r"^(public domain|cc0|pd\b|pdm|no restrictions|cc[- ]by(?![- ]?n[cd]))", re.IGNORECASE
-)
 # Anyone can upload to Commons, and the open art categories hold some adult work.
 # Left out of every search; a filter on words is a net, not a guarantee.
 ADULT_TERMS = "-hentai -erotic -erotica -nude -naked -nsfw -porn -sex -sexy -lingerie -topless"
@@ -330,10 +325,9 @@ posters = CommonsCollection(
     default_shape="any",
 )
 
-# Modern work. Commons holds a great deal of digital art, pop art and illustration
-# uploaded by the artists themselves, usually as CC BY or CC BY-SA, so the artist's name
-# and the license travel with each import.
-CREDIT_NOTE = "Creative Commons (credit the artist)"
+# Modern work is limited to public-domain and CC0 files because the Frame cannot
+# display the attribution required by attribution-based licenses.
+OPEN_ART_NOTE = "Public domain / CC0"
 
 modern = CommonsCollection(
     id="modernart",
@@ -345,8 +339,8 @@ modern = CommonsCollection(
     default_query="colorful",
     min_width=2500,
     default_shape="any",
-    licenses=CREDITED_LICENSE,
-    license_note=CREDIT_NOTE,
+    licenses=OPEN_LICENSE,
+    license_note=OPEN_ART_NOTE,
 )
 
 popart = CommonsCollection(
@@ -359,8 +353,8 @@ popart = CommonsCollection(
     default_query="color",
     min_width=2000,
     default_shape="any",
-    licenses=CREDITED_LICENSE,
-    license_note=CREDIT_NOTE,
+    licenses=OPEN_LICENSE,
+    license_note=OPEN_ART_NOTE,
 )
 
 illustrations = CommonsCollection(
@@ -373,8 +367,8 @@ illustrations = CommonsCollection(
     default_query="cute",
     min_width=2500,
     default_shape="any",
-    licenses=CREDITED_LICENSE,
-    license_note=CREDIT_NOTE,
+    licenses=OPEN_LICENSE,
+    license_note=OPEN_ART_NOTE,
 )
 
 # Museums that donated their open-access images to Commons. The artist is read from the

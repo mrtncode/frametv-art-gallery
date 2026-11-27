@@ -54,15 +54,13 @@ discover_routes = Blueprint("discover_routes", __name__)
 # Previews and logos the browser could not load straight from the source (some sites
 # challenge cross-site image requests) are fetched here instead. Only these hosts.
 THUMB_HOSTS = {
-    "cdn.reframed.gallery", "www.reframed.gallery",
     "www.artic.edu",
     "images.metmuseum.org", "www.metmuseum.org",
     "openaccess-cdn.clevelandart.org", "www.clevelandart.org",
     "api.smk.dk", "iip.smk.dk", "iip-thumb.smk.dk", "open.smk.dk", "www.smk.dk",
     "upload.wikimedia.org", "thumb.wikimedia.org", "commons.wikimedia.org", "www.louvre.fr",
     "images-assets.nasa.gov", "images.nasa.gov",
-    "ids.si.edu", "americanart.si.edu", "www.cooperhewitt.org", "www.si.edu",
-    "live.staticflickr.com", "combo.staticflickr.com", "pixabay.com", "cdn.pixabay.com",
+    "pixabay.com", "cdn.pixabay.com",
     "media.getty.edu", "www.nga.gov", "britishart.yale.edu", "www.getty.edu", "www.moma.org",
 }
 THUMB_MAX_BYTES = 8 * 1024 * 1024

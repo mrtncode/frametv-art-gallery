@@ -42,7 +42,6 @@ from utils.crop_image import (
     crop_image_file,
     get_preset_crop_box,
 )
-from utils.reframed_gallery import get_image_from_reframed_gallery
 from utils.thumbnails import get_or_create, parse_width
 from werkzeug.utils import secure_filename
 
@@ -978,60 +977,6 @@ def upload():
         'duplicate_of': duplicate_of,
     }
 
-@app.route('/api/import/reframed', methods=['POST'])
-def import_image_from_reframed_gallery():
-    data = request.get_json(silent=True) or {}
-    url = data.get('url')
-    album_id = data.get('album_id')
-    if not isinstance(url, str) or not url.strip():
-        return {'error': 'Reframed gallery URL required'}, 400
-
-    album = None
-    if album_id not in (None, ''):
-        try:
-            album = Album.query.get(int(album_id))
-        except (TypeError, ValueError):
-            return {'error': 'Invalid album'}, 400
-        if not album:
-            return {'error': 'Album not found'}, 404
-
-    try:
-        filename = get_image_from_reframed_gallery(url, location=app.config['UPLOAD_FOLDER'])
-        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        digest = _file_sha256(file_path)
-        image = Image.query.filter_by(filename=filename).first()
-        if not image:
-            image = Image(filename=filename)
-            db.session.add(image)
-
-        duplicate_of = None
-        if digest:
-            twin = Image.query.filter(Image.sha256 == digest, Image.filename != filename).first()
-            if twin and os.path.isfile(os.path.join(app.config['UPLOAD_FOLDER'], twin.filename)):
-                duplicate_of = twin.filename
-            image.sha256 = digest
-        image.source = 'reframed'
-        image.source_url = url.strip()[:1000]
-        if album:
-            image.album = album
-        db.session.commit()
-        return {
-            'success': True,
-            'filename': filename,
-            'album_id': album.id if album else None,
-            'duplicate_of': duplicate_of,
-        }
-    except (ValueError, requests.RequestException) as error:
-        return {'error': str(error)}, 400
-    except OSError:
-        db.session.rollback()
-        return {'error': 'Could not save the imported artwork'}, 500
-    except Exception as error:
-        db.session.rollback()
-        _log_exception('Failed to import Reframed artwork', error)
-        return {'error': 'Failed to import artwork'}, 500
-    
-    
 # --- Play Uploaded Image on TV ---
 @app.route('/api/tv/play_uploaded', methods=['POST'])
 def api_play_uploaded_image():

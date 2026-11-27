@@ -36,18 +36,15 @@ import {
 } from '~/lib/discoverPrefs';
 
 /** The service's own logo for a row that groups several sources (each source has its museum's icon, not the umbrella's). */
-const SERVICE_ICONS: Record<string, string> = {
-  smithsonian: "https://www.si.edu/apple-touch-icon.png",
-};
+const SERVICE_ICONS: Record<string, string> = {};
 
-/** What to call a group of sources that share one key: the service ("Smithsonian"), or the source itself when alone. */
+/** What to call a source with credentials. */
 function groupName(sources: DiscoverSource[]) {
   return sources.length > 1 ? (sources[0].credentials?.label ?? sources[0].name) : sources[0].name;
 }
 
 /**
  * One key-needing service that is off until chosen: a switch, and the key form once it is
- * switched on. Sources that share a key (the Smithsonian's two museums) are one row.
  */
 function OptionalSource({
   sources,

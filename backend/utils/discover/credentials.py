@@ -11,16 +11,6 @@ import time
 
 # service -> what to ask for and where to get it
 SERVICES = {
-    "smithsonian": {
-        "label": "Smithsonian",
-        "fields": [("api_key", "API key")],
-        "help_url": "https://api.data.gov/signup/",
-    },
-    "flickr": {
-        "label": "Flickr",
-        "fields": [("api_key", "API key")],
-        "help_url": "https://www.flickr.com/services/apps/create/apply/",
-    },
     "pixabay": {
         "label": "Pixabay",
         "fields": [("api_key", "API key")],

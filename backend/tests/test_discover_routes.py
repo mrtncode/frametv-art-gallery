@@ -112,9 +112,7 @@ def start_import(client, **body):
 def test_sources_describe_where_to_send_thanks(client):
     sources = client.get("/api/discover/sources").get_json()["sources"]
 
-    assert [s["id"] for s in sources[:4]] == ["reframed", "artic", "met", "cleveland"]
-    reframed = sources[0]
-    assert reframed["tv_ready"] is True and reframed["support_url"].startswith("https://")
+    assert [s["id"] for s in sources[:4]] == ["artic", "met", "cleveland", "smk"]
     assert all(s["name"] and s["support_label"] and s["icon_url"] for s in sources)
 
 
@@ -616,7 +614,6 @@ def test_highlights_pick_wide_sharp_works_and_alternate_between_sources():
     from utils.discover.aggregate import highlights
 
     sources = {
-        "reframed": StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True), art("reframed", "r2", None, None, tv_ready=True)]),
         "artic": StubSource("artic", [art("artic", "square", 4000, 4000), art("artic", "a1", 6000, 3400), art("artic", "a2", 6000, 3400)]),
         "cleveland": StubSource("cleveland", [art("cleveland", "small", 2000, 1100)]),   # not sharp: skipped
         "smk": StubSource("smk", error=DiscoverError("resting", 429, retry_after=60)),    # failing: skipped
@@ -625,7 +622,7 @@ def test_highlights_pick_wide_sharp_works_and_alternate_between_sources():
     result = highlights(sources, today=datetime.date(2026, 10, 2))
 
     assert [(i["source"], i["id"]) for i in result["items"]] == [
-        ("reframed", "r1"), ("artic", "a1"), ("reframed", "r2"), ("artic", "a2")
+        ("artic", "a1"), ("artic", "a2")
     ]
     assert result["mood"] in __import__("utils.discover.aggregate", fromlist=["MOODS"]).MOODS
 
@@ -636,15 +633,15 @@ def test_highlights_leave_out_the_met_and_are_remembered_for_the_day():
     from utils.discover.aggregate import highlights
 
     met_like = StubSource("met", [art("met", "m1", 6000, 3400)])
-    reframed = StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True)])
-    sources = {"met": met_like, "reframed": reframed}
+    artic = StubSource("artic", [art("artic", "a1", 6000, 3400)])
+    sources = {"met": met_like, "artic": artic}
     day = datetime.date(2026, 10, 3)
 
     first = highlights(sources, today=day)
     second = highlights(sources, today=day)
 
-    assert [i["source"] for i in first["items"]] == ["reframed"] and met_like.searches == []
-    assert second == first and len(reframed.searches) == 1
+    assert [i["source"] for i in first["items"]] == ["artic"] and met_like.searches == []
+    assert second == first and len(artic.searches) == 1
     assert highlights(sources, today=datetime.date(2026, 10, 4))["mood"] != first["mood"]  # a new day, a new theme
 
 
@@ -653,19 +650,17 @@ def test_a_day_with_no_highlights_is_not_remembered():
 
     from utils.discover.aggregate import highlights
 
-    broken = StubSource("reframed", error=DiscoverError("down", 502))
+    broken = StubSource("artic", error=DiscoverError("down", 502))
     day = datetime.date(2026, 10, 5)
-    assert highlights({"reframed": broken}, today=day)["items"] == []
+    assert highlights({"artic": broken}, today=day)["items"] == []
 
-    working = StubSource("reframed", [art("reframed", "r1", None, None, tv_ready=True)])
-    assert len(highlights({"reframed": working}, today=day)["items"]) == 1
+    working = StubSource("artic", [art("artic", "a1", 6000, 3400)])
+    assert len(highlights({"artic": working}, today=day)["items"]) == 1
 
 
 @pytest.mark.parametrize(
     "source, thumb, expected",
     [
-        ("reframed", "https://cdn.reframed.gallery/cdn-cgi/image/width=480,quality=75,format=auto/originals/A.jpg",
-         "https://cdn.reframed.gallery/cdn-cgi/image/width=1600,quality=75,format=auto/originals/A.jpg"),
         ("artic", "https://www.artic.edu/iiif/2/abc/full/400,/0/default.jpg",
          "https://www.artic.edu/iiif/2/abc/full/1400,/0/default.jpg"),
         ("smk", "https://iip-thumb.smk.dk/iiif/jp2/x.jp2/full/!480,/0/default.jpg",
@@ -708,31 +703,28 @@ def test_a_key_saved_in_settings_reaches_the_source_but_never_comes_back(client)
     from utils.discover import credentials
 
     credentials.replace_all({})
-    reply = client.put("/api/discover/credentials/flickr", json={"api_key": "  top-secret  "})
+    reply = client.put("/api/discover/credentials/pixabay", json={"api_key": "  top-secret  "})
 
     assert reply.status_code == 200 and reply.get_json()["configured"] is True
     assert "top-secret" not in reply.get_data(as_text=True)
-    assert credentials.get("flickr") == "top-secret"   # trimmed
+    assert credentials.get("pixabay") == "top-secret"   # trimmed
 
     listing = client.get("/api/discover/sources").get_data(as_text=True)
     assert "top-secret" not in listing
-    flickr = next(s for s in client.get("/api/discover/sources").get_json()["sources"] if s["id"] == "flickr")
-    assert flickr["credentials"]["configured"] is True
+    pixabay = next(s for s in client.get("/api/discover/sources").get_json()["sources"] if s["id"] == "pixabay")
+    assert pixabay["credentials"]["configured"] is True
 
     # The general providers API (Immich) must not expose, edit or delete Discover keys.
     assert "top-secret" not in client.get("/api/providers").get_data(as_text=True)
-    assert client.get("/api/providers/discover:flickr").status_code == 404
-    assert client.delete("/api/providers/discover:flickr").status_code == 404
 
-    cleared = client.delete("/api/discover/credentials/flickr").get_json()
-    assert cleared["configured"] is False and credentials.get("flickr") == ""
+    cleared = client.delete("/api/discover/credentials/pixabay").get_json()
+    assert cleared["configured"] is False and credentials.get("pixabay") == ""
 
 
 def test_default_enabled_sources_match_recommended_defaults(client):
     sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
 
     expected_enabled = {
-        "reframed",
         "artic",
         "met",
         "cleveland",
@@ -755,10 +747,7 @@ def test_default_enabled_sources_match_recommended_defaults(client):
         "ukiyoe",
         "holidays",
         "posters",
-        "saam",
-        "cooperhewitt",
         "pixabay",
-        "flickr",
     }
     actual_disabled = {sid for sid, s in sources.items() if not s["enabled"]}
     assert expected_disabled.issubset(actual_disabled)
@@ -778,13 +767,6 @@ def test_toggle_individual_source_enabled_in_backend(client):
     sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
     assert sources["smk"]["enabled"] is True
 
-    # Disable reframed
-    res = client.put("/api/discover/sources/reframed", json={"enabled": False})
-    assert res.status_code == 200
-    assert res.get_json()["enabled"] is False
-
-    sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
-    assert sources["reframed"]["enabled"] is False
 
 
 def test_set_enabled_sources_list_and_reset(client):
@@ -810,5 +792,4 @@ def test_set_enabled_sources_list_and_reset(client):
     res = client.post("/api/discover/sources/reset")
     assert res.status_code == 200
     sources = {s["id"]: s for s in client.get("/api/discover/sources").get_json()["sources"]}
-    assert sources["reframed"]["enabled"] is True
     assert sources["smk"]["enabled"] is False

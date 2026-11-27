@@ -7,24 +7,20 @@ from .artic import artic
 from .cleveland import cleveland
 from . import credentials
 from .common import DiscoverError, DiskCache
-from .flickr import flickr
 from .getty import getty
 from .limits import Limiter
 from .met import met
 from .nasa import nasa
 from .pixabay import pixabay
-from .reframed import reframed
-from .smithsonian import cooper_hewitt, saam
 from .smk import smk
 from .wikimedia import holidays, illustrations, louvre, moma, modern, nga, popart, posters, ukiyoe, world_museums, yale
 
-# Reframed first: its files are already 3840x2160.
 SOURCES = {
     source.id: source
     for source in (
-        reframed, artic, met, cleveland, smk, getty, nga, yale, moma, louvre, world_museums,
+        artic, met, cleveland, smk, getty, nga, yale, moma, louvre, world_museums,
         # Modern, pop and illustrated work.
-        modern, popart, saam, cooper_hewitt, illustrations, pixabay, flickr, ukiyoe,
+        modern, popart, illustrations, pixabay, ukiyoe,
         holidays, posters, nasa,
     )
 }
@@ -32,7 +28,6 @@ SOURCES = {
 # Recommended defaults: high-resolution, public-domain or free museum/institutional collections.
 # Other sources (including niche, opt-in Wikimedia feeds, personal-use, and keyed ones) are off by default.
 DEFAULT_ENABLED_SOURCES = (
-    "reframed",
     "artic",
     "met",
     "cleveland",
@@ -68,12 +63,12 @@ def source_info(source, enabled=None):
         "default_query": source.default_query,
         # Set when the usual "wide" starting filter would hide most of what it has.
         "default_shape": getattr(source, "default_shape", None),
-        "tv_ready": source.id == "reframed",
+        "tv_ready": False,
         # Not license-verified (personal use): the app keeps these off until asked.
         "flagged": getattr(source, "flagged", False),
         # Sources that need a key: Settings asks for it when the source is switched on.
         "credentials": credentials.describe(getattr(source, "service", None)),
-        "has_type_filter": getattr(source, "has_type_filter", source.id != "reframed"),
+        "has_type_filter": getattr(source, "has_type_filter", True),
         # How eagerly it may be searched: heavy sources wait until typing has settled.
         "weight": getattr(source, "weight", "light"),
         "search_delay_ms": getattr(source, "search_delay_ms", 350),

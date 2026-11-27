@@ -37,7 +37,7 @@ frametv-art-gallery is an independent, open-source, self-hosted gallery manager 
 - **Open Source**: Fully open-source and community-driven, with no hidden tracking or telemetry.
 - **Docker Support**: Easy deployment with Docker and Docker Compose.
 - **Desktop App**: Frametv-art-gallery is also available as a desktop app for Windows, MacOS, and Linux. Download it under the [releases](https://github.com/mrtncode/frametv-art-gallery/releases)
-- **Discover**: Search free, high-resolution art from Reframed Gallery, the Met, the Art Institute of Chicago, the Cleveland Museum of Art and more (including seasonal postcards, vintage posters and NASA), and add it to your gallery at the right size for your Frame, with no manual resizing.
+- **Discover**: Search free, high-resolution art from the Met, the Art Institute of Chicago, the Cleveland Museum of Art and more (including seasonal postcards, vintage posters and NASA), and add it to your gallery at the right size for your Frame, with no manual resizing.
 
 
 ## Images
@@ -66,42 +66,28 @@ The **Discover** tab searches free, high-resolution art and imports it straight 
 
 | Source | License | Notes |
 | --- | --- | --- |
-| [Reframed Gallery](https://www.reframed.gallery/) | Free for TV use | Files are already cropped to 3840 x 2160, so nothing is processed. Found by reading the site's public sitemap and pages (it has no API), cached for a day. |
 | [Art Institute of Chicago](https://www.artic.edu/collection) | Public domain (CC0) | The museum's own image server crops to 16:9, so only the finished file is downloaded. |
 | [The Met](https://www.metmuseum.org/art/collection/search) | Public domain (CC0) | Search cannot filter to open-access works, so each page keeps the open-access ones. Requests are kept gentle because the Met's firewall blocks bursts. |
 | [Cleveland Museum of Art](https://www.clevelandart.org/art/collection/search) | Public domain (CC0) | Print-quality JPEGs up to 3400 px, so fills are slightly upscaled. |
 | [Holiday postcards](https://commons.wikimedia.org/) (Wikimedia Commons) | Public domain / CC0 only | Vintage Halloween, Christmas, Easter and other postcards. With nothing typed it shows whatever is in season. Mostly upright, so it starts without the Wide filter. |
 | [Vintage posters](https://commons.wikimedia.org/) (Wikimedia Commons) | Public domain / CC0 only | Travel posters, advertising and Art Nouveau prints. |
 | [NASA Image Library](https://images.nasa.gov/) | NASA, free to use | Nebulae, planets and Earth from orbit. Originals are used, and anything under 1600 px wide is left out. |
-| Digital art, Pop art, Illustration (Wikimedia Commons) | CC0, CC BY, CC BY-SA or public domain | Modern work shared by the artists themselves. The artist and license are recorded with each import. Never the non-commercial or no-derivatives licenses. |
+| Digital art, Pop art, Illustration (Wikimedia Commons) | Public domain / CC0 only | Modern and illustrated work restricted to licenses that do not require attribution on the TV. |
 | [Japanese woodblock prints](https://commons.wikimedia.org/) (Wikimedia Commons) | Public domain / CC0 only | Ukiyo-e: waves, mountains, cats and kabuki. |
-| [Modern American art and Design & posters](https://www.si.edu/openaccess) (Smithsonian) | Public domain (CC0) | American Art Museum and Cooper Hewitt, at full resolution. Needs a free key. |
 | [The Getty](https://www.getty.edu/art/collection/) | Public domain (CC0) | Paintings, drawings and photographs. Found with the museum's open SPARQL endpoint, and downloaded through its image server, scaled to the TV. |
 | [National Gallery of Art](https://www.nga.gov/open-access-images.html) and [Yale Center for British Art](https://britishart.yale.edu/) (Wikimedia Commons) | Public domain / CC0 only | Both donated their open-access paintings to Commons, which is the way in because neither has a search API. |
-| [Flickr](https://www.flickr.com/creativecommons/) | CC0, CC BY, CC BY-SA, public domain | Search by tag or title across freely licensed photography and street art. Needs a free key. |
 | [Pixabay illustrations](https://pixabay.com/illustrations/) | Pixabay Content License | Cute, colorful illustration. A free key returns files up to 1280 px; Pixabay can approve a key for full-size files. |
 
 - **Framing**: *Fill the screen* crops to 16:9 (tiles preview exactly what you will get, with the share lost shown on each); *Whole artwork* keeps every edge and lets the TV add a matte. The **Shape** filter narrows results to *Landscape* (wider than tall), *Wide* (close to 16:9, the default) or *No matte needed* (already 16:9 within 3%, so nothing is cropped or padded).
 - **Albums**: choose an album before adding, or create one.
 - **Supporting the sources**: while an artwork downloads, the progress window points to the source's support page. These collections are free because their institutions choose to share them.
-- **Keys**: most sources need no key or account. Smithsonian, Flickr and Pixabay need a free one: switch the source on under **Settings, Discover, More sources** and paste the key there. It is stored on your server, never shown again, and the source appears in Discover once it is saved.
+- **Keys**: most sources need no key or account. Pixabay needs a free one: switch the source on under **Settings, Discover, More sources** and paste the key there. It is stored on your server, never shown again, and the source appears in Discover once it is saved.
 
 > ⚠️ **Personal Use Notice:** Some Discover sources are unofficial integrations intended for personal, private use only. They are not endorsed by or affiliated with the respective platforms and may be disabled or removed at any time upon request. Please respect the rights of the original artists and content providers.
 
 Set `DISCOVER_CONTACT` (an email or URL) to tell the Art Institute who is making requests, as its API documentation asks. 
 
 
-### Note to Reframed Gallery
-
-**Special thanks to the creator of Reframed Gallery for making this great resource available. If you enjoy their work, please consider supporting them!**
-
-The Reframed Gallery integration in frametv-art-gallery is an unofficial, community-driven integration that allows users to discover and import artwork from Reframed Gallery into their personal Samsung Frame TV galleries.
-
-To minimize server load, artwork metadata and images are cached. This integration is intended to make Reframed Gallery's artwork more conveniently accessible to users while respecting the original service.
-
-If you are the creator or maintainer of Reframed Gallery and have any questions or concerns about this integration, please get in touch through this repository. We are happy to discuss any concerns, adjust the integration, or remove it entirely upon request.
-
-We appreciate your work and want to maintain a positive and respectful relationship with the Reframed Gallery project and its community.
 
 # Installation
 

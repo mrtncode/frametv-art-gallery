@@ -18,7 +18,6 @@ from utils.discover.common import (
     prune_old_files,
 )
 from utils.discover.met import met
-from utils.discover.reframed import reframed
 from utils.discover.smk import smk
 import datetime
 
@@ -262,99 +261,6 @@ def test_met_plan_uses_the_original_image(net):
     assert plan.artist == "Vincent van Gogh"
 
 
-# --- Reframed ----------------------------------------------------------------------
-
-SITEMAP = """<urlset>
-<url><loc>https://www.reframed.gallery</loc></url>
-<url><loc>https://www.reframed.gallery/recent</loc></url>
-<url><loc>https://www.reframed.gallery/claude-monet</loc></url>
-<url><loc>https://www.reframed.gallery/claude-monet/impression-sunrise</loc></url>
-<url><loc>https://www.reframed.gallery/claude-monet/wheatstacks</loc></url>
-<url><loc>https://www.reframed.gallery/vincent-van-gogh/starry-night</loc></url>
-<url><loc>https://www.reframed.gallery/collections/new-world</loc></url>
-</urlset>"""
-
-
-def reframed_record(artist, title, slug_artist, slug_title, orientation="landscape"):
-    # Mirrors how the site embeds its data: JSON inside a JS string, quotes escaped.
-    return (
-        '{\\"id\\":\\"123e4567-e89b-12d3-a456-426614174000\\",'
-        f'\\"r2Key\\":\\"originals/{artist} - {title} - reframed.jpg\\",\\"cfImageId\\":\\"x\\",'
-        f'\\"alt\\":\\"{title}\\",\\"href\\":\\"/{slug_artist}/{slug_title}\\",\\"orientation\\":\\"{orientation}\\"}}'
-    )
-
-
-def listing_page(*records):
-    return FakeResponse(text="<script>self.__next_f.push([1,\"" + ",".join(records) + "\"])</script>")
-
-
-def reframed_routes(net):
-    net.add("sitemap.xml", FakeResponse(text=SITEMAP))
-    net.add("/claude-monet", listing_page(
-        reframed_record("Claude Monet", "Impression, Sunrise", "claude-monet", "impression-sunrise"),
-        reframed_record("Claude Monet", "Wheatstacks", "claude-monet", "wheatstacks"),
-        reframed_record("Claude Monet", "Portrait Study", "claude-monet", "portrait-study", orientation="portrait"),
-    ))
-    net.add("/vincent-van-gogh", listing_page(
-        reframed_record("Vincent van Gogh", "Starry Night", "vincent-van-gogh", "starry-night"),
-    ))
-    net.add("/recent", listing_page(
-        reframed_record("Vincent van Gogh", "Starry Night", "vincent-van-gogh", "starry-night"),
-    ))
-
-
-def test_reframed_searches_the_sitemap_and_reads_thumbnails_from_artist_pages(net):
-    reframed_routes(net)
-
-    page = reframed.search("monet", 1, paintings_only=True, shape="wide")
-
-    assert [item["title"] for item in page["results"]] == ["Impression, Sunrise", "Wheatstacks"]
-    first = page["results"][0]
-    assert first["id"] == "claude-monet/impression-sunrise"
-    assert first["artist"] == "Claude Monet" and first["tv_ready"] is True
-    assert first["thumb_url"].startswith("https://cdn.reframed.gallery/cdn-cgi/image/width=480")
-    assert "Claude%20Monet%20-%20Impression%2C%20Sunrise%20-%20reframed.jpg" in first["thumb_url"]
-    assert page["total"] == 2 and page["has_more"] is False
-    # Collections and the home page are not artworks.
-    assert not any("collections" in item["id"] for item in reframed.search("new world", 1, True, "wide")["results"])
-
-
-def test_reframed_with_no_search_shows_what_is_new(net):
-    reframed_routes(net)
-
-    page = reframed.search("", 1, paintings_only=True, shape="wide")
-
-    assert [item["title"] for item in page["results"]] == ["Starry Night"]
-
-
-def test_reframed_hides_portrait_works_unless_asked(net):
-    net.add("sitemap.xml", FakeResponse(text=SITEMAP.replace("wheatstacks", "portrait-study")))
-    reframed_routes(net)
-
-    wide = reframed.search("portrait", 1, paintings_only=True, shape="wide")
-    everything = reframed.search("portrait", 1, paintings_only=True, shape="any")
-
-    assert wide["results"] == [] and wide["hidden"] == 1
-    assert [item["title"] for item in everything["results"]] == ["Portrait Study"]
-
-
-def test_reframed_plan_points_at_the_original_file(net):
-    reframed_routes(net)
-
-    plan = reframed.plan("claude-monet/wheatstacks", "fill")
-
-    assert plan.url == "https://cdn.reframed.gallery/originals/Claude%20Monet%20-%20Wheatstacks%20-%20reframed.jpg"
-    assert plan.page_url == "https://www.reframed.gallery/claude-monet/wheatstacks"
-
-
-def test_reframed_notices_when_its_layout_changes(net):
-    net.add("sitemap.xml", FakeResponse(text=SITEMAP))
-    net.add("/claude-monet", FakeResponse(text="<html>a redesigned page</html>"))
-    net.add("impression-sunrise", FakeResponse(text="<html>a redesigned page</html>"))
-
-    with pytest.raises(DiscoverError):
-        reframed.plan("claude-monet/impression-sunrise", "fill")
-
 
 # --- Pasted page links -------------------------------------------------------------
 
@@ -362,8 +268,6 @@ def test_reframed_notices_when_its_layout_changes(net):
 @pytest.mark.parametrize(
     "url, expected",
     [
-        ("https://www.reframed.gallery/claude-monet/impression-sunrise", ("reframed", "claude-monet/impression-sunrise")),
-        ("https://reframed.gallery/claude-monet/impression-sunrise?ref=x", ("reframed", "claude-monet/impression-sunrise")),
         ("https://www.artic.edu/artworks/64818/stacks-of-wheat-end-of-summer", ("artic", "64818")),
         ("https://www.metmuseum.org/art/collection/search/436535", ("met", "436535")),
         ("https://www.clevelandart.org/art/1958.39", ("cleveland", "1958.39")),
@@ -376,8 +280,6 @@ def test_page_links_resolve_to_a_source_and_id(url, expected):
 @pytest.mark.parametrize(
     "url",
     [
-        "https://www.reframed.gallery/collections/new-world",
-        "https://www.reframed.gallery/artists",
         "https://example.com/art/1",
         "https://evil.test/https://www.metmuseum.org/art/collection/search/1",
         "javascript:alert(1)",

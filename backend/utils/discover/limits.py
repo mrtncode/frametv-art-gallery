@@ -38,10 +38,8 @@ BUDGETS = {
     "api.smk.dk": (60, 60, 60),
     "commons.wikimedia.org": (60, 60, 120),
     "images-api.nasa.gov": (60, 60, 120),
-    "www.reframed.gallery": (30, 60, 300),         # no API: a polite reader of public pages
     "api.si.edu": (15, 60, 300),                   # documented 1000 an hour per key
     "ids.si.edu": (30, 60, 120),
-    "api.flickr.com": (40, 60, 300),               # documented 3600 an hour per key
     "pixabay.com": (60, 60, 120),                  # documented 100 a minute per key
     "data.getty.edu": (30, 60, 120),
     "media.getty.edu": (60, 60, 120),
